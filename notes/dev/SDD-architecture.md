@@ -13,7 +13,7 @@ Requirements: [SRS.md](SRS.md).
  |   parse -> rewrite -> turtle -> bone tree -> surfacer         |
  |   output: vertices, triangles, skin influences, UVs, data     |
  +---------------------------------------------------------------+
-        |  headers + static libraries         |
+        |  headers + dynamic libraries        |
         v                                     v
  Cambriana (runtime module)            dev tools (private repo)
    asset types, live actor,              glTF exporter,
@@ -26,14 +26,12 @@ Requirements: [SRS.md](SRS.md).
 
 | Layer | Depends on | Repo | Ships in a game |
 |---|---|---|---|
-| CambrianaCore | C++17 standard library | Private; delivered here prebuilt | Yes |
+| CambrianaCore | C++17 standard library | Private; delivered here as a dynamic library | Yes |
 | Cambriana | CambrianaCore, Unreal runtime modules | This | Yes |
 | CambrianaEditor | Cambriana, Unreal editor modules | This | No |
 | Dev tools | CambrianaCore | Private | No |
 
-Module split and names: `[Proposed — unconfirmed]`.
-
-**Decided**: generation runs in packaged games (FR-18). `[Proposed — unconfirmed]`: generation
+Generation runs in packaged games (FR-18). Generation
 (core call, skinned mesh construction, skeleton, physics bodies) is in the runtime module with
 no editor-only dependencies, and editor bake uses the same path. Only asset saving, editors and
 importers are in the editor module.
@@ -53,23 +51,28 @@ importers are in the editor module.
 
 ## Core delivery
 
-**Decided**: the core's source stays in `ScottKirvan/CambrianaCore`. This repo contains only
-its public headers and static libraries.
+The core's source stays in `ScottKirvan/CambrianaCore`. The core is a dynamic library. This
+repo contains only its public headers, import libraries and dynamic libraries.
 
-`[Proposed — unconfirmed]`:
-
-- External module at `Source/ThirdParty/CambrianaCore/`, with `include/` and `lib/<Platform>/`.
+- External module at `Source/ThirdParty/CambrianaCore/`, with `include/`, `lib/<Platform>/`
+  (import libraries) and `bin/<Platform>/` (`CambrianaCore.dll` on Win64,
+  `libCambrianaCore.so` on Linux and Android).
+- The external module declares the dynamic library as a runtime dependency, so it is staged
+  with editor builds and packaged games. On Android the `.so` is added to the APK by an Unreal
+  Plugin Language file.
+- The runtime module loads the library at startup and checks its API version; a mismatch fails
+  module startup with a logged error.
+- The public API is a C interface: opaque handles, plain structs and arrays, error codes. No
+  C++ types or exceptions cross it. Memory the core allocates is released by the core.
+- Only the C API is exported; all other symbols are hidden.
 - A script in the private repo builds the libraries and copies headers and libraries here,
   stamped with the core version and commit. Updates arrive as a pull request.
-- Library build settings: `/MD`, `_ITERATOR_DEBUG_LEVEL=0`, no `/GL`, MSVC toolset no newer
-  than Unreal 5.8's.
-- Headers expose only the public API. No exceptions cross it.
 - Each platform's library is built with the toolchain Unreal 5.8 uses for that platform.
 - Symbol files stay in the private repo.
 - Git LFS for the libraries if they grow large.
 - This repo builds without access to the private repo.
 
-**Decided**: platform order Win64, Linux, Android; Mac and iOS later.
+Platform order Win64, Linux, Android; Mac and iOS later.
 
 ## Data flow
 
@@ -81,14 +84,12 @@ its public headers and static libraries.
 
 ## Coordinates
 
-**Decided**: the core uses Unreal's space: left-handed, +Z up, centimetres. Output is used in
+The core uses Unreal's space: left-handed, +Z up, centimetres. Output is used in
 Unreal unconverted.
 
 ## Size
 
-**Decided**: default overall object size about 2 m.
-
-`[Proposed — unconfirmed]`:
+Default overall object size about 2 m.
 
 | Mode | Behaviour |
 |---|---|
@@ -101,8 +102,6 @@ Unreal unconverted.
 
 ## Engine modules
 
-`[Proposed — unconfirmed]`
-
 | Module or plugin | Location in 5.8 | Use |
 |---|---|---|
 | GeometryCore | `Engine/Source/Runtime/GeometryCore` | Dynamic mesh data |
@@ -112,6 +111,6 @@ Unreal unconverted.
 
 ## Repo layout
 
-**Decided**: plugin at the repo root: `Cambriana.uplugin`, `Source/`, `Content/`. Test host
+Plugin at the repo root: `Cambriana.uplugin`, `Source/`, `Content/`. Test host
 project in `HostProject/`, not packaged. `UE_Cambriana.code-workspace` (local, gitignored) includes this repo
 and `../CambrianaCore`.

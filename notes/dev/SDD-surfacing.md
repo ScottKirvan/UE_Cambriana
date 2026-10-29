@@ -2,8 +2,6 @@
 
 Requirements: [SRS.md](SRS.md) (FR-19, FR-21).
 
-`[Proposed — unconfirmed]` unless marked.
-
 ## Tubes
 
 Legacy name: closed form. Default surfacer for drawn segments.
@@ -33,10 +31,8 @@ One four-sided box with caps per segment; bound to its bone.
 
 ## Blob skins
 
-**Decided**: blob skins and a general blob API are part of Cambriana. The blob API is in the
+Blob skins and a general blob API are part of Cambriana. The blob API is in the
 core and supports a variety of distance-field primitives.
-
-`[Proposed — unconfirmed]`:
 
 - Primitives: sphere, ellipsoid, line segment (capsule), box, torus. Each has radius,
   strength and falloff.
@@ -74,7 +70,7 @@ core and supports a variety of distance-field primitives.
 | Thickness | Segment thickness |
 | Attributes | User values from `attr(name, value)` |
 
-Mapping, `[Proposed — unconfirmed]`:
+Mapping:
 
 | Slot | Contents |
 |---|---|

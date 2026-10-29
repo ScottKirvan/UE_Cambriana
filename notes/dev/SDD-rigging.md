@@ -2,8 +2,7 @@
 
 Requirements: [SRS.md](SRS.md) (FR-12 to FR-16, FR-20, NFR-06).
 
-**Decided**: output is rigged skeletal meshes; parameters are editable on the result.
-Mechanisms: `[Proposed — unconfirmed]`.
+Output is rigged skeletal meshes; parameters are editable on the result.
 
 ## Bone tree
 
@@ -43,10 +42,13 @@ A parameter is pose-tier only if used solely in rotation commands; the parser en
 
 ## Run-time posing
 
-- Bake stores each bone's rotation record (core repo, `notes/dev/SDD-core.md`).
-- At run time, rotations are re-evaluated with current parameter values and composed into
-  the bone's local rotation. Translations stay at bind values.
-- Requirement: every bone's transform matches the core redrawn at the same parameter values
+- A baked mesh stores its definition: grammar, seed and parameter values.
+- Pose evaluation is a core call: the turtle re-walks the stored production with the current
+  pose values and returns each bone's local rotation. No rewriting or surfacing.
+  Translations stay at bind values.
+- One core model per baked mesh is shared by its instances; each instance holds only its pose
+  values.
+- Every bone's transform matches the core redrawn at the same parameter values
   within 1e-4 cm.
 
 ## Growth
@@ -76,5 +78,5 @@ thickness. Consecutive short bones may merge into one capsule.
 
 ## Pruning
 
-`[Proposed — unconfirmed]`, for AR-02 ([SRS.md](SRS.md)): a pruned branch removes its bones
+For AR-02 ([SRS.md](SRS.md)): a pruned branch removes its bones
 and all descendants; bone indices of the remaining tree are compacted and names are kept.

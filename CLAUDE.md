@@ -5,7 +5,7 @@
 Cambriana is an Unreal Engine 5.8 plugin that generates rigged skeletal meshes from
 L-system grammars. It reads the legacy Lparser `.ls` dialect and a new grammar format. All
 grammar, turtle and geometry logic is in CambrianaCore, a private sibling repo
-(`../CambrianaCore`), delivered here as headers and prebuilt libraries.
+(`../CambrianaCore`), delivered here as headers and prebuilt dynamic libraries.
 `UE_Cambriana.code-workspace` (local, gitignored) opens both repos.
 
 Specs: [notes/dev/README.md](notes/dev/README.md) (requirements in `SRS.md`, design in

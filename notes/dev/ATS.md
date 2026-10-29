@@ -1,13 +1,12 @@
 # Acceptance Test Specification: Plugin
 
 Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-core.md`.
-`[Proposed — unconfirmed]` unless marked.
 
 ## Build
 
 | ID | Given / when / then | Verifies |
 |---|---|---|
-| ATS-01 | Given a clone of this repo without access to CambrianaCore, when `HostProject` is built with Unreal 5.8 and Visual Studio 2022, then it links the delivered core library with no warnings. | C-02, NFR-01 |
+| ATS-01 | Given a clone of this repo without access to CambrianaCore, when `HostProject` is built with Unreal 5.8 and Visual Studio 2022, then it links the delivered core import library with no warnings and the core dynamic library is staged next to the editor binaries. | C-02, NFR-01 |
 | ATS-02 | Given Unreal's plugin packaging tool, when run for 5.8, then the plugin packages without errors or warnings. | NFR-07 |
 | ATS-03 | Given Fab's technical requirements, then the plugin meets each one. | NFR-07 |
 | ATS-04 | Given each supported platform (Win64, Linux, Android), when `HostProject` is packaged for it, then it builds and runs `sk.ls` posing. | NFR-02 |
