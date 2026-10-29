@@ -1,6 +1,6 @@
 # Software Design Description: Unreal Integration
 
-Requirements: [SRS.md](SRS.md). `[Proposed — unconfirmed]` unless marked.
+Requirements: [SRS.md](SRS.md).
 
 A grammar asset bakes standard engine assets. No custom renderer or component is needed to
 display baked results.
@@ -10,7 +10,7 @@ display baked results.
 | Asset | Contents |
 |---|---|
 | Cambriana grammar | Grammar text (Cambriana grammar format), source file path, parameter values, seed, size mode, surfacer and UV settings, bake settings, list of baked outputs |
-| Skeletal mesh | Standard; plus metadata: source grammar, parameter snapshot, per-bone rotation records, bone kinds, generations |
+| Skeletal mesh | Standard; plus metadata: definition (grammar, seed, parameter values), bone kinds, generations |
 | Skeleton | Standard |
 | Physics asset | Standard |
 | Static mesh | Standard |
@@ -27,7 +27,7 @@ display baked results.
 
 - Import: `.lsys` (Cambriana grammar), `.ls` (Lparser) and `.l` with `.v` (cpfg) files, by drag
   and drop and by the import dialog.
-  `.ls` files are converted on import (**Decided**).
+  `.ls` files are converted on import.
 - The grammar asset stores the source file path and uses Unreal's reimport mechanism when
   the file changes. Reimporting a `.ls` file replaces the grammar text with a new conversion.
 - Export writes the grammar asset's text to a file.
@@ -57,13 +57,8 @@ Standalone asset editor, opened from the grammar asset.
 
 ## Seed
 
-**Decided**:
-
 - A new grammar asset or live actor gets a newly generated seed, stored on the object.
 - Seed UI: an editable number field and a button that generates a new seed.
-
-`[Proposed — unconfirmed]`:
-
 - New seeds come from a non-deterministic source (time or the OS random source).
 - A grammar file's `seed` setting, if present, is used on import. Converted `.ls` files get
   a generated seed.
@@ -71,13 +66,11 @@ Standalone asset editor, opened from the grammar asset.
 ## Run time
 
 - Pose component on a skeletal mesh actor: holds per-instance pose and growth values and
-  applies them from the mesh's per-bone rotation records. Values are properties,
+  applies the bone rotations returned by core pose evaluation ([SDD-rigging.md](SDD-rigging.md)). Values are properties,
   keyframeable in Sequencer and settable from Blueprint and C++.
 ## Run-time generation
 
-**Decided**: FR-18 ([SRS.md](SRS.md)).
-
-`[Proposed — unconfirmed]`:
+Requirement: FR-18 ([SRS.md](SRS.md)).
 
 - Input: a creature definition: grammar text, seed and parameter values. The same definition
   serialises to a compact, versioned form (FR-25).
@@ -112,7 +105,7 @@ Standalone asset editor, opened from the grammar asset.
 
 | Module | Type | Contents |
 |---|---|---|
-| CambrianaCore | External | Core headers and prebuilt libraries (**Decided**: prebuilt) |
+| CambrianaCore | External | Core headers, import libraries and dynamic libraries |
 | Cambriana | Runtime | Asset types, live actor, generation path, pose component, runtime function library |
 | CambrianaEditor | Editor | Asset editor, importers, factories, bake, editor subsystem, integrations |
 

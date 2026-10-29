@@ -42,4 +42,4 @@ In CambrianaCore, `notes/dev/`:
 | `E:\1\Brazil\cvs\BlurBeta\src\BlurBeta\MaxPlugins\objects\LParserMax\` | Original 3ds Max plugin source; defines the legacy dialect |
 | `E:\1\Brazil\cvs\BlurBeta\doc\archive_docs\LSystem\` | Sample `.ls` files |
 
-**Decided**: no code from the reference material is copied into this repo or the core repo.
+No code from the reference material is copied into this repo or the core repo.

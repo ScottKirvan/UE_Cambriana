@@ -2,13 +2,13 @@
 
 Requirements: [SRS.md](SRS.md) (FR-24).
 
-**Decided**: file extension `.lsys`.
+File extension `.lsys`.
 
-**Decided**: the Cambriana grammar format is Cambriana's own format, not a dialect of cpfg or
+The Cambriana grammar format is Cambriana's own format, not a dialect of cpfg or
 any other existing format, with named settings and parameters, rule parameters and whitespace. It is the only format grammar assets hold; legacy `.ls` files are
 converted to it on import.
 
-Format details: `[Proposed — unconfirmed]`. Open details: [TBD.md](TBD.md).
+Open details: [TBD.md](TBD.md).
 
 ## Requirements
 
@@ -20,10 +20,10 @@ Format details: `[Proposed — unconfirmed]`. Open details: [TBD.md](TBD.md).
 
 ## Turtle command names
 
-**Decided**: every turtle command has a long name, usable anywhere its glyph is. Glyph and
+Every turtle command has a long name, usable anywhere its glyph is. Glyph and
 name parse to the same command; an argument is written the same way: `left(30)` = `+(30)`.
 
-`[Proposed — unconfirmed]` names:
+Names:
 
 | Glyph | Name | Glyph | Name |
 |---|---|---|---|
@@ -97,9 +97,7 @@ The parser rejects a `pose` parameter used outside rotation commands.
 
 ## Conversion from the legacy dialect
 
-**Decided**: legacy `.ls` files are converted to this format on import.
-
-`[Proposed — unconfirmed]`:
+Legacy `.ls` files are converted to this format on import.
 
 - The converted grammar builds the same production and bone tree as the legacy file
   (golden values in the core repo's `notes/dev/FMT-legacy-ls.md`).
@@ -114,9 +112,7 @@ The parser rejects a `pose` parameter used outside rotation commands.
 
 ## Conversion from cpfg
 
-**Decided**: cpfg models are converted to this format on import.
-
-`[Proposed — unconfirmed]`:
+cpfg models are converted to this format on import.
 
 - Input: the `.l` file and its `.v` view file. The `.v` file supplies defaults the `.l` file
   relies on (angle increment, line width, colour increments).

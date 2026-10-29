@@ -1,6 +1,6 @@
 # Roadmap
 
-`[Proposed — unconfirmed]` order. A milestone is complete when its acceptance tests pass.
+A milestone is complete when its acceptance tests pass.
 `ATC-` tests are in CambrianaCore `notes/dev/ATS-core.md`; `ATS-` tests are in [ATS.md](ATS.md).
 
 Every milestone also keeps ATC-50 to ATC-55 (determinism, robustness, threading,
@@ -8,7 +8,7 @@ performance) and ATS-05 (no experimental dependencies) passing.
 
 | Milestone | Content | Tests |
 |---|---|---|
-| M0 | Build skeleton: core CMake build, delivery script, plugin and host project | ATC-01, ATC-02, ATS-01, ATS-05 |
+| M0 | Build skeleton: core CMake build, delivery script, plugin and host project | ATC-01 to ATC-03, ATS-01, ATS-05 |
 | M1 | Legacy dialect: parsing, rewriting, turtle, bone tree | ATC-10 to ATC-15, ATC-57, ATC-58 |
 | M2 | Surfaces, skinning, Fit size, data channels, glTF dev tool | ATC-20 to ATC-25, ATC-60 |
 | M3 | Cambriana grammar format, Lparser and cpfg conversion, round-trip, environment-query stepping | ATC-40 to ATC-49, ATC-56 |
