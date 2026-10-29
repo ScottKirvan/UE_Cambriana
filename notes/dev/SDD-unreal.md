@@ -10,11 +10,12 @@ display baked results.
 | Asset | Contents |
 |---|---|
 | Cambriana grammar | Grammar text (Cambriana grammar format), source file path, parameter values, seed, size mode, surfacer and UV settings, bake settings, list of baked outputs |
-| Skeletal mesh | Standard; plus metadata: definition (grammar, seed, parameter values), bone kinds, generations |
+| Skeletal mesh | Standard; plus metadata: definition (grammar, seed, parameter values), bone kinds, generations, rig hints |
 | Skeleton | Standard |
 | Physics asset | Standard |
 | Static mesh | Standard |
 | Growth animation | Standard animation sequence; optional |
+| Control Rig | Shared rig shipped in the plugin's `Content/`; standalone copies written on request |
 
 - Baked assets are written to a folder beside the grammar asset.
 - **Regenerate** rebuilds a baked asset in place from its stored grammar and parameter
@@ -68,6 +69,9 @@ Standalone asset editor, opened from the grammar asset.
 - Pose component on a skeletal mesh actor: holds per-instance pose and growth values and
   applies the bone rotations returned by core pose evaluation ([SDD-rigging.md](SDD-rigging.md)). Values are properties,
   keyframeable in Sequencer and settable from Blueprint and C++.
+- Rig controls: the shared Control Rig, run from a Control Rig component or an Animation
+  Blueprint, builds controls from the mesh's rig hints ([SDD-rigging.md](SDD-rigging.md)).
+
 ## Run-time generation
 
 Requirement: FR-18 ([SRS.md](SRS.md)).
@@ -107,6 +111,6 @@ Requirement: FR-18 ([SRS.md](SRS.md)).
 |---|---|---|
 | CambrianaCore | External | Core headers, import libraries and dynamic libraries |
 | Cambriana | Runtime | Asset types, live actor, generation path, pose component, runtime function library |
-| CambrianaEditor | Editor | Asset editor, importers, factories, bake, editor subsystem, integrations |
+| CambrianaEditor | Editor | Asset editor, importers, factories, bake, standalone Control Rig writer, editor subsystem, integrations |
 
 Engine dependencies: stable modules only; no experimental engine plugins.

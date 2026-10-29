@@ -47,6 +47,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | US-18 | Game developer | generate any number of creatures at run time from definitions that players or game systems create or modify | creatures need no per-creature editor work |
 | US-19 | Game developer | store or transmit a creature as a compact definition and regenerate it identically on any machine | creatures persist and can be shared |
 | US-20 | Game developer | animate run-time generated creatures with the same tools as baked ones | generated creatures move like authored ones |
+| US-21 | Rigger | get animation controls (IK goals, FK, pole and aim targets) from hints written in the grammar, on baked and run-time generated meshes | every creature arrives with a working rig, and I start custom rigs from a generated one |
 
 ## 3. Functional requirements
 
@@ -79,6 +80,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | FR-25 | A creature definition (grammar, seed, parameter values) serialises to a compact, versioned form; regenerating from it on any supported platform reproduces the creature exactly. | US-19 |
 | FR-26 | Run-time generated meshes support pose parameters, growth and the engine's animation systems in the same way as baked meshes. | US-20 |
 | FR-27 | cpfg models are converted to the Cambriana grammar format on import. The `.l` file is read with its `.v` view file; constructs that cannot be converted are reported with line and column. | US-02 |
+| FR-28 | Rig hints in the grammar (FK, IK, pole, aim) produce Control Rig controls on baked and run-time generated meshes. An editor action writes a standalone Control Rig asset from a mesh's hints. | US-21 |
 
 ## 4. Non-functional requirements
 

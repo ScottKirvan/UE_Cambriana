@@ -15,7 +15,7 @@ Open details: [TBD.md](TBD.md).
 1. Turtle commands are identical to the legacy dialect (core repo, `notes/dev/FMT-legacy-ls.md`).
 2. User symbols are names.
 3. Parameters carry a tier: pose, shape or structure ([SDD-rigging.md](SDD-rigging.md)).
-4. The grammar declares bones, sockets and data channels.
+4. The grammar declares bones, sockets, data channels and rig hints.
 5. Every legacy `.ls` file converts to this format with identical behaviour.
 
 ## Turtle command names
@@ -88,12 +88,39 @@ grow {
 | Named axioms | `axiom sapling ...`, `axiom mature ...` |
 | Bone control | `bone`, `merge`, bone budget |
 | Sockets | `socket Flower` |
+| Rig hints | `fk(name)`, `ik(name)`, `ik(name, n)`, `pole(name)`, `aim(name)`; see Rig hints |
 | Attributes | `attr(name, value)` |
 | Symmetry | `mirror { ... }` |
 | Credit | `credit "..."`; stored on the asset |
 | Environment query | Reserved: `query` modules whose parameters are set by an environment query between generations (AR-02) |
 
 The parser rejects a `pose` parameter used outside rotation commands.
+
+## Rig hints
+
+A rig hint attaches to the current bone and draws nothing. Hints are written in `draw` rules,
+so every expansion of a rule carries them.
+
+| Command | Meaning |
+|---|---|
+| `fk(name)` | FK control on the current bone |
+| `ik(name)` | IK goal at the current bone; the chain runs from the first bone of the enclosing branch (or the root) to the current bone |
+| `ik(name, n)` | IK goal at the current bone; the chain is the last `n` bones |
+| `pole(name)` | Pole target for IK chain `name`, at the current turtle position |
+| `aim(name)` | Aim control: the current bone points at a target placed at the current turtle position |
+
+- Hint names are qualified with the module path, as bone names are
+  ([SDD-rigging.md](SDD-rigging.md)): a `Leg` rule expanded four times gives four `foot` goals.
+- `pole` and `aim` targets are usually placed with moves inside a branch:
+  `[ f(30) pole(knee) ]`.
+- Hint command names are reserved, as turtle command names are.
+- Conversion from the legacy dialect and from cpfg produces no hints.
+
+```
+draw {
+    Leg -> F & F ^ F ik(foot) [ ^ f(30) pole(knee) ]
+}
+```
 
 ## Conversion from the legacy dialect
 
