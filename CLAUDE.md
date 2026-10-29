@@ -1,5 +1,25 @@
 # CLAUDE.md — UE_Cambriana
 
+## Project
+
+Cambriana is an Unreal Engine 5.8 plugin that generates rigged skeletal meshes from
+L-system grammars. It reads the legacy Lparser `.ls` dialect and a new grammar format. All
+grammar, turtle and geometry logic is in CambrianaCore, a private sibling repo
+(`../CambrianaCore`), delivered here as headers and prebuilt libraries.
+`UE_Cambriana.code-workspace` (local, gitignored) opens both repos.
+
+Specs: [notes/dev/README.md](notes/dev/README.md) (requirements in `SRS.md`, design in
+`SDD-*.md`, formats in `FMT-*.md`, acceptance tests in `ATS.md`, open issues in `TBD.md`).
+Core specs are in CambrianaCore `notes/dev/`.
+
+Spec conventions:
+
+- Mark status as **Decided**, `[Proposed — unconfirmed]` or **Open**.
+- State decisions without rationale; no history; programmer-relevant content only.
+- Refer to the project owner as "the author"; do not use their name.
+- Do not define release boundaries; scope is the author's call.
+- Deferred requirements are listed as anticipated requirements with design obligations.
+
 ## Keeping This File Current
 
 This file is the primary context for any agent working in this repo — keep it accurate
