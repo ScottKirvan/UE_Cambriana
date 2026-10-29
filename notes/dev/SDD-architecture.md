@@ -47,6 +47,7 @@ importers are in the editor module.
 | [FMT-grammar.md](FMT-grammar.md) | This | New grammar format |
 | `notes/dev/SDD-core.md` | CambrianaCore | Core data model, behaviour, build, tests |
 | `notes/dev/FMT-legacy-ls.md` | CambrianaCore | Legacy `.ls` dialect |
+| `notes/dev/roadmap.md` | CambrianaCore | Core milestones |
 | `notes/dev/ATS-core.md` | CambrianaCore | Core acceptance tests |
 
 ## Core delivery

@@ -32,6 +32,7 @@ In CambrianaCore, `notes/dev/`:
 | SDD-core.md | Software Design Description | Core data model, behaviour, anticipated-requirement obligations, performance, build, tests |
 | FMT-legacy-ls.md | Format Specification | Legacy `.ls` dialect, golden values |
 | ATS-core.md | Acceptance Test Specification | Core acceptance tests |
+| roadmap.md | Plan | Core milestones |
 
 ## Reference material
 
