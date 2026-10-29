@@ -1,4 +1,4 @@
-# CLAUDE.md — ScooterGitTemplate
+# CLAUDE.md — UE_Cambriana
 
 ## Keeping This File Current
 
