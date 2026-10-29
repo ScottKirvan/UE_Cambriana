@@ -66,6 +66,15 @@ Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-c
 | ATS-54 | Given `BranchedAlga.ls`, when baked for growth, then the editor warns that full growth cannot be animated on one skeleton. | FR-16 |
 | ATS-55 | Given a grammar using `~`, when growth is scrubbed, then no bone jumps between adjacent keys. | FR-16 |
 
+## Rig controls
+
+| ID | Given / when / then | Verifies |
+|---|---|---|
+| ATS-56 | Given a four-legged grammar with `ik(foot)` and `pole(knee)` in its leg rule, when baked and run with the shared Control Rig, then four foot goals and four knee poles exist, named by module path; moving one goal moves only its leg, and the foot bone reaches a goal within reach within 0.01 cm. | FR-28 |
+| ATS-57 | Given the same definition generated at run time in a packaged game on each supported platform, then the same controls exist and behave as in ATS-56. | FR-28 |
+| ATS-58 | Given a baked mesh with rig hints, when the standalone Control Rig action runs, then a Control Rig asset with the same controls is written; editing it leaves the shared rig unchanged. | FR-28 |
+| ATS-59 | Given a mesh with rig hints and non-default pose values, then the controls act on the posed skeleton. | FR-28 |
+
 ## Run-time generation
 
 | ID | Given / when / then | Verifies |

@@ -18,6 +18,7 @@ performance) and ATS-05 (no experimental dependencies) passing.
 | M7 | Bake on the shared construction path, regenerate, detach | ATS-40 to ATS-45 |
 | M8 | Pose parameters | ATS-50 to ATS-52 |
 | M9 | Growth animation | ATS-53 to ATS-55 |
-| M10 | Blobs | ATC-30, ATC-31, ATS-25 |
-| M11 | PCG and scripting | ATS-60, ATS-61 |
-| M12 | Release packaging and platforms | ATS-02, ATS-03, ATS-04, ATS-62 |
+| M10 | Rig controls | ATC-26 to ATC-28, ATS-56 to ATS-59 |
+| M11 | Blobs | ATC-30, ATC-31, ATS-25 |
+| M12 | PCG and scripting | ATS-60, ATS-61 |
+| M13 | Release packaging and platforms | ATS-02, ATS-03, ATS-04, ATS-62 |

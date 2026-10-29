@@ -69,6 +69,19 @@ bends.
 Physics asset: one capsule per bone (length, radius), mass from volume, stiffness from
 thickness. Consecutive short bones may merge into one capsule.
 
+## Rig controls
+
+- Rig hints ([FMT-grammar.md](FMT-grammar.md)) are carried on bones by the core and stored in
+  the mesh metadata.
+- The plugin ships one shared Control Rig. Its construction event reads the mesh's hints and
+  creates the controls: FK controls, IK goals with their chains, pole targets, aim controls.
+  Baked and run-time generated meshes use the same rig; no Control Rig asset is generated per
+  mesh.
+- Controls act on the posed skeleton: pose evaluation sets bone rotations first.
+- An editor action writes a standalone Control Rig asset from a mesh's hints, as a starting
+  point for custom rigs. It does not change the shared rig.
+- Controls whose bones are pruned are removed with them.
+
 ## Bone names
 
 - Module path, e.g. `Spine_3/BranchA_1/Seg_2`. Converted legacy grammars use their

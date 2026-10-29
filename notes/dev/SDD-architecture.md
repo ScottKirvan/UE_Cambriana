@@ -108,6 +108,7 @@ Default overall object size about 2 m.
 | GeometryFramework | `Engine/Source/Runtime/GeometryFramework` | Live actor and preview |
 | Geometry Scripting | `Engine/Plugins/Runtime/GeometryScripting` | Blueprint access |
 | PCG | `Engine/Plugins/PCG` | Scattering baked variants |
+| Control Rig | `Engine/Plugins/Animation/ControlRig` | Shared rig built from rig hints |
 
 ## Repo layout
 
