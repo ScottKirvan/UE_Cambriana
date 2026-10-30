@@ -50,6 +50,15 @@ UE 5.8 needs the Visual C++ runtime 14.50.35719 or later
 (`Engine\Extras\Redist\en-us\vc_redist.x64.exe`); with an older runtime the Fab and Bridge
 engine plugins fail to load and an unattended editor exits before running tests.
 
+Check that no dependency is an experimental engine plugin (ATS-05; exports the editor target
+through `Build.bat -Mode=JsonExport`, so the editor must be closed), and run that check's
+fixture tests:
+
+```
+powershell -NoProfile -File scripts/Test-NoExperimentalDependencies.ps1
+powershell -NoProfile -File scripts/tests/Test-NoExperimentalDependencies.Tests.ps1
+```
+
 Layout `[Proposed — unconfirmed]`:
 
 | Path | Contents |
@@ -59,6 +68,7 @@ Layout `[Proposed — unconfirmed]`:
 | `Source/CambrianaEditor/` | Editor module |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
 | `scripts/New-BaseProject.ps1` | Creates the base project |
+| `scripts/Test-NoExperimentalDependencies.ps1` | ATS-05 check; fixture tests in `scripts/tests/` |
 
 CI is not set up yet; self-hosted runners for this repo are pending.
 
