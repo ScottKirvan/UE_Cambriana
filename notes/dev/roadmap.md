@@ -8,7 +8,7 @@ Every milestone also keeps ATS-05 (no experimental dependencies) passing.
 | Milestone | Content | Needs core | Tests |
 |---|---|---|---|
 | M0 | Build skeleton: plugin, base project, core loading and version check | C0 | ATS-01, ATS-05 |
-| M1 | Live actor and seeds | C2 | ATS-30 to ATS-35 |
+| M1 | Live actor and seeds; interim grammar asset holding legacy text | C2 | ATS-30 to ATS-35 |
 | M2 | Grammar assets, import with conversion, reimport, export, grammar editor | C3 | ATS-10 to ATS-15, ATS-20 to ATS-23 |
 | M3 | Skinned mesh construction in the runtime module; bake on it, regenerate, detach | C3 | ATS-40 to ATS-45 |
 | M4 | Run-time generation and definitions | C3 | ATS-70 to ATS-73 |

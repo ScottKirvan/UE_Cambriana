@@ -84,8 +84,9 @@ thickness. Consecutive short bones may merge into one capsule.
 
 ## Bone names
 
-- Module path, e.g. `Spine_3/BranchA_1/Seg_2`. Converted legacy grammars use their
-  single-character module names.
+- Structural and short: derived only from the bone's place in the tree and its creating
+  symbol. Long path names are not used. Format `[Proposed — unconfirmed]`: symbol, `_`,
+  depth-first index (`F_12`; polygon attachment bones `P_7`).
 - Unchanged structure keeps names across regeneration. The editor reports renamed bones
   after a structure change.
 

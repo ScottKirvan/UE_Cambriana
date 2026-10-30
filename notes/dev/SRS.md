@@ -76,7 +76,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | FR-21 | Blob skins and a blob API with a variety of distance-field primitives. Blob primitives are placed and edited in the grammar editor viewport and combine with grown parts into one skinned mesh. | US-14 |
 | FR-22 | Generation, baking and regeneration are callable from Blueprint, Python and C++. | US-17 |
 | FR-23 | The plugin credits Lparser by Laurens Lapré. Text in description and About: "Reads Lparser `.ls` files. Lparser by Laurens Lapré." | |
-| FR-24 | Grammars are in the Cambriana grammar format, file extension `.lsys` ([FMT-grammar.md](FMT-grammar.md)); the legacy dialect (core repo, `notes/dev/FMT-legacy-ls.md`) is read only for conversion. | US-02, US-03 |
+| FR-24 | Grammars are in the Cambriana grammar format, file extension `.lsys` ([FMT-grammar.md](FMT-grammar.md)); the legacy dialect (core repo, `notes/dev/FMT-legacy-ls.md`) is read only for conversion. Until conversion exists (M2), live actors and grammar assets read legacy text directly. | US-02, US-03 |
 | FR-25 | A creature definition (grammar, seed, parameter values) serialises to a compact, versioned form; regenerating from it on any supported platform reproduces the creature exactly. | US-19 |
 | FR-26 | Run-time generated meshes support pose parameters, growth and the engine's animation systems in the same way as baked meshes. | US-20 |
 | FR-27 | cpfg models are converted to the Cambriana grammar format on import. The `.l` file is read with its `.v` view file; constructs that cannot be converted are reported with line and column. | US-02 |
@@ -89,7 +89,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | NFR-01 | Unreal Engine 5.8 only. |
 | NFR-02 | Platforms Win64, Linux, Android; Mac and iOS later. |
 | NFR-03 | Performance: `sk.ls` full rebuild 1 ms; `TREE11.LS` at recursion 12 full rebuild 100 ms single-threaded; pose evaluation of 1,000 bones 0.1 ms; live preview of `sk.ls` within one editor frame. |
-| NFR-04 | Determinism: identical inputs and seed give identical output on every compiler and platform. |
+| NFR-04 | Determinism: identical inputs and seed give identical output on every compiler and platform, unless that costs real-time performance; then performance wins and results may differ slightly between compilers. The same build always gives identical output. |
 | NFR-05 | Robustness: no grammar input crashes or hangs the editor; budgets bound memory and time; generation is cancellable. |
 | NFR-06 | Bone names are stable across regeneration when the bone tree is unchanged. |
 | NFR-07 | Packaged for Fab. The plugin packages for 5.8 without errors or warnings. |
