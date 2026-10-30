@@ -1,3 +1,5 @@
 *.code-workspace
 .obsidian/*
 .claude/
+/Binaries/
+/Intermediate/
