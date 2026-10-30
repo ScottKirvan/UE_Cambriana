@@ -104,7 +104,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | C-04 | The core uses Unreal's space: left-handed, +Z up, centimetres. |
 | C-05 | The core has no format limits; exporters apply format limits. |
 | C-06 | glTF is for inspection only. |
-| C-07 | Engine dependencies are stable modules only; no experimental engine plugins. |
+| C-07 | Engine dependencies are stable modules only; no experimental engine plugins. An experimental engine plugin is one whose descriptor sets `IsExperimentalVersion` to true; its folder does not matter. |
 
 ## 6. Anticipated requirements
 
