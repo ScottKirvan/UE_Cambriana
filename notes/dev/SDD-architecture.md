@@ -113,6 +113,14 @@ Default overall object size about 2 m.
 
 ## Repo layout
 
-Plugin at the repo root: `Cambriana.uplugin`, `Source/`, `Content/`. Test host
-project in `HostProject/`, not packaged. `UE_Cambriana.code-workspace` (local, gitignored) includes this repo
-and `../CambrianaCore`.
+Plugin at the repo root: `Cambriana.uplugin`, `Source/`, `Content/`.
+`UE_Cambriana.code-workspace` (local, gitignored) includes this repo and `../CambrianaCore`.
+
+## Base project
+
+The plugin is built and tested in a content-only Unreal 5.8 project, `Cambriana_Base`, outside
+this repo, with the plugin in its `Plugins/` folder. Not packaged with the plugin.
+
+- Location `\3\ue\5.8\dev\Cambriana_Base`; drive D: `[Proposed — unconfirmed]`.
+- `scripts/New-BaseProject.ps1` creates the project and links this repo into it as
+  `Plugins\Cambriana` with a directory junction `[Proposed — unconfirmed]`.

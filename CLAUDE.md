@@ -20,6 +20,38 @@ Spec conventions:
 - Do not define release boundaries; scope is the author's call.
 - Deferred requirements are listed as anticipated requirements with design obligations.
 
+## Build and Test
+
+Unreal 5.8 is installed at `D:\bin\Epic Games\UE_5.8`. The plugin is built inside the
+content-only base project `Cambriana_Base` (see `notes/dev/SDD-architecture.md`, Base
+project), created once with:
+
+```
+powershell -File scripts/New-BaseProject.ps1     # optional -ProjectDir <path>
+```
+
+It writes `D:\3\ue\5.8\dev\Cambriana_Base\Cambriana_Base.uproject` and junctions this repo in as
+`Plugins\Cambriana`. Build the editor modules (ATS-01):
+
+```
+"D:\bin\Epic Games\UE_5.8\Engine\Build\BatchFiles\Build.bat" UnrealEditor Win64 Development -Project=D:\3\ue\5.8\dev\Cambriana_Base\Cambriana_Base.uproject -WaitMutex -NoHotReload
+```
+
+Binaries go to this repo's `Binaries/Win64/` (gitignored), with `CambrianaCore.dll` staged
+beside them.
+
+Layout `[Proposed — unconfirmed]`:
+
+| Path | Contents |
+|---|---|
+| `Cambriana.uplugin` | Plugin descriptor; modules allowed on Win64 only until other platforms' core libraries are delivered |
+| `Source/Cambriana/` | Runtime module |
+| `Source/CambrianaEditor/` | Editor module |
+| `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
+| `scripts/New-BaseProject.ps1` | Creates the base project |
+
+CI is not set up yet; self-hosted runners for this repo are pending.
+
 ## Keeping This File Current
 
 This file is the primary context for any agent working in this repo — keep it accurate

@@ -15,7 +15,7 @@ Numbers in the specs are required values.
 | Document | Type | Contents |
 |---|---|---|
 | [SRS.md](SRS.md) | Software Requirements Specification | Definitions, user stories, functional and non-functional requirements, constraints, anticipated requirements |
-| [SDD-architecture.md](SDD-architecture.md) | Software Design Description | Layers, core delivery, data flow, coordinates, size, engine modules, repo layout |
+| [SDD-architecture.md](SDD-architecture.md) | Software Design Description | Layers, core delivery, data flow, coordinates, size, engine modules, repo layout, base project |
 | [SDD-rigging.md](SDD-rigging.md) | Software Design Description | Bone tree, skinning, parameter tiers, posing, growth, physics, bone names, pruning |
 | [SDD-surfacing.md](SDD-surfacing.md) | Software Design Description | Tubes, blocks, polygons, blobs, UVs, data channels, materials |
 | [SDD-unreal.md](SDD-unreal.md) | Software Design Description | Assets, source files, editor, live actor, seed, run time, scripting, modules |
