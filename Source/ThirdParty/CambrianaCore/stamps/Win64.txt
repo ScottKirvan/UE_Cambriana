@@ -1,0 +1,4 @@
+version=0.0.0
+api_version=1
+commit=e7889587ddc47e3c2d7512fbfdfac6eb2651e773
+compiler=MSVC 19.44.35227.0
