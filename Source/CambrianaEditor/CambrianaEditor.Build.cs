@@ -8,8 +8,16 @@ public class CambrianaEditor : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"Core",
+			"AssetDefinition",
 			"Cambriana",
+			"Core",
+			"CoreUObject",
+			"EditorFramework",
+			"Engine",
+			"PropertyEditor",
+			"Slate",
+			"SlateCore",
+			"UnrealEd",
 		});
 	}
 }

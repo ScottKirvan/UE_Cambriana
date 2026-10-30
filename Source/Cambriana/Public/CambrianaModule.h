@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Delegates/IDelegateInstance.h"
 #include "Modules/ModuleInterface.h"
 
 class FCambrianaModule : public IModuleInterface
@@ -13,4 +14,5 @@ public:
 
 private:
 	void* CoreHandle = nullptr;
+	FDelegateHandle GrammarChangedHandle;
 };
