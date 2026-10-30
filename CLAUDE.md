@@ -40,6 +40,16 @@ It writes `D:\3\ue\5.8\dev\Cambriana_Base\Cambriana_Base.uproject` and junctions
 Binaries go to this repo's `Binaries/Win64/` (gitignored), with `CambrianaCore.dll` staged
 beside them.
 
+Run the plugin's automation tests (all named `Cambriana.*`) headless:
+
+```
+"D:\bin\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" D:\3\ue\5.8\dev\Cambriana_Base\Cambriana_Base.uproject -ExecCmds="Automation RunTests Cambriana" -TestExit="Automation Test Queue Empty" -unattended -nopause -nullrhi -nosplash -nosound -stdout -FullStdOutLogOutput
+```
+
+UE 5.8 needs the Visual C++ runtime 14.50.35719 or later
+(`Engine\Extras\Redist\en-us\vc_redist.x64.exe`); with an older runtime the Fab and Bridge
+engine plugins fail to load and an unattended editor exits before running tests.
+
 Layout `[Proposed — unconfirmed]`:
 
 | Path | Contents |

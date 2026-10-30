@@ -14,6 +14,7 @@ public class Cambriana : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"CambrianaCore",
+			"Projects",
 		});
 	}
 }
