@@ -67,7 +67,8 @@ repo contains only its public headers, import libraries and dynamic libraries.
   C++ types or exceptions cross it. Memory the core allocates is released by the core.
 - Only the C API is exported; all other symbols are hidden.
 - A script in the private repo builds the libraries and copies headers and libraries here,
-  stamped with the core version and commit. Updates arrive as a pull request.
+  stamped with the core version and commit. Core releases are triggered manually in GitHub;
+  each completed release arrives as a pull request.
 - Each platform's library is built with the toolchain Unreal 5.8 uses for that platform.
 - Symbol files stay in the private repo.
 - Git LFS for the libraries if they grow large.
