@@ -9,6 +9,10 @@ public class Cambriana : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
+			"CoreUObject",
+			"Engine",
+			"GeometryCore",
+			"GeometryFramework",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

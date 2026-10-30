@@ -65,7 +65,13 @@ Layout `[Proposed — unconfirmed]`:
 |---|---|
 | `Cambriana.uplugin` | Plugin descriptor; modules allowed on Win64 only until other platforms' core libraries are delivered |
 | `Source/Cambriana/` | Runtime module |
+| `Source/Cambriana/Public/CambrianaBuild.h` | Generation seam `Cambriana::BuildMesh` (grammar text + settings + seed to mesh); the only place the core's geometry API is called `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaGrammar.h` | Interim grammar asset (legacy `.ls` text and seed); broadcasts `OnGrammarChanged` after edits `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaLiveActor.h` | Live actor; rebuilds in `OnConstruction` and when its grammar asset changes `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaSeed.h` | Seed generation from the OS random source `[Proposed — unconfirmed]` |
 | `Source/CambrianaEditor/` | Editor module |
+| `Source/CambrianaEditor/Private/` | Grammar factory and asset definition, live actor factory (drag and drop), seed field with new-seed button `[Proposed — unconfirmed]` |
+| `Source/*/Private/Tests/` | Automation tests, named `Cambriana.*` |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
 | `scripts/New-BaseProject.ps1` | Creates the base project |
 | `scripts/Test-NoExperimentalDependencies.ps1` | ATS-05 check; fixture tests in `scripts/tests/` |
