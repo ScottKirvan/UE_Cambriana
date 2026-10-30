@@ -73,5 +73,8 @@ void ACambrianaLiveActor::PostActorCreated()
 void ACambrianaLiveActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	Rebuild();
+	if (BuildCount == 0 || MakeBuildInput() != LastBuildInput)
+	{
+		Rebuild();
+	}
 }

@@ -202,6 +202,57 @@ bool FCambrianaLiveActorRebuildsOnPropertyChangeTest::RunTest(const FString& Par
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorMoveDoesNotRebuildTest,
+	"Cambriana.LiveActor.MovingActorDoesNotRebuild",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorMoveDoesNotRebuildTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = World.Get()->SpawnActor<ACambrianaLiveActor>();
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
+	Actor->SetGrammar(MakeGrammar(TEXT("asset")));
+	const int32 Before = Actor->GetBuildCount();
+
+	Actor->SetActorLocation(FVector(100.0, 200.0, 300.0));
+	Actor->PostEditMove(false);
+	Actor->PostEditMove(true);
+
+	FProperty* LocationProperty = USceneComponent::StaticClass()->FindPropertyByName(USceneComponent::GetRelativeLocationPropertyName());
+	FPropertyChangedEvent LocationEvent(LocationProperty, EPropertyChangeType::ValueSet);
+	Actor->PostEditChangeProperty(LocationEvent);
+
+	TestEqual(TEXT("A transform-only change does not rebuild"), Actor->GetBuildCount(), Before);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorUndoRebuildsTest,
+	"Cambriana.LiveActor.UndoRebuildsActor",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorUndoRebuildsTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = World.Get()->SpawnActor<ACambrianaLiveActor>();
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
+	const int32 OriginalSides = Actor->Sides;
+	EditProperty(Actor, GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Sides), [Actor] { Actor->Sides = 5; });
+	const int32 Before = Actor->GetBuildCount();
+
+	Actor->Sides = OriginalSides;
+	Actor->PostEditUndo();
+
+	TestTrue(TEXT("Undo rebuilds the actor"), Actor->GetBuildCount() > Before);
+	TestEqual(TEXT("Build after undo used the restored properties"), Actor->GetLastBuildInput().Settings.Sides, OriginalSides);
+	return true;
+}
+
 #endif
 
 #endif
