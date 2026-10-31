@@ -7,6 +7,8 @@
 #include "CambrianaLiveActor.generated.h"
 
 class UCambrianaGrammar;
+class UMaterialInstanceDynamic;
+class UMaterialInterface;
 
 /** Dynamic-mesh actor that rebuilds its mesh from a grammar whenever its inputs change. */
 UCLASS()
@@ -15,6 +17,8 @@ class CAMBRIANA_API ACambrianaLiveActor : public ADynamicMeshActor
 	GENERATED_BODY()
 
 public:
+	ACambrianaLiveActor();
+
 	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	TObjectPtr<UCambrianaGrammar> Grammar;
 
@@ -67,6 +71,7 @@ public:
 
 	int32 GetBuildCount() const { return BuildCount; }
 	const FCambrianaBuildInput& GetLastBuildInput() const { return LastBuildInput; }
+	const FCambrianaBuildReport& GetLastBuildReport() const { return LastBuildReport; }
 
 	static void RebuildActorsUsing(const UCambrianaGrammar* ChangedGrammar);
 
@@ -74,6 +79,15 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 private:
+	void ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds);
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInterface> PreviewBaseMaterial;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInstanceDynamic>> PreviewMaterials;
+
 	int32 BuildCount = 0;
 	FCambrianaBuildInput LastBuildInput;
+	FCambrianaBuildReport LastBuildReport;
 };

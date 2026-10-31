@@ -65,13 +65,15 @@ Layout `[Proposed — unconfirmed]`:
 |---|---|
 | `Cambriana.uplugin` | Plugin descriptor; modules allowed on Win64 only until other platforms' core libraries are delivered |
 | `Source/Cambriana/` | Runtime module |
-| `Source/Cambriana/Public/CambrianaBuild.h` | Generation seam `Cambriana::BuildMesh` (grammar text + settings + seed to mesh); the only place the core's geometry API is called `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaBuild.h` | Generation seam `Cambriana::BuildMesh` (grammar text + settings + seed to mesh, material slot IDs and a build report with diagnostics and budget flags) and the preview palette; implemented in `Private/CambrianaBuild.cpp`, the only file that calls the core's build API. Empty grammar text builds nothing without calling the core; a grammar with errors builds an empty mesh `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Private/CambrianaBuildInternal.h` | Seam internals exposed to tests: core-availability gate (logs once), result-flag mapping, report logging to `LogCambriana` `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Public/CambrianaGrammar.h` | Interim grammar asset (legacy `.ls` text and seed); broadcasts `OnGrammarChanged` after edits `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Public/CambrianaLiveActor.h` | Live actor; rebuilds in `OnConstruction` only when its build input differs from the last build (so moves do not rebuild), and whenever its grammar asset changes `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Public/CambrianaSeed.h` | Seed generation from the OS random source `[Proposed — unconfirmed]` |
 | `Source/CambrianaEditor/` | Editor module |
 | `Source/CambrianaEditor/Private/` | Grammar factory and asset definition, live actor factory (drag and drop), seed field with new-seed button `[Proposed — unconfirmed]` |
 | `Source/*/Private/Tests/` | Automation tests, named `Cambriana.*` |
+| `Source/Cambriana/Private/Tests/Fixtures/` | Byte-exact legacy `.ls` fixtures (`sk.ls`, `TREE11.LS`), kept out of line-ending conversion by `.gitattributes` `[Proposed — unconfirmed]` |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
 | `scripts/New-BaseProject.ps1` | Creates the base project |
 | `scripts/Test-NoExperimentalDependencies.ps1` | ATS-05 check; fixture tests in `scripts/tests/` |

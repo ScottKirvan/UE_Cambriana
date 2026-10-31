@@ -3,7 +3,20 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaSeed.h"
 #include "Components/DynamicMeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/ConstructorHelpers.h"
 #include "UObject/UObjectIterator.h"
+
+namespace
+{
+	const FName PreviewColorParameter(TEXT("Color"));
+}
+
+ACambrianaLiveActor::ACambrianaLiveActor()
+{
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BaseMaterial(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	PreviewBaseMaterial = BaseMaterial.Object;
+}
 
 void ACambrianaLiveActor::SetGrammar(UCambrianaGrammar* NewGrammar)
 {
@@ -42,11 +55,31 @@ void ACambrianaLiveActor::Rebuild()
 {
 	LastBuildInput = MakeBuildInput();
 	FCambrianaBuildResult Result = Cambriana::BuildMesh(LastBuildInput);
+	LastBuildReport = MoveTemp(Result.Report);
 	if (UDynamicMeshComponent* MeshComponent = GetDynamicMeshComponent())
 	{
 		MeshComponent->SetMesh(MoveTemp(Result.Mesh));
+		ApplyPreviewMaterials(Result.SlotMaterialIds);
 	}
 	++BuildCount;
+}
+
+void ACambrianaLiveActor::ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds)
+{
+	PreviewMaterials.SetNum(Cambriana::PreviewPaletteSize);
+	TArray<UMaterialInterface*> MaterialSet;
+	MaterialSet.Reserve(SlotMaterialIds.Num());
+	for (const int64 MaterialId : SlotMaterialIds)
+	{
+		TObjectPtr<UMaterialInstanceDynamic>& Material = PreviewMaterials[Cambriana::PreviewPaletteIndex(MaterialId)];
+		if (!Material && PreviewBaseMaterial)
+		{
+			Material = UMaterialInstanceDynamic::Create(PreviewBaseMaterial, this);
+			Material->SetVectorParameterValue(PreviewColorParameter, Cambriana::PreviewPaletteColor(MaterialId));
+		}
+		MaterialSet.Add(Material);
+	}
+	GetDynamicMeshComponent()->ConfigureMaterialSet(MaterialSet);
 }
 
 void ACambrianaLiveActor::RebuildActorsUsing(const UCambrianaGrammar* ChangedGrammar)
