@@ -12,7 +12,7 @@ enum class ECambrianaSizeMode : uint8
 	Step,
 };
 
-/** Settings for one build. Unset header settings fall back to the grammar's own values. */
+/** Settings for one build. Unset header settings fall back to the grammar's own values; unset budgets to the core's defaults. */
 struct FCambrianaBuildSettings
 {
 	TOptional<double> Recursion;
@@ -23,6 +23,10 @@ struct FCambrianaBuildSettings
 	int32 Sides = 8;
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 	double SizeValue = 200.0;
+	TOptional<uint64> ProductionBudget;
+	TOptional<uint64> BoneBudget;
+	TOptional<uint64> WorkBudget;
+	TOptional<uint64> VertexBudget;
 
 	bool operator==(const FCambrianaBuildSettings&) const = default;
 };
@@ -36,13 +40,75 @@ struct FCambrianaBuildInput
 	bool operator==(const FCambrianaBuildInput&) const = default;
 };
 
+enum class ECambrianaDiagnosticSeverity : uint8
+{
+	Warning,
+	Error,
+};
+
+enum class ECambrianaDiagnosticCode : uint8
+{
+	Unknown,
+	MissingEndMarker,
+	InvalidNumber,
+	MissingSetting,
+	MissingAxiom,
+	MalformedRule,
+	UnmatchedPop,
+	UnmatchedPolygonEnd,
+	UnclosedPolygon,
+};
+
+/** A grammar diagnostic. Parse diagnostics carry a 1-based line and column; turtle diagnostics a production position instead. */
+struct FCambrianaDiagnostic
+{
+	ECambrianaDiagnosticSeverity Severity = ECambrianaDiagnosticSeverity::Warning;
+	ECambrianaDiagnosticCode Code = ECambrianaDiagnosticCode::Unknown;
+	uint64 Line = 0;
+	uint64 Column = 0;
+	TOptional<uint64> ProductionPosition;
+
+	CAMBRIANA_API FString Describe() const;
+};
+
+/** What a build reported besides its mesh. */
+struct FCambrianaBuildReport
+{
+	TArray<FCambrianaDiagnostic> Diagnostics;
+	bool bCoreUnavailable = false;
+	bool bHasErrors = false;
+	bool bProductionBudgetReached = false;
+	bool bBoneBudgetReached = false;
+	bool bWorkBudgetReached = false;
+	bool bVertexBudgetReached = false;
+	bool bCancelled = false;
+	uint64 ProductionLength = 0;
+	uint64 GenerationsRun = 0;
+	double Recursion = 0.0;
+	double BasicAngle = 0.0;
+	double Thickness = 0.0;
+	double StepLength = 0.0;
+};
+
 struct FCambrianaBuildResult
 {
+	/** Each triangle's material ID is a slot index. */
 	UE::Geometry::FDynamicMesh3 Mesh;
+	/** The core material ID of each slot, ascending. */
+	TArray<int64> SlotMaterialIds;
+	FCambrianaBuildReport Report;
 };
 
 namespace Cambriana
 {
 	/** Generates a mesh in Unreal space (left-handed, +Z up, cm) from grammar text, settings and seed. */
 	CAMBRIANA_API FCambrianaBuildResult BuildMesh(const FCambrianaBuildInput& Input);
+
+	constexpr int32 PreviewPaletteSize = 10;
+
+	/** Index of a core material ID in the preview palette: IDs 0 to 9, repeating. */
+	CAMBRIANA_API int32 PreviewPaletteIndex(int64 MaterialId);
+
+	/** Preview colour of a core material ID: black, brown, red, orange, yellow, green, blue, violet, grey, white. */
+	CAMBRIANA_API FLinearColor PreviewPaletteColor(int64 MaterialId);
 }

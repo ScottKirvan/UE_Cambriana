@@ -39,7 +39,7 @@ Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-c
 |---|---|---|
 | ATS-30 | Given a grammar asset dragged into a level, then a live actor referencing it is placed. | FR-10 |
 | ATS-31 | Given a change to a grammar asset, then every live actor referencing it rebuilds. | FR-10 |
-| ATS-32 | Given a live actor with inline `sk.ls` text, when Basic Angle changes, then the rebuild completes within one editor frame. | FR-11, NFR-03 |
+| ATS-32 | Given a live actor with inline `sk.ls` text, when Basic Angle changes, then the rebuild completes within one editor frame (1/60 s, 16.7 ms `[Proposed — unconfirmed]`). | FR-11, NFR-03 |
 | ATS-33 | Given a live actor with `TREE11.LS` at recursion 12, when any property changes, then the rebuild completes in under 1 s. | NFR-03 |
 | ATS-34 | Given a live actor, then its vertex positions and triangle winding equal the core's output. | C-04 |
 | ATS-35 | Given two newly placed live actors without a grammar asset, then each has a generated seed and the seeds differ. | FR-08 |

@@ -1,5 +1,6 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaLiveActor.h"
+#include "CambrianaTestUtilities.h"
 #include "CambrianaTestWorld.h"
 #include "Misc/AutomationTest.h"
 
@@ -7,24 +8,18 @@
 
 namespace
 {
-	UCambrianaGrammar* MakeGrammar(const TCHAR* Text)
+	UCambrianaGrammar* MakeGrammar(const FString& Text)
 	{
 		UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(GetTransientPackage());
 		Grammar->GrammarText = Text;
 		return Grammar;
 	}
-
-#if WITH_EDITOR
-	void EditProperty(UObject* Object, FName PropertyName, TFunctionRef<void()> Change)
-	{
-		FProperty* Property = Object->GetClass()->FindPropertyByName(PropertyName);
-		Object->PreEditChange(Property);
-		Change();
-		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
-		Object->PostEditChangeProperty(Event);
-	}
-#endif
 }
+
+using Cambriana::Tests::SimpleGrammar;
+#if WITH_EDITOR
+using Cambriana::Tests::EditProperty;
+#endif
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorNewSeedsTest,
 	"Cambriana.LiveActor.NewActorsGetDistinctGeneratedSeeds",
@@ -74,11 +69,11 @@ bool FCambrianaLiveActorGrammarTextSourceTest::RunTest(const FString& Parameters
 	{
 		return false;
 	}
-	Actor->InlineGrammar = TEXT("inline");
-	TestEqual(TEXT("Inline text is used without a grammar asset"), Actor->MakeBuildInput().GrammarText, FString(TEXT("inline")));
+	Actor->InlineGrammar = SimpleGrammar(1);
+	TestEqual(TEXT("Inline text is used without a grammar asset"), Actor->MakeBuildInput().GrammarText, SimpleGrammar(1));
 
-	Actor->SetGrammar(MakeGrammar(TEXT("asset")));
-	TestEqual(TEXT("Asset text is used with a grammar asset"), Actor->GetLastBuildInput().GrammarText, FString(TEXT("asset")));
+	Actor->SetGrammar(MakeGrammar(SimpleGrammar(2)));
+	TestEqual(TEXT("Asset text is used with a grammar asset"), Actor->GetLastBuildInput().GrammarText, SimpleGrammar(2));
 	return true;
 }
 
@@ -140,8 +135,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorRebuildsOnGrammarChangeTest,
 bool FCambrianaLiveActorRebuildsOnGrammarChangeTest::RunTest(const FString& Parameters)
 {
 	FCambrianaTestWorld World;
-	UCambrianaGrammar* Grammar = MakeGrammar(TEXT("before"));
-	UCambrianaGrammar* OtherGrammar = MakeGrammar(TEXT("other"));
+	UCambrianaGrammar* Grammar = MakeGrammar(SimpleGrammar(3));
+	UCambrianaGrammar* OtherGrammar = MakeGrammar(SimpleGrammar(4));
 	ACambrianaLiveActor* First = World.Get()->SpawnActor<ACambrianaLiveActor>();
 	ACambrianaLiveActor* Second = World.Get()->SpawnActor<ACambrianaLiveActor>();
 	ACambrianaLiveActor* Unrelated = World.Get()->SpawnActor<ACambrianaLiveActor>();
@@ -157,12 +152,12 @@ bool FCambrianaLiveActorRebuildsOnGrammarChangeTest::RunTest(const FString& Para
 	const int32 SecondCount = Second->GetBuildCount();
 	const int32 UnrelatedCount = Unrelated->GetBuildCount();
 
-	EditProperty(Grammar, GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText), [Grammar] { Grammar->GrammarText = TEXT("after"); });
+	EditProperty(Grammar, GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText), [Grammar] { Grammar->GrammarText = SimpleGrammar(5); });
 
 	TestEqual(TEXT("First referencing actor rebuilt once"), First->GetBuildCount(), FirstCount + 1);
 	TestEqual(TEXT("Second referencing actor rebuilt once"), Second->GetBuildCount(), SecondCount + 1);
-	TestEqual(TEXT("First actor built from the changed text"), First->GetLastBuildInput().GrammarText, FString(TEXT("after")));
-	TestEqual(TEXT("Second actor built from the changed text"), Second->GetLastBuildInput().GrammarText, FString(TEXT("after")));
+	TestEqual(TEXT("First actor built from the changed text"), First->GetLastBuildInput().GrammarText, SimpleGrammar(5));
+	TestEqual(TEXT("Second actor built from the changed text"), Second->GetLastBuildInput().GrammarText, SimpleGrammar(5));
 	TestEqual(TEXT("Actor referencing another asset did not rebuild"), Unrelated->GetBuildCount(), UnrelatedCount);
 
 	const int32 FirstCountBeforeSeed = First->GetBuildCount();
@@ -193,12 +188,12 @@ bool FCambrianaLiveActorRebuildsOnPropertyChangeTest::RunTest(const FString& Par
 			Actor->GetLastBuildInput() == Actor->MakeBuildInput());
 	};
 
-	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, InlineGrammar), [Actor] { Actor->InlineGrammar = TEXT("text"); });
+	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, InlineGrammar), [Actor] { Actor->InlineGrammar = SimpleGrammar(6); });
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Seed), [Actor] { Actor->Seed += 1; });
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, BasicAngle), [Actor] { Actor->bOverrideBasicAngle = true; Actor->BasicAngle = 33.0; });
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Sides), [Actor] { Actor->Sides = 6; });
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeMode), [Actor] { Actor->SizeMode = ECambrianaSizeMode::Step; });
-	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Grammar), [Actor] { Actor->Grammar = MakeGrammar(TEXT("asset")); });
+	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Grammar), [Actor] { Actor->Grammar = MakeGrammar(SimpleGrammar(2)); });
 	return true;
 }
 
@@ -214,7 +209,7 @@ bool FCambrianaLiveActorMoveDoesNotRebuildTest::RunTest(const FString& Parameter
 	{
 		return false;
 	}
-	Actor->SetGrammar(MakeGrammar(TEXT("asset")));
+	Actor->SetGrammar(MakeGrammar(SimpleGrammar(2)));
 	const int32 Before = Actor->GetBuildCount();
 
 	Actor->SetActorLocation(FVector(100.0, 200.0, 300.0));
