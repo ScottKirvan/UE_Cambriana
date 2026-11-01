@@ -42,6 +42,33 @@ bool FCambrianaLiveActorNewSeedsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorPlaceFromGrammarTest,
+	"Cambriana.LiveActor.PlacingFromGrammarCopiesItsSeed",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorPlaceFromGrammarTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* FromAsset = World.Get()->SpawnActor<ACambrianaLiveActor>();
+	ACambrianaLiveActor* WithoutAsset = World.Get()->SpawnActor<ACambrianaLiveActor>();
+	if (!TestNotNull(TEXT("Actor spawned"), FromAsset) || !TestNotNull(TEXT("Second actor spawned"), WithoutAsset))
+	{
+		return false;
+	}
+	UCambrianaGrammar* Grammar = MakeGrammar(SimpleGrammar(2));
+	Grammar->Seed = FromAsset->Seed + 1;
+
+	FromAsset->PlaceFromGrammar(Grammar);
+	TestTrue(TEXT("The actor references the asset"), FromAsset->Grammar == Grammar);
+	TestEqual(TEXT("The actor has the asset's seed"), FromAsset->Seed, Grammar->Seed);
+	TestEqual(TEXT("The actor was built with that seed"), FromAsset->GetLastBuildInput().Seed, Grammar->Seed);
+
+	const uint32 GeneratedSeed = WithoutAsset->Seed;
+	WithoutAsset->PlaceFromGrammar(nullptr);
+	TestEqual(TEXT("Without an asset the generated seed is kept"), WithoutAsset->Seed, GeneratedSeed);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBuildsOnSpawnTest,
 	"Cambriana.LiveActor.BuildsWhenSpawned",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)

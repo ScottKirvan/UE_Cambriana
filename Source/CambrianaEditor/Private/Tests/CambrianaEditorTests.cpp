@@ -43,6 +43,23 @@ namespace
 		}
 		return nullptr;
 	}
+
+	ACambrianaLiveActor* PlaceInCurrentLevel(UCambrianaGrammar* Grammar)
+	{
+		UE::AssetPlacementUtil::FExtraPlaceAssetOptions Options;
+		Options.bSelectOutput = false;
+		const TArray<FTypedElementHandle> Placed = UE::AssetPlacementUtil::PlaceAssetInCurrentLevel(Grammar, Options);
+		return Placed.Num() == 1 ? Cast<ACambrianaLiveActor>(ActorElementDataUtil::GetActorFromHandle(Placed[0])) : nullptr;
+	}
+
+	void EditProperty(UObject* Object, FName PropertyName, TFunctionRef<void()> Change)
+	{
+		FProperty* Property = Object->GetClass()->FindPropertyByName(PropertyName);
+		Object->PreEditChange(Property);
+		Change();
+		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
+		Object->PostEditChangeProperty(Event);
+	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarFactoryNewAssetTest,
@@ -100,6 +117,111 @@ bool FCambrianaDragGrammarIntoLevelTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("The live actor references the dropped grammar"), Actor->Grammar == Grammar);
 		TestEqual(TEXT("The live actor was built from the grammar's text"), Actor->GetLastBuildInput().GrammarText, Grammar->GrammarText);
 		Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaPlacedActorCopiesGrammarSeedTest,
+	"Cambriana.Editor.PlacedLiveActorCopiesGrammarSeed",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaPlacedActorCopiesGrammarSeedTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	if (!TestNotNull(TEXT("Grammar created"), Grammar))
+	{
+		return false;
+	}
+	Grammar->Seed = 424242;
+
+	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Grammar);
+	if (!TestNotNull(TEXT("A live actor was placed"), Actor))
+	{
+		return false;
+	}
+	TestEqual(TEXT("The placed actor has the asset's seed"), Actor->Seed, 424242u);
+	TestEqual(TEXT("The placed actor was built with that seed"), Actor->GetLastBuildInput().Seed, 424242u);
+	Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarSeedChangeLeavesPlacedActorTest,
+	"Cambriana.Editor.ChangingGrammarSeedLeavesPlacedActorSeed",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarSeedChangeLeavesPlacedActorTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	if (!TestNotNull(TEXT("Grammar created"), Grammar))
+	{
+		return false;
+	}
+	Grammar->Seed = 1001;
+	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Grammar);
+	if (!TestNotNull(TEXT("A live actor was placed"), Actor))
+	{
+		return false;
+	}
+
+	EditProperty(Grammar, GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed), [Grammar] { Grammar->Seed = 2002; });
+
+	TestEqual(TEXT("The actor keeps the seed it was placed with"), Actor->Seed, 1001u);
+	TestEqual(TEXT("The actor builds with its own seed"), Actor->GetLastBuildInput().Seed, 1001u);
+	Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaPlacedActorSeedChangeLeavesGrammarTest,
+	"Cambriana.Editor.ChangingPlacedActorSeedLeavesGrammarSeed",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaPlacedActorSeedChangeLeavesGrammarTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	if (!TestNotNull(TEXT("Grammar created"), Grammar))
+	{
+		return false;
+	}
+	Grammar->Seed = 3003;
+	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Grammar);
+	if (!TestNotNull(TEXT("A live actor was placed"), Actor))
+	{
+		return false;
+	}
+
+	EditProperty(Actor, GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Seed), [Actor] { Actor->Seed = 4004; });
+
+	TestEqual(TEXT("The asset keeps its seed"), Grammar->Seed, 3003u);
+	TestEqual(TEXT("The actor builds with its new seed"), Actor->GetLastBuildInput().Seed, 4004u);
+	Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaActorsPlacedFromOneGrammarShareSeedTest,
+	"Cambriana.Editor.ActorsPlacedFromOneGrammarStartWithItsSeed",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaActorsPlacedFromOneGrammarShareSeedTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	if (!TestNotNull(TEXT("Grammar created"), Grammar))
+	{
+		return false;
+	}
+	Grammar->Seed = 5005;
+	ACambrianaLiveActor* First = PlaceInCurrentLevel(Grammar);
+	ACambrianaLiveActor* Second = PlaceInCurrentLevel(Grammar);
+	if (TestNotNull(TEXT("First live actor placed"), First) && TestNotNull(TEXT("Second live actor placed"), Second))
+	{
+		TestEqual(TEXT("First actor starts with the asset's seed"), First->Seed, 5005u);
+		TestEqual(TEXT("Second actor starts with the asset's seed"), Second->Seed, 5005u);
+	}
+	for (ACambrianaLiveActor* Actor : { First, Second })
+	{
+		if (Actor)
+		{
+			Actor->GetWorld()->EditorDestroyActor(Actor, false);
+		}
 	}
 	return true;
 }
