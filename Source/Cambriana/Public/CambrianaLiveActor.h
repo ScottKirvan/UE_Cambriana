@@ -65,6 +65,9 @@ public:
 
 	void SetGrammar(UCambrianaGrammar* NewGrammar);
 
+	/** Placement from a grammar asset: references it and copies its seed. */
+	void PlaceFromGrammar(UCambrianaGrammar* Source);
+
 	FCambrianaBuildInput MakeBuildInput() const;
 
 	void Rebuild();

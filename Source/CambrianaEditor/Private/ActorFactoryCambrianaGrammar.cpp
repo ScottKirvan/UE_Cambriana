@@ -24,7 +24,7 @@ bool UActorFactoryCambrianaGrammar::CanCreateActorFrom(const FAssetData& AssetDa
 void UActorFactoryCambrianaGrammar::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
 	Super::PostSpawnActor(Asset, NewActor);
-	CastChecked<ACambrianaLiveActor>(NewActor)->SetGrammar(Cast<UCambrianaGrammar>(Asset));
+	CastChecked<ACambrianaLiveActor>(NewActor)->PlaceFromGrammar(Cast<UCambrianaGrammar>(Asset));
 }
 
 UObject* UActorFactoryCambrianaGrammar::GetAssetFromActorInstance(AActor* ActorInstance)

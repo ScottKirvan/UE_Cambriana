@@ -24,6 +24,15 @@ void ACambrianaLiveActor::SetGrammar(UCambrianaGrammar* NewGrammar)
 	Rebuild();
 }
 
+void ACambrianaLiveActor::PlaceFromGrammar(UCambrianaGrammar* Source)
+{
+	if (Source)
+	{
+		Seed = Source->Seed;
+	}
+	SetGrammar(Source);
+}
+
 FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 {
 	FCambrianaBuildInput Input;
