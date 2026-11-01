@@ -189,7 +189,7 @@ bool FCambrianaLiveActorRebuildsOnGrammarChangeTest::RunTest(const FString& Para
 
 	const int32 FirstCountBeforeSeed = First->GetBuildCount();
 	EditProperty(Grammar, GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed), [Grammar] { Grammar->Seed += 1; });
-	TestEqual(TEXT("A seed change also rebuilds referencing actors"), First->GetBuildCount(), FirstCountBeforeSeed + 1);
+	TestEqual(TEXT("An asset seed change does not rebuild actors, which build with their own seed"), First->GetBuildCount(), FirstCountBeforeSeed);
 	return true;
 }
 

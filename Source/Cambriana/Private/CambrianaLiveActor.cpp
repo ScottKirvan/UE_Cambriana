@@ -101,8 +101,16 @@ void ACambrianaLiveActor::RebuildActorsUsing(const UCambrianaGrammar* ChangedGra
 	{
 		if (IsValid(*It) && It->Grammar == ChangedGrammar && It->GetWorld())
 		{
-			It->Rebuild();
+			It->RebuildIfInputChanged();
 		}
+	}
+}
+
+void ACambrianaLiveActor::RebuildIfInputChanged()
+{
+	if (BuildCount == 0 || MakeBuildInput() != LastBuildInput)
+	{
+		Rebuild();
 	}
 }
 
@@ -115,8 +123,5 @@ void ACambrianaLiveActor::PostActorCreated()
 void ACambrianaLiveActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	if (BuildCount == 0 || MakeBuildInput() != LastBuildInput)
-	{
-		Rebuild();
-	}
+	RebuildIfInputChanged();
 }
