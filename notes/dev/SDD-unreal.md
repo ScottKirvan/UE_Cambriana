@@ -63,6 +63,9 @@ Standalone asset editor, opened from the grammar asset.
 ## Seed
 
 - A new grammar asset or live actor gets a newly generated seed, stored on the object.
+- A live actor placed from a grammar asset copies the asset's seed at placement; afterwards
+  the actor's seed is independent of the asset's. A live actor always builds with its own
+  seed.
 - Seed UI: an editable number field and a button that generates a new seed.
 - New seeds come from a non-deterministic source (time or the OS random source).
 - A grammar file's `seed` setting, if present, is used on import. Converted `.ls` files get
