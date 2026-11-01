@@ -82,6 +82,7 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 private:
+	void RebuildIfInputChanged();
 	void ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds);
 
 	UPROPERTY()
