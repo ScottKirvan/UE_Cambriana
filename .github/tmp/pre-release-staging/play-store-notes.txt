@@ -1,0 +1,7 @@
+What's New:
+- Create procedural grammar assets directly in the Content Browser.
+- Drag grammar assets into levels to place dynamic 3D mesh actors.
+- Customize geometry generation with seed controls, thickness options, and preview materials.
+- Independent actor seeds allow unique variations across placed objects.
+- Optimized viewport rendering avoids unnecessary mesh rebuilds during movement.
+- Robust error handling for empty or invalid grammar text.
