@@ -122,6 +122,22 @@ draw {
 }
 ```
 
+## Expressions
+
+A module with no `draw` rule draws nothing, with no warning.
+
+| Kind | Allowed |
+|---|---|
+| Operators | `+ - * /`, unary minus, power, modulo, `< <= > >= == !=`, `and or not`, parentheses |
+| Conditional | `if(cond, a, b)` |
+| Maths | `abs floor ceil round min max clamp lerp sqrt pow exp log` |
+| Trigonometry | `sin cos tan asin acos atan atan2`, in degrees |
+| Random | `rand(a, b)`, from the seed |
+
+Pose parameters may use only `+ - * /`, unary minus, power and
+`abs min max clamp lerp sqrt sin cos tan`. Anything else in a pose parameter is an error with
+line and column.
+
 ## Conversion from the legacy dialect
 
 Legacy `.ls` files are converted to this format on import.
