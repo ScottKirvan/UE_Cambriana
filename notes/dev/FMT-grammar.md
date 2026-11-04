@@ -56,7 +56,7 @@ thickness   50%
 size        200cm
 seed        1
 
-pose  param shrink = 0.9
+shape param shrink = 0.9
 shape param taper  = 1.0
 
 axiom  c [ Left ] c [ Right ] c [ Up ] c [ Down ]
@@ -109,8 +109,9 @@ so every expansion of a rule carries them.
 | `pole(name)` | Pole target for IK chain `name`, at the current turtle position |
 | `aim(name)` | Aim control: the current bone points at a target placed at the current turtle position |
 
-- Hint names are qualified with the module path, as bone names are
-  ([SDD-rigging.md](SDD-rigging.md)): a `Leg` rule expanded four times gives four `foot` goals.
+- Hint names are qualified by the structural name of the bone they attach to
+  ([SDD-rigging.md](SDD-rigging.md)): a `Leg` rule expanded four times gives four `foot` goals,
+  each with a unique qualified name. `[Proposed — unconfirmed]`
 - `pole` and `aim` targets are usually placed with moves inside a branch:
   `[ f(30) pole(knee) ]`.
 - Hint command names are reserved, as turtle command names are.
@@ -137,6 +138,110 @@ A module with no `draw` rule draws nothing, with no warning.
 Pose parameters may use only `+ - * /`, unary minus, power and
 `abs min max clamp lerp sqrt sin cos tan`. Anything else in a pose parameter is an error with
 line and column.
+
+### Expression semantics `[Proposed — unconfirmed]`
+
+- Power is `^`, right-associative and tighter than unary minus: `-2 ^ 2` is -4. Modulo is `%`,
+  floored: `-1 % 3` is 2. `pow(a, b)` is power.
+- Precedence, loosest first: `or`; `and`; `not`; comparisons; `+ -`; `* / %`; unary minus; `^`.
+- `and`, `or`, `not`, `if` and comparisons treat non-zero as true and give 1 or 0. All arguments are
+  always evaluated, including in `if`, `and` and `or`.
+- A result that is not finite becomes 0, with one warning per expression at its line and column.
+- `rand(a, b)` is `a + (b - a) * u`, `u` in [0, 1) from the Visual C++ sequence. Grow rules, draw rules
+  and the turtle's `~` each have their own sequence from the seed, so one does not disturb another.
+- Expressions may read the settings `generations`, `angle`, `thickness` and `seed`, after build
+  overrides. A parameter cannot reuse those names, or the name of a command or reserved word.
+- Bit-identical across compilers: all functions are built from basic IEEE operations.
+
+### Pose parameters `[Proposed — unconfirmed]`
+
+- Rotation commands: `+ - & ^ < > ~ t : ;`.
+- A pose parameter is an error in any other command, in a condition, weight, repeat count or `attr`
+  value, and in the value of a parameter of another tier.
+- Passed as a module argument, it carries these rules through that module's parameter.
+
+## Syntax details `[Proposed — unconfirmed]`
+
+### Statements and rules
+
+- A statement or rule ends at the end of its line. A condition, and the argument list of a command,
+  module or function, may span lines; a `repeat` or `mirror` block may span lines.
+- A `grow` or `draw` block's closing `}` starts its own line.
+- `(` is an argument list only directly after its command or module, with no space.
+- Commands with no argument: `. [ ] { } % | $`. Any other command takes at most one.
+- `grows` and `nogrowth` are written before the left side: `nogrowth F -> F F`.
+- `}` closes the innermost open `repeat`, `mirror` or `{`, and is otherwise `endpolygon`. A rule on
+  `endpolygon` spells the name. Inside a `repeat` or `mirror` block the serialiser writes `polygon` and
+  `endpolygon` as names in either style.
+- `#` comments are kept in the model, attached to the statement or rule after them, or on the same line.
+- Unstated settings default to generations 4, angle 25, thickness 50%. `size` and `step` together are an
+  error. `seed` is a whole number from 0 to 4294967295.
+
+### `|`
+
+A rule is weighted only if its body starts with `(`. In a weighted rule, `|` followed by `(`, outside any
+`repeat`, `mirror` or `{`, separates alternatives. Every other `|` is `turnaround`. A weight is an
+expression; a negative one counts as 0; if all are 0 the first alternative is used.
+
+### Names
+
+- Turtle commands may be a `grow` rule's left side, with no parameters: `F -> F F`, `+ -> -`.
+- A command name or glyph is an error, with line and column, as a `draw` rule's left side, as a
+  parametric left side (`draw(x) ->`), and as a macro, socket, `param` or module parameter name.
+- Reserved in the same places, and as a module anywhere: `repeat mirror socket bone merge attr grows
+  nogrowth fk ik pole aim query and or not`. Rig hints and `query` modules are errors until they are
+  implemented.
+
+### Rules
+
+- All rules for a module, in `grow` and `draw`, have the same parameter count, and uses agree with it.
+- The first rule in file order whose condition holds applies. A module with no matching `grow` rule stays
+  as it is and keeps its generation.
+- A `grow` rule on a command matches it with or without an argument. An argument moves to the last item
+  of the replacement if that is a command taking an argument and having none; otherwise it is dropped.
+- A `draw` rule's body holds no modules. Its commands take the generation of the module drawn.
+- A warning with line and column: a rule after an unconditional rule for the same module; a rule on `F`
+  or `Z` whose replacement has several segments.
+
+### `axiom` names
+
+- The first word after `axiom` is a name if it is not a command, not a rule's left side and not a macro,
+  has no argument list, and something follows it. `A()` forces a module.
+- A name that is also a rule's left side is an error. Two unnamed axioms or two of one name are errors.
+- A build names an axiom; otherwise it uses the unnamed one, else the first.
+
+### Macros and `repeat`
+
+- A macro has no parameters, and its expressions read only parameters and settings. Using it with an
+  argument list, and macro cycles, are errors. Macros may be declared after their use.
+- A `repeat` count is an expression of parameters and settings, with no `rand`, rounded down; below 1
+  gives no copies.
+- Expansion counts against the work budget.
+
+### `bone`, `merge`, `socket`, bone budget
+
+- `merge`: from here, a drawn segment continuing the current bone extends it to the new end, with frame and
+  radius recalculated, instead of adding a bone. `bone` ends this. Both are saved by `[` and restored by `]`.
+  A move or `]` starts a new bone.
+- `socket Flower`: a zero-length bone of kind Socket at the turtle, parented to the current bone, which
+  stays current. It draws nothing and keeps the structural name `S_12`; the socket's name is reported beside it.
+- `bonebudget 500`: a setting; the build uses the lower of this and its own bone budget.
+
+### `mirror`
+
+`mirror { X }` expands to `[ X ] [ X' ]`, where in `X'` the turtle swaps `+` with `-` and `<` with `>`,
+including in everything that later grows from `X'`. Nested mirrors cancel.
+
+### `attr`
+
+`attr(name, value)` sets the named attribute on the turtle; `[` and `]` save and restore it. A bone takes the
+values in force when it is created, 0 for one not set yet, and each vertex takes those of the bone whose channels
+it takes. Names are columns in first-use order.
+
+### Seed and size
+
+The grammar's `seed` and `size` or `step` apply unless the build overrides them. A grammar stating neither takes
+them from the build settings.
 
 ## Conversion from the legacy dialect
 
@@ -172,7 +277,7 @@ cpfg models are converted to this format on import.
 
 ## Hand-written equivalent: `TREE11.LS`
 
-Built at the same settings, this produces the same bone tree as `TREE11.LS`.
+Built at the same settings, this produces the same bone tree as `TREE11.LS`, bit for bit in every field.
 
 ```
 lsystem Tree11
@@ -184,39 +289,37 @@ thickness   30%
 
 shape param taper     = 0.8
 shape param stretch   = 1.25
+shape param shrink    = 0.8
 shape param leaf_size = 200
 param bark = 12
 param leaf = 8
 
 axiom  c(bark) Trunk
 
-macro Tier = ~(5) Seg(100) Whorl Whorl [ Droop(0) BranchA ] Leaves >(30)
+macro Tier = ~(5) Seg Whorl Whorl [ Droop BranchA ] Leaves >(30)
 
 grow {
-    Trunk   -> [ Seg(100) ~(5) Seg(100) Spine Leaves ]
+    Trunk   -> [ Seg ~(5) Seg Spine Leaves ]
     Spine   -> Tier Tier !(taper) Spine
-    Whorl   -> [ Droop(0) BranchA ] Leaves >(120)
+    Whorl   -> [ Droop BranchA ] Leaves >(120)
 
-    BranchA -> ~(10) $ Seg(100) [ Left(0)  BudA Leaves ] ~(10) $ Seg(100) Leaves !(taper) BranchB
-    BranchB -> ~(10) $ Seg(100) [ Right(0) BudB Leaves ] ~(10) $ Seg(100) Leaves !(taper) BranchA
+    BranchA -> ~(10) $ Seg [ Left  BudA Leaves ] ~(10) $ Seg Leaves !(taper) BranchB
+    BranchB -> ~(10) $ Seg [ Right BudB Leaves ] ~(10) $ Seg Leaves !(taper) BranchA
     BudA    -> BranchA
     BudB    -> BranchB
 
-    Leaves  -> [ g(300) repeat 6 { g(40) Leaf(0) } ]
+    Leaves  -> [ g(300) repeat 6 { g(40) Leaf } ]
+    Leaf    -> [ ~ Edge(7, 0) c(leaf) { +(30) Edge(leaf_size, 0) -(120) Edge(leaf_size, 0) -(120) Edge(leaf_size, 0) } ]
 
-    Seg(len)  -> Seg(len * stretch)
-    Droop(n)  -> Droop(n + 1)
-    Left(n)   -> Left(n + 1)
-    Right(n)  -> Right(n + 1)
-    Leaf(age) -> Leaf(age + 1)
+    Seg            -> '(stretch) Seg '(shrink)
+    Edge(len, age) -> Edge(len, age + 1)
+    Droop          -> & Droop
+    Left           -> + Left
+    Right          -> - Right
 }
 
 draw {
-    Seg(len)  -> F(len)
-    Droop(n)  -> &(n * angle)
-    Left(n)   -> +(n * angle)
-    Right(n)  -> -(n * angle)
-    Leaf(age) : age >= 1 and age <= 2
-              -> [ ~ f(7) c(leaf) { +(30) f(leaf_size) -(120) f(leaf_size) -(120) f(leaf_size) } ]
+    Seg                        -> F
+    Edge(len, age) : age <= 1  -> f(len)
 }
 ```
