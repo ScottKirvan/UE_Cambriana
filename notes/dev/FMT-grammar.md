@@ -217,6 +217,7 @@ expression; a negative one counts as 0; if all are 0 the first alternative is us
 - A `repeat` count is an expression of parameters and settings, with no `rand`, rounded down; below 1
   gives no copies.
 - Expansion counts against the work budget.
+- A parameter's value is an expression of earlier parameters and settings, with no `rand`.
 
 ### `bone`, `merge`, `socket`, bone budget
 
