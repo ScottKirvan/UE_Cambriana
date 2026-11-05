@@ -150,8 +150,9 @@ line and column.
 - `rand(a, b)` is `a + (b - a) * u`, `u` in [0, 1) from the Visual C++ sequence. Grow rules, draw rules
   and the turtle's `~` each have their own sequence from the seed, so one does not disturb another.
 - Expressions may read the settings `generations`, `angle`, `thickness` and `seed`, after build
-  overrides. A parameter cannot reuse those names, or the name of a command or reserved word.
-- Bit-identical across compilers: all functions are built from basic IEEE operations.
+  overrides. A parameter, macro or rule parameter cannot reuse those names, or the name of a command or reserved word. `[Proposed — unconfirmed]`
+- All functions are built from basic IEEE operations, for results bit-identical across compilers. Real-time performance
+  takes priority over bit-identity. `[Proposed — unconfirmed]`
 
 ### Pose parameters `[Proposed — unconfirmed]`
 
@@ -160,15 +161,28 @@ line and column.
   value, and in the value of a parameter of another tier.
 - Passed as a module argument, it carries these rules through that module's parameter.
 
+### Shape parameters `[Proposed — unconfirmed]`
+
+- A shape parameter cannot change the bone tree. It is an error, with line and column, in a condition, weight or `repeat`
+  count, and in the value of a `structure` parameter.
+- Passed as a module argument, it carries this rule through that module's parameter. A `param` whose value reads it carries
+  the rule too.
+
 ## Syntax details `[Proposed — unconfirmed]`
 
 ### Statements and rules
 
 - A statement or rule ends at the end of its line. A condition, and the argument list of a command,
   module or function, may span lines; a `repeat` or `mirror` block may span lines.
+- Line breaks are also allowed before a rule's `:` and `->`, inside a weight, and inside parentheses in a parameter value
+  or `repeat` count. A line break in the parameter list of a rule or `query` is an error. `[Proposed — unconfirmed]`
 - A `grow` or `draw` block's closing `}` starts its own line.
 - `(` is an argument list only directly after its command or module, with no space.
 - Commands with no argument: `. [ ] { } % | $`. Any other command takes at most one.
+- Empty parentheses on a command, `F()`, are an error. `[Proposed — unconfirmed]`
+- `~(x)` is not scaled by growth, as in the legacy dialect. `[Proposed — unconfirmed]`
+- A turn argument `x` is `x * 0.017453` radians, as in the legacy dialect. `[Proposed — unconfirmed]`
+- `lsystem` and `credit` may be repeated; the first of each in file order applies. `[Proposed — unconfirmed]`
 - `grows` and `nogrowth` are written before the left side: `nogrowth F -> F F`.
 - `}` closes the innermost open `repeat`, `mirror` or `{`, and is otherwise `endpolygon`. A rule on
   `endpolygon` spells the name. Inside a `repeat` or `mirror` block the serialiser writes `polygon` and
@@ -203,7 +217,8 @@ expression; a negative one counts as 0; if all are 0 the first alternative is us
   generation that wraps the replacement of a rule marked for fractional growth, it is dropped. `[Proposed — unconfirmed]`
 - A `draw` rule's body holds no modules. Its commands take the generation of the module drawn.
 - A warning with line and column: a rule after an unconditional rule for the same module; a rule on `F`
-  or `Z` whose replacement has several segments.
+  or `Z` whose replacement has several segments, counted through `repeat`, `mirror` and macros at the grammar's own
+  settings and parameter values. `[Proposed — unconfirmed]`
 
 ### `axiom` names
 
