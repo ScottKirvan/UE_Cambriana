@@ -14,7 +14,7 @@ Throughout, "the caller" is whatever invokes a build.
 
 ## Encoding and lexical rules
 
-A file is a sequence of bytes treated as ASCII, so any UTF-8 is accepted inside comments and strings. Other bytes outside those two are a syntax error, and so is a UTF-8 byte order mark at the start of a file. Column numbers count bytes, from 1. Lines count from 1. `\n`, `\r\n` and a lone `\r` each end a line.
+A file is a sequence of bytes treated as ASCII, so any UTF-8 is accepted inside comments and strings. Other bytes outside those two are a syntax error. A UTF-8 byte order mark at the very start of a file is skipped, and column numbers on the first line don't count it; anywhere else it's a syntax error. Column numbers count bytes, from 1. Lines count from 1. `\n`, `\r\n` and a lone `\r` each end a line.
 
 | Token | Definition |
 |---|---|
@@ -27,7 +27,7 @@ A file is a sequence of bytes treated as ASCII, so any UTF-8 is accepted inside 
 
 Blanks are not allowed between:
 
-- a word or glyph and the `(` of its arguments, including functions, `attr`, and the parameter list of a rule's left side
+- a word or glyph and the `(` of its arguments, including functions, `attr`, and the parameter list of a rule's left side or a `query` declaration
 - a number and its unit, or the `-` and number of a setting value
 - the two characters of `->`, `<=`, `>=`, `==`, `!=`
 
@@ -40,25 +40,27 @@ Each statement or rule ends at the end of its line, after an optional comment. L
 - between a rule's left side and `->`, including around its condition
 - between items while a `repeat` or `mirror` block is open
 
-Line breaks aren't allowed inside a rule's parameter list, right after `->`, inside a `{ }` polygon outside such a block, or at the top level of a parameter's value or repeat count. A `grow` or `draw` keyword and its `{` share a line. A rule may follow that `{` on the same line. The block's closing `}` must start a line, since anywhere else it's the `endpolygon` command. Text after it, other than a comment, is an error.
+Line breaks aren't allowed inside the parameter list of a rule or `query`, right after `->`, inside a `{ }` polygon outside such a block, or at the top level of a parameter's value or repeat count. A `grow` or `draw` keyword and its `{` share a line. A rule may follow that `{` on the same line. The block's closing `}` must start a line, since anywhere else it's the `endpolygon` command. Text after it, other than a comment, is an error.
 
 ### Keywords and names
 
 Statement keywords are recognised only at the start of a statement and aren't reserved elsewhere: `lsystem credit param pose shape structure macro axiom grow draw generations angle thickness size step seed bonebudget`.
 
-Command words are the names and single-letter glyphs in the [command table](#commands). Reserved words are `repeat mirror socket bone merge attr grows nogrowth fk ik pole aim query`, with the operators `and or not` treated alike except where noted. Readable settings are `generations angle thickness seed`. Function names aren't reserved.
+`query` is a statement keyword too, and is also reserved.
+
+Command words are the names and single-letter glyphs in the [command table](#commands). Reserved words are `repeat mirror socket bone merge attr grows nogrowth fk ik pole aim query`, with the operators `and or not` treated alike. Readable settings are `generations angle thickness seed`. Function names aren't reserved.
 
 | Where a name appears | Command word | Reserved word | `and or not` | Readable setting |
 |---|---|---|---|---|
-| Parameter, macro, rule parameter | Code 10 | Code 11 | Code 11 | Code 11 |
-| `socket` name | Code 10 | Code 11 | Accepted | Accepted |
+| Parameter, macro, rule parameter, `query` name or parameter | Code 10 | Code 11 | Code 11 | Code 11 |
+| `socket` name | Code 10 | Code 11 | Code 11 | Accepted |
 | Item in a body | Is the command | Its own construct, else code 11 | Code 11 | Module |
 | `grow` left side, no parameters | Rule on the command | Code 11 | Code 11 | Module |
 | `grow` left side, with parameters | Code 10 | Code 11 | Code 11 | Module |
 | `draw` left side | Code 10 | Code 11 | Code 11 | Module |
 | `attr` name, `lsystem` name | Accepted | Accepted | Accepted | Accepted |
 
-`fk`, `ik`, `pole`, `aim` and `query` are reserved for constructs that are not available yet. Rig hints and environment queries are errors today, code 11.
+`fk`, `ik`, `pole` and `aim` are reserved for rig hints, which are not available yet: using one is code 11. `query` only starts a [query declaration](#environment-queries).
 
 ## Grammar
 
@@ -78,7 +80,7 @@ glyph        = "+" | "-" | "&" | "^" | "<" | ">" | "%" | "|" | "~" | "$" | "!" |
              | "'" | '"' | "[" | "]" | "{" | "}" | "." ;
 
 file         = { statement } ;
-statement    = lsystem | credit | setting | parameter | macro | axiom | block ;
+statement    = lsystem | credit | setting | parameter | macro | query | axiom | block ;
 lsystem      = "lsystem" , word ;
 credit       = "credit" , string ;
 setting      = setting-name , setting-value ;
@@ -88,6 +90,7 @@ unit         = "%" | "cm" ;
 parameter    = [ tier ] , "param" , word , "=" , expression ;
 tier         = "pose" | "shape" | "structure" ;
 macro        = "macro" , word , "=" , body ;
+query        = "query" , word , [ formals ] ;
 axiom        = "axiom" , body ;
 block        = ( "grow" | "draw" ) , "{" , { rule } , "}" ;
 
@@ -157,7 +160,7 @@ Every value is an IEEE 754 double. There are no other types. Comparisons and log
 | `max(a, b)` | `b` if `a < b`, else `a` |
 | `clamp(x, low, high)` | `min(max(x, low), high)` |
 | `lerp(a, b, t)` | `a + (b - a) * t` |
-| `pow(a, b)` | Same as `a ^ b` |
+| `pow(a, b)` | Same value as `a ^ b`, but not allowed with [pose parameters](#parameters-and-tiers) |
 | `exp(x)` `log(x)` | Base e |
 | `sin(d)` `cos(d)` `tan(d)` | Argument in degrees |
 | `asin(x)` `acos(x)` `atan(x)` | Result in degrees |
@@ -178,14 +181,7 @@ An expression may read:
 
 Rule parameters hide parameters of the same name. Readable settings give their value after build overrides. `size`, `step` and `bonebudget` can't be read, so they're available as parameter names. An unstated setting reads its default.
 
-**Non-finite values.** Only the final value of an expression is checked, so `if(1, 50, 1 / 0)` is 50 with no warning.
-
-| Where the final value isn't finite | Result | Diagnostic |
-|---|---|---|
-| Condition, weight, argument, `attr` value | 0 | Code 23, once per expression, at the first operand in evaluation order |
-| Parameter's value | 0 | None |
-| Repeat count, infinite | Work budget reached; nothing is built | None |
-| Repeat count, NaN | No copies | None |
+**Non-finite values.** Only the final value of an expression is checked, so `if(1, 50, 1 / 0)` is 50 with no warning. A final value that isn't finite, in a condition, weight, argument, `attr` value, parameter's value or repeat count, becomes 0 and gives code 23, once per expression, at the start of the expression. So a repeat count that isn't finite gives no copies.
 
 A weight is only evaluated if its rule has more than one alternative.
 
@@ -243,7 +239,7 @@ A setting's value is a literal, not an expression. Stating one twice is code 13.
 |---|---|---|---|---|
 | `generations` | ≥ 0, fractional allowed | | 4 | Yes |
 | `angle` | Any, degrees | | 25 | Yes |
-| `thickness` | ≥ 0, percent of segment length | `%` optional | 50 | Yes |
+| `thickness` | Any, percent of segment length | `%` optional | 50 | Yes |
 | `size` | > 0 | `cm` optional | From the build | Yes |
 | `step` | > 0 | `cm` optional | From the build | Yes |
 | `seed` | Whole, 0 to 4294967295 | | From the build | Yes |
@@ -260,24 +256,25 @@ A setting's value is a literal, not an expression. Stating one twice is code 13.
 | Tier | Meaning |
 |---|---|
 | `pose` | Only rotates bones. Restricted, below |
-| `shape` | Meant to change geometry but not the bone tree |
+| `shape` | Changes geometry but not the bone tree. Restricted, below |
 | `structure` | Meant to change the bone tree |
 | None | No stated intent |
 
-Only `pose` is enforced. `shape`, `structure` and untiered parameters are all treated alike, so nothing stops a `shape` parameter changing the bone tree.
+`structure` and untiered parameters are treated alike, except that an untiered parameter whose value reads a shape-restricted parameter becomes shape-restricted itself. Shape-restricted means a `shape` parameter, such an untiered parameter, or a rule parameter that is passed one.
 
-| Construct | `pose` | Other tiers |
-|---|---|---|
-| Argument of `+ - & ^ < > ~ t : ;` | Yes | Yes |
-| Argument of any other command | No | Yes |
-| Module argument | Yes; that rule parameter becomes pose-restricted, transitively | Yes |
-| Condition, weight, repeat count, `attr` value | No | Yes |
-| Value of a `pose` parameter | Yes | Yes |
-| Value of another parameter | No | Yes |
+| Construct | `pose` | Shape-restricted | Other |
+|---|---|---|---|
+| Argument of `+ - & ^ < > ~ t : ;` | Yes | Yes | Yes |
+| Argument of any other command, `attr` value | No | Yes | Yes |
+| Module argument | Yes; that rule parameter becomes pose-restricted, transitively | Yes; that rule parameter becomes shape-restricted, transitively | Yes |
+| Condition, weight, repeat count | No | No | Yes |
+| Value of a `pose` parameter | Yes | Yes | Yes |
+| Value of a `shape` or untiered parameter | No | Yes | Yes |
+| Value of a `structure` parameter | No | No | Yes |
 
-An expression that reads a pose parameter or pose-restricted rule parameter, and every `pose` parameter's own value, may contain only `+ - * /`, negate, `^`, and `abs min max clamp lerp sqrt pow sin cos tan`.
+An expression that reads a pose parameter or pose-restricted rule parameter, and every `pose` parameter's own value, may contain only `+ - * /`, negate, `^`, and `abs min max clamp lerp sqrt sin cos tan`.
 
-All violations are code 15. A use in the wrong place reports the name, and a disallowed operator or function reports the operator or function, so one expression may give several.
+Pose violations are code 15. A use in the wrong place reports the name, and a disallowed operator or function reports the operator or function, so one expression may give several. Shape violations are code 25, once per expression, at the first shape-restricted name in it.
 
 ## Rewriting
 
@@ -291,9 +288,9 @@ The commands in a body are items just like modules, and can be rewritten. An ite
 
 Rules for one left side are tried in file order, across all `grow` blocks. The first with no condition, or whose condition is non-zero, applies.
 
-Code 14 applies if a module's rules, in `grow` and `draw`, have different parameter counts, or if a use differs from them. A module with no rules accepts any number of arguments at each use. Module arguments are evaluated when the replacement is written, reading the parameters of the module being replaced. In `grow` these are the only inputs: no surrounding items are visible.
+Code 14 applies if a module's rules, in `grow` and `draw`, have different parameter counts, or if a use differs from them or from its `query` declaration. A module with no rules or declaration accepts any number of arguments at each use. Module arguments are evaluated when the replacement is written, reading the parameters of the module being replaced. In `grow` these are the only inputs: no surrounding items are visible.
 
-A rule on a command matches it with or without an argument. If the command had one, it moves to the last item of the replacement when that is a command that accepts an argument and has none. Otherwise it is dropped.
+A rule on a command matches it with or without an argument. If the command had one, it moves to the last item of the replacement when that is a command that accepts an argument and has none. Otherwise it is dropped, and it is always dropped in the extra pass for a [marked](#growth-marking) rule.
 
 ### Alternative selection
 
@@ -327,7 +324,20 @@ axiom mature F F
 axiom Start() F
 ```
 
-The first item of an axiom is taken as its name if it's a module with no argument list, isn't a left side of any rule, isn't a macro, and at least one item follows. Otherwise the axiom is unnamed, and `A()` is how to force a module. Duplicate names and multiple unnamed axioms are code 13. A build names one axiom, and an unknown name is code 18. With no name, the unnamed axiom is used, else the first.
+The first item of an axiom is taken as its name if it's a module with no argument list, isn't a left side of any rule, isn't a macro or query module, and at least one item follows. Otherwise the axiom is unnamed, and `A()` is how to force a module. Duplicate names and multiple unnamed axioms are code 13. A build names one axiom, and an unknown name is code 18. With no name, the unnamed axiom is used, else the first.
+
+### Environment queries
+
+```text
+query Light(amount)
+axiom Light(0) F
+```
+
+`query Name(a, b)` declares a query module and its parameter names; `query Name` declares one with none. The name is checked like a macro's: a command word is code 10, a reserved word or readable setting is code 11, and reusing a macro's or another query's name is code 13. Its rules, in `grow` and `draw`, and every use must have the declared number of parameters (code 14). Otherwise it's an ordinary module, and a build without an environment treats it as one.
+
+A build may be given an environment by the caller. After the axiom and after each generation, the last one included, the environment is shown the generation, the bone tree drawn so far, and every query module with its arguments and the turtle's position, frame and bone after drawing it. It may set query module arguments, which must be finite, for the next generation's rules, and it may prune bones. An environment that changes nothing gives the same output as a build without one, unless a budget is reached.
+
+Pruning a bone removes it and its descendants from that step on, and nothing grows from them. The modules on the pruned branch stop growing and are no longer query modules, but stay in the production and keep the draw commands they had when pruned, whatever later random numbers would choose. The remaining bones keep the names they would have had if the pruned bones were still drawn.
 
 ## Drawing
 
@@ -359,7 +369,7 @@ The stack has no limit. A `[` left open at the end is not reported.
 
 ### Bones
 
-Each `F` or `Z` adds a bone from the turtle's position to the new position, with radius `0.5 × length × thickness`, the caller's minimum thickness also applying, and parent the current bone. It becomes the current bone. `f`, `z`, `g` move without changing the current bone, but break the chain.
+Each `F` or `Z` adds a bone from the turtle's position to the new position, with radius `0.5 × length × thickness`, or 0 if that is negative, the caller's minimum thickness also applying, and parent the current bone. It becomes the current bone. `f`, `z`, `g` move without changing the current bone, but break the chain.
 
 While merging, if a current bone exists and the chain isn't broken, a segment instead extends the current bone to the new end, recalculating its frame and radius. This applies to the bone current at the time, including the parent bone right after a `[`. A later `]` still returns the turtle to where it was, which can leave a bone extending past its child's start.
 
@@ -388,11 +398,11 @@ The caller sets budgets. Reaching one sets a flag in the result. It isn't a diag
 | Budget | Default | Flag | When reached |
 |---|---|---|---|
 | Production | 2,000,000 items | 2 | Axiom: truncated. Rewriting: stops mid-pass and keeps the partial production. Draw rules: stops adding commands. Whatever was reached is drawn |
-| Work | 16,000,000 units | 16 | Expansion of macros, repeat and mirror: nothing is built. Axiom: nothing is drawn. Rewriting: stops and keeps the last complete generation. Draw rules: stops adding commands. Attributes: bones and surface are kept, with no attributes |
+| Work | 16,000,000 units | 16 | Compiling, including expansion of macros, repeat and mirror: nothing is built. Axiom, if it and its drawing don't fit: nothing is built. Rewriting: stops and keeps the last complete generation, which is drawn in full. Environment query: not made; the build stops with the production it has. Attributes: bones and surface are kept, with no attributes |
 | Bones | No limit | 4 | Drawing stops; bones so far are kept. `bonebudget` can only lower it |
 | Vertices | No limit | 32 | Bones are kept; the surface is left incomplete |
 
-A work unit is an implementation detail, roughly one item or expression step. Rewriting's work count includes expansion, while draw rule expansion counts separately. Other result flags: 1 for errors, in which case nothing is built, and 8 for cancellation.
+A work unit is an implementation detail, roughly one item or expression step. The work budget is one account: compiling, rewriting, each environment query, and drawing all spend from it. Rewriting keeps back what drawing its production can cost, which is how reaching the budget still draws the last complete generation. An environment query costs its number of query modules, plus 64, plus drawing the tree it shows. Other result flags: 1 for errors, in which case nothing is built, and 8 for cancellation.
 
 ## Determinism
 
@@ -402,7 +412,7 @@ A work unit is an implementation detail, roughly one item or expression step. Re
 
 ## Diagnostics
 
-A diagnostic has a severity, a numeric code, a line and a column. It has no message text. Errors stop the build. Parsing continues after an error, at the next line, and the failed statement is dropped, so later diagnostics may be consequences of it: in particular, a failed `axiom` line gives code 4 at line 1, column 1, and a duplicate macro also gives code 16.
+A diagnostic has a severity, a numeric code, a line and a column. It has no message text. Errors stop the build. Parsing continues after an error, at the next line, and the failed statement is dropped, so later diagnostics may be consequences of it: for example, every use of a parameter whose line failed is code 12. A failed `axiom` line doesn't also give code 4.
 
 | Code | Label | Severity | Meaning | Position |
 |---|---|---|---|---|
@@ -418,19 +428,21 @@ A diagnostic has a severity, a numeric code, a line and a column. It has no mess
 | 10 | Command used as name | Error | A command word where a name is required; see [names](#keywords-and-names) | The name |
 | 11 | Reserved name | Error | A reserved word or readable setting where a name is required, or an unavailable construct | The word |
 | 12 | Unknown name | Error | An expression reads an undeclared name, or calls an unknown function | The name |
-| 13 | Duplicate name | Error | Setting, parameter, macro, axiom or rule parameter declared twice | The second one |
+| 13 | Duplicate name | Error | Setting, parameter, macro, query, axiom or rule parameter declared twice | The second one |
 | 14 | Argument count | Error | Wrong number of arguments to a command, function, macro, `attr` or module | The use |
 | 15 | Pose parameter | Error | A pose restriction was broken | The name or operator |
-| 16 | Macro cycle | Error | Macro takes part in a cycle | Each macro statement |
+| 16 | Macro cycle | Error | Macro takes part in a cycle | Each macro statement in it |
 | 17 | Module in draw rule | Error | Module in a `draw` body, directly or through a macro | The use |
 | 18 | Unknown axiom | Error | The build named an axiom the file doesn't have | 1:1 |
-| 19 | Segment replaced by several | Warning | A `grow` rule on `F` or `Z` with more than one `F` or `Z` written directly in one alternative. Not raised for copies from `repeat` or a macro | The rule |
-| 20 | Unreachable rule | Warning | A rule after an unconditional rule on the same left side, in the same block | The rule |
+| 19 | Segment replaced by several | Warning | A `grow` rule on `F` or `Z` with more than one `F` or `Z` in one alternative, counting copies from `repeat` and `mirror` and the contents of macros. Repeat counts use the grammar's own settings and parameters, not build overrides | The rule |
+| 20 | Unreachable rule | Warning | A rule after an unconditional rule on the same left side, in the same block or an earlier block of the same kind, `grow` or `draw` | The rule |
 | 21 | Not constant | Error | `rand` in a parameter's value or a repeat count | The `rand` |
 | 22 | Size and step | Error | Both are stated | The later one |
-| 23 | Non-finite value | Warning | See [non-finite values](#expression-evaluation) | First operand in evaluation order |
+| 23 | Non-finite value | Warning | See [non-finite values](#expression-evaluation) | Start of the expression |
+| 24 | Not convertible | Error | Converting `.ls` text only: the file holds something this format can't express | The offending text, by line and column in the `.ls` file |
+| 25 | Shape parameter | Error | A shape restriction was broken; see [tiers](#parameters-and-tiers) | The name |
 
-Codes 6, 7 and 8 come from drawing, have line and column 0, and instead carry a production position: the index of the command in the list after draw rules are expanded.
+Codes 6, 7 and 8 come from drawing, have line and column 0, and instead carry a production position: the index, in the production after rewriting, of the module whose commands include the one that caused it.
 
 ## Round trip and serialisation
 
@@ -452,4 +464,4 @@ Canonical form:
 
 ## Conversion from `.ls`
 
-Legacy `.ls` files of Lparser, by Laurens Lapré, are specified to convert to this format, with header numbers becoming `generations`, `angle` and `thickness`, symbols becoming single-character modules, each rule becoming a `grow` rule, a symbol with no rule getting an empty replacement, growth marking written with `grows` and `nogrowth` where it differs, comments kept, and a generated seed. The result is specified to build the same production and bone tree. This conversion is still being built, so this section describes the intent, and has not been checked against an implementation.
+Legacy `.ls` files of Lparser, by Laurens Lapré, are specified to convert to this format, with header numbers becoming `generations`, `angle` and `thickness`, symbols becoming single-character modules, each rule becoming a `grow` rule, a symbol with no rule getting an empty replacement, growth marking written with `grows` and `nogrowth` where it differs, comments kept, and a generated seed. The result is specified to build the same production and bone tree. A file holding something this format can't express is code 24, and gives no grammar. This conversion is still being built, so this section describes the intent. Apart from code 24, it has not been checked against an implementation.

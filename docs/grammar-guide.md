@@ -75,7 +75,7 @@ grow {
 - One statement per line. A comment runs from `#` to the end of the line.
 - The closing `}` of a `grow` or `draw` block goes on its own line. The opening `{` goes on the same line as `grow` or `draw`.
 - A name uses letters, digits and `_`, doesn't start with a digit, and is case sensitive: `Left` is your own word, `left` is a turtle command.
-- Save as UTF-8 without a byte order mark.
+- Save as UTF-8. A byte order mark at the start is fine.
 
 Two spacing traps are worth learning now:
 
@@ -288,7 +288,7 @@ grow {
 }
 ```
 
-Only `pose` is checked. Keep `shape` parameters out of conditions, repeat counts and weights yourself, because using them there changes the skeleton.
+Shape parameters are checked too, because they mustn't change the skeleton. Using one in a condition, a weight, a repeat count or a `structure` parameter's value is an error. The same goes for a plain `param` worked out from one, and for a word's value that received one.
 
 A parameter's value can be a calculation that reads earlier parameters and settings, but not `rand`. Parameters can't be named after settings Cambriana lets you read (`generations`, `angle`, `thickness`, `seed`), commands (including the single letters `F f Z z g t c`), or reserved words.
 
@@ -340,7 +340,7 @@ axiom sapling F
 axiom mature  F F F
 ```
 
-The first word after `axiom` counts as a name if it isn't a command, a macro or a word with a rule, and something follows it. This means a misspelt first word silently becomes a name. `A()` forces it to be a word instead.
+The first word after `axiom` counts as a name if it isn't a command, a macro, a query or a word with a rule, and something follows it. This means a misspelt first word silently becomes a name. `A()` forces it to be a word instead.
 
 ```text
 axiom Start() F
@@ -374,23 +374,42 @@ credit "after a tree by a friend"
 axiom F
 ```
 
+**Queries** declare a word whose values something outside the grammar can change between generations, such as how much light reaches a branch. `query Light(amount)` declares `Light` with one value. When nothing answers, it behaves like any other word. `.lsys` files can't be used in Unreal yet, so nothing answers queries there yet.
+
+```text
+generations 3
+query Light(amount)
+axiom Light(1)
+
+grow {
+    Light(amount) -> F Light(amount)
+}
+```
+
 ## Not available yet
 
-Rig hints (`fk`, `ik`, `pole`, `aim`) and environment queries (`query`) are planned. Their names are reserved, and using them today is an error.
+Rig hints (`fk`, `ik`, `pole`, `aim`) are planned. Their names are reserved, and using them today is an error.
 
 ```text
 axiom F ik(foot)
 ```
 
 > **Error** line 1, column 9: reserved name.
->
-> **Error** line 1, column 1: missing axiom.
 
 ## Reading errors
 
 Each problem has a severity, a kind, a line and a column. Lines and columns count from 1, and each character counts as one column, including a tab. Errors stop the build. Warnings don't. The kinds shown here are descriptions, and the wording in Unreal may differ. A *module* is the formal name for a word of your own.
 
-A broken line is dropped, which can cause knock-on errors. In the example above the `axiom` line was dropped, so a second error says there is no axiom, at line 1, column 1. **Fix the first error on the list first, and treat `missing axiom` as a sign your axiom line has another problem.**
+A broken line is dropped, which can cause knock-on errors. Here the `param` line ends in the middle of a calculation, so `length` is never declared, and its use is a second error. **Fix the first error on the list first.**
+
+```text
+param length = 50 +
+axiom F(length)
+```
+
+> **Error** line 1, column 20: syntax error.
+>
+> **Error** line 2, column 9: unknown name.
 
 A space before an argument. The column points at the `(`.
 
@@ -399,8 +418,6 @@ axiom F (50)
 ```
 
 > **Error** line 1, column 9: syntax error.
->
-> **Error** line 1, column 1: missing axiom.
 
 A `}` at the end of a rule line draws as the end of a polygon, so the block never closes. The error is at the end of the file.
 
@@ -479,6 +496,15 @@ axiom +(floor(bend)) F
 
 > **Error** line 2, column 9: pose parameter misuse.
 
+Using a shape parameter where it would change the skeleton, here a repeat count.
+
+```text
+shape param count = 3
+axiom repeat count { F }
+```
+
+> **Error** line 2, column 14: shape parameter misuse.
+
 Using `rand` where a fixed value is needed.
 
 ```text
@@ -540,7 +566,7 @@ grow {
 
 > **Warning** line 4, column 5: unreachable rule.
 
-A calculation with no valid answer, such as dividing by zero, uses 0 instead. This is a warning, reported at the first number or name in the calculation, once per expression. In a parameter's value it becomes 0 with no warning. In a repeat count, an endless count stops the build at its work limit and draws nothing.
+A calculation with no valid answer, such as dividing by zero, uses 0 instead. This is a warning, reported at the start of the calculation, once per calculation. It applies everywhere, including a parameter's value, and a repeat count with no valid answer makes no copies.
 
 ```text
 axiom F(1 / 0) F
@@ -615,7 +641,7 @@ These names and single letters can't be used for your own words in `draw` rules,
 |---|---|---|
 | `generations` | 0 or more, may be fractional | 4 |
 | `angle` | Degrees, may be negative | 25 |
-| `thickness` | 0 or more, optional `%` directly after | 50% |
+| `thickness` | Any number, optional `%` directly after; below 0 draws bones as thin as possible | 50% |
 | `size` | Above 0, optional `cm` directly after | From Unreal |
 | `step` | Above 0, optional `cm` directly after | From Unreal |
 | `seed` | Whole number, 0 to 4294967295 | From Unreal |
@@ -626,9 +652,9 @@ These names and single letters can't be used for your own words in `draw` rules,
 | Declaration | Tier | Allowed in |
 |---|---|---|
 | `pose param` | Pose | Rotation commands and word values, as below |
-| `shape param` | Shape | Anywhere; keep out of conditions, repeats and weights |
+| `shape param` | Shape | Anywhere except conditions, weights, repeat counts and `structure` parameter values |
 | `structure param` | Structure | Anywhere |
-| `param` | None | Anywhere |
+| `param` | None | Anywhere; worked out from a shape parameter, as for `shape param` |
 
 ### Operators and functions
 
@@ -664,7 +690,9 @@ Tightest first:
 An expression using a pose parameter, and a pose parameter's own value, may contain only:
 
 - `+ - * /`, negative, and power `^`
-- `abs min max clamp lerp sqrt pow sin cos tan`
+- `abs min max clamp lerp sqrt sin cos tan`
+
+`pow` isn't allowed, so write `a ^ b` instead.
 
 A pose parameter may appear only in the arguments of `+ - & ^ < > ~ t : ;`, in the value of another pose parameter, and in a word's value. A word's value that received one carries the same limits. It's an error in any other command, a condition, a weight, a repeat count, an `attr` value, or a parameter of another tier.
 
