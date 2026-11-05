@@ -75,6 +75,7 @@ Layout `[Proposed — unconfirmed]`:
 | `Source/*/Private/Tests/` | Automation tests, named `Cambriana.*` |
 | `Source/Cambriana/Private/Tests/Fixtures/` | Byte-exact legacy `.ls` fixtures (`sk.ls`, `TREE11.LS`), kept out of line-ending conversion by `.gitattributes` `[Proposed — unconfirmed]` |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
+| `docs/grammar-guide.md`, `docs/grammar-spec.md` | `.lsys` guide for grammar authors and formal specification; update with the format |
 | `scripts/New-BaseProject.ps1` | Creates the base project |
 | `scripts/Test-NoExperimentalDependencies.ps1` | ATS-05 check; fixture tests in `scripts/tests/` |
 
