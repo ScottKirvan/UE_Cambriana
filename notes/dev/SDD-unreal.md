@@ -31,6 +31,8 @@ display baked results.
   `.ls` files are converted on import.
 - The grammar asset stores the source file path and uses Unreal's reimport mechanism when
   the file changes. Reimporting a `.ls` file replaces the grammar text with a new conversion.
+- A `.ls` file the converter rejects shows the error with its line and column, and no asset
+  is created.
 - Export writes the grammar asset's text to a file.
 
 ## Grammar asset editor
