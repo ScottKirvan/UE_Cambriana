@@ -7,6 +7,12 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
+      {
+        text: 'Grammar',
+        items: [
+          { text: 'Syntax Guide', link: '/grammar-guide' }
+        ]
+      },
       { text: 'GitHub', link: 'https://github.com/ScottKirvan/UE_Cambriana' }
     ],
     socialLinks: [
