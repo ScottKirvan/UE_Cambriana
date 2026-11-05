@@ -570,6 +570,8 @@ The converted grammar is meant to build the same bone tree as the original file.
 
 ## Reference
 
+The formal definition of the format is in the [Grammar Format Specification](./grammar-spec).
+
 ### Turtle command reference
 
 An argument, where allowed, replaces the default. Steps are percentages of the starting step, angles are degrees.

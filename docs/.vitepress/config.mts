@@ -10,7 +10,8 @@ export default defineConfig({
       {
         text: 'Grammar',
         items: [
-          { text: 'Syntax Guide', link: '/grammar-guide' }
+          { text: 'Syntax Guide', link: '/grammar-guide' },
+          { text: 'Format Specification', link: '/grammar-spec' }
         ]
       },
       { text: 'GitHub', link: 'https://github.com/ScottKirvan/UE_Cambriana' }
