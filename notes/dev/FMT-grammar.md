@@ -327,10 +327,14 @@ Legacy `.ls` files are converted to this format on import.
 - Pruning a bone: the modules on its branch (those that drew a removed bone or leave the turtle on one) stop growing and
   are no longer query modules. They stay in the production and count against budgets. Each later drawing draws them, so
   the turtle's random sequence is unchanged, and removes the bone and its descendants with their polygons and sockets.
+  Such a module keeps the draw commands it had when the bone was pruned, whatever later random numbers would choose.
+  `[Proposed — unconfirmed]`
   The remaining bones keep the names of the tree with the branch present, and their indices are compacted
   ([SDD-rigging.md](SDD-rigging.md), Pruning).
 - Pruning one bone of a module's draw rule keeps the module's bones that are not its descendants.
-- Each query counts its module count plus 64 against the work budget. With an environment that changes nothing, the
+- Each query counts its module count plus 64 against the work budget, and also pays for drawing the tree it shows. A
+  query that the budget cannot pay for is not made, and the build stops with the production it has.
+  `[Proposed — unconfirmed]` With an environment that changes nothing, the
   output is that of the unstepped build unless a budget is reached.
 
 ## Hand-written equivalent: `TREE11.LS`
