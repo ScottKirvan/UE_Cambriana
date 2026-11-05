@@ -26,7 +26,7 @@ display baked results.
 
 ## Source files
 
-- Import: `.lsys` (Cambriana grammar), `.ls` (Lparser) and `.l` with `.v` (cpfg) files, by drag
+- Import: `.lsys` (Cambriana grammar) and `.ls` (Lparser) files, by drag
   and drop and by the import dialog.
   `.ls` files are converted on import.
 - The grammar asset stores the source file path and uses Unreal's reimport mechanism when
