@@ -4,8 +4,8 @@ Requirements: [SRS.md](SRS.md) (FR-24).
 
 File extension `.lsys`.
 
-The Cambriana grammar format is Cambriana's own format, not a dialect of cpfg or
-any other existing format, with named settings and parameters, rule parameters and whitespace. It is the only format grammar assets hold; legacy `.ls` files are
+The Cambriana grammar format is Cambriana's own format, not a dialect of any
+other existing format, with named settings and parameters, rule parameters and whitespace. It is the only format grammar assets hold; legacy `.ls` files are
 converted to it on import.
 
 Open details: [TBD.md](TBD.md).
@@ -115,7 +115,7 @@ so every expansion of a rule carries them.
 - `pole` and `aim` targets are usually placed with moves inside a branch:
   `[ f(30) pole(knee) ]`.
 - Hint command names are reserved, as turtle command names are.
-- Conversion from the legacy dialect and from cpfg produces no hints.
+- Conversion from the legacy dialect produces no hints.
 
 ```
 draw {
@@ -258,23 +258,6 @@ Legacy `.ls` files are converted to this format on import.
   `nogrowth` flag.
 - Comments are kept.
 - The source file has no seed; the grammar asset gets a generated one.
-
-## Conversion from cpfg
-
-cpfg models are converted to this format on import.
-
-- Input: the `.l` file and its `.v` view file. The `.v` file supplies defaults the `.l` file
-  relies on (angle increment, line width, colour increments).
-- The importer applies a C preprocessor subset (`#define`, `#include`, `#if`, `#ifdef`,
-  `#else`, `#endif`) before parsing, as cpfg does.
-- cpfg turtle symbols are mapped to this format's commands; productions map to `grow`
-  rules, homomorphism productions to `draw` rules, contexts, conditions and probabilities
-  directly.
-- Decomposition, sub-L-systems, global statement blocks, arrays and environment-query
-  modules: mapping **Open**.
-- L+C models are not convertible.
-- Constructs that cannot be converted are reported with line and column; nothing is dropped
-  silently.
 
 ## Hand-written equivalent: `TREE11.LS`
 
