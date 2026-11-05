@@ -92,7 +92,7 @@ grow {
 | Attributes | `attr(name, value)` |
 | Symmetry | `mirror { ... }` |
 | Credit | `credit "..."`; stored on the asset |
-| Environment query | Reserved: `query` modules whose parameters are set by an environment query between generations (AR-02) |
+| Environment query | `query Light(amount)`: `query` modules whose parameters are set by an environment query between generations (AR-02); see Environment query |
 
 The parser rejects a `pose` parameter used outside rotation commands.
 
@@ -174,6 +174,7 @@ line and column.
   `endpolygon` spells the name. Inside a `repeat` or `mirror` block the serialiser writes `polygon` and
   `endpolygon` as names in either style.
 - `#` comments are kept in the model, attached to the statement or rule after them, or on the same line.
+- `thickness` may be negative. `[Proposed — unconfirmed]`
 - Unstated settings default to generations 4, angle 25, thickness 50%. `size` and `step` together are an
   error. `seed` is a whole number from 0 to 4294967295.
 
@@ -189,8 +190,8 @@ expression; a negative one counts as 0; if all are 0 the first alternative is us
 - A command name or glyph is an error, with line and column, as a `draw` rule's left side, as a
   parametric left side (`draw(x) ->`), and as a macro, socket, `param` or module parameter name.
 - Reserved in the same places, and as a module anywhere: `repeat mirror socket bone merge attr grows
-  nogrowth fk ik pole aim query and or not`. Rig hints and `query` modules are errors until they are
-  implemented.
+  nogrowth fk ik pole aim query and or not`. Rig hints are errors until they are implemented. `query` starts only a
+  declaration.
 
 ### Rules
 
@@ -198,14 +199,16 @@ expression; a negative one counts as 0; if all are 0 the first alternative is us
 - The first rule in file order whose condition holds applies. A module with no matching `grow` rule stays
   as it is and keeps its generation.
 - A `grow` rule on a command matches it with or without an argument. An argument moves to the last item
-  of the replacement if that is a command taking an argument and having none; otherwise it is dropped.
+  of the replacement if that is a command taking an argument and having none; otherwise it is dropped. In the
+  generation that wraps the replacement of a rule marked for fractional growth, it is dropped. `[Proposed — unconfirmed]`
 - A `draw` rule's body holds no modules. Its commands take the generation of the module drawn.
 - A warning with line and column: a rule after an unconditional rule for the same module; a rule on `F`
   or `Z` whose replacement has several segments.
 
 ### `axiom` names
 
-- The first word after `axiom` is a name if it is not a command, not a rule's left side and not a macro,
+- The first word after `axiom` is a name if it is not a command, not a rule's left side, not a macro and not a
+  `query` module,
   has no argument list, and something follows it. `A()` forces a module.
 - A name that is also a rule's left side is an error. Two unnamed axioms or two of one name are errors.
 - A build names an axiom; otherwise it uses the unnamed one, else the first.
@@ -258,6 +261,62 @@ Legacy `.ls` files are converted to this format on import.
   `nogrowth` flag.
 - Comments are kept.
 - The source file has no seed; the grammar asset gets a generated one.
+
+### Conversion details `[Proposed — unconfirmed]`
+
+- "The same production": every symbol the legacy turtle acts on, with its argument and generation, in order.
+  The legacy dialect's `production_length` and production position count characters and this format's count modules,
+  so they differ, and production and work budgets are reached at different points. A build that reaches a budget is
+  outside the identical-behaviour guarantee.
+- The header's numbers are written as read. A recursion that is not positive becomes `generations 0`; an infinite one the
+  largest finite number.
+- A letter or `_` becomes the module of that name. A `F Z f z g t c` letter or any other command glyph stays a command.
+  Any other symbol with a rule becomes `sym_XX`, XX its byte in upper-case hexadecimal.
+- A symbol with no rule that is a letter or `_` gets the rule `nogrowth X ->`. If the file has a rule for `_`, a symbol
+  with no rule outside the legacy built-in list gets `nogrowth X -> _`.
+- Any other symbol with no rule, which does nothing in every generation, is left out, except as the last symbol of a rule
+  on a command that reads an argument, where it stays so that the argument does not move to the command before it. An axiom
+  left with nothing is `axiom axiom_empty`, with the rule `nogrowth axiom_empty ->`.
+- Text is read as the legacy turtle reads it: a command that reads an argument, directly followed by `(`, takes
+  everything to the next `)`, and its value is written as a number. Every other character is a symbol, so `(30)` behind a
+  module or a command with no argument is three or four symbols that do nothing and are left out, and `(-30)` behind one
+  keeps the `-`.
+- Comments: a line the dialect ignores, text after the cut on a read line, a malformed rule and every line after `@` are
+  comments in the same order, with their `#` if they had one. Malformed rules also give the legacy warning.
+- Rules, including ones after the first for a symbol, stay in file order. A rule from the first `+` rule on that this
+  format would mark gets `nogrowth`. `grows` is never needed.
+- Diagnostics carry lines of the legacy text.
+- The file is not convertible, reported as an error with line and column and giving no grammar, when it holds:
+  - `@` as a symbol in the axiom or a replacement;
+  - an argument with no closing `)` in its axiom or replacement;
+  - an argument whose value is not finite, or changes when rewriting reaches its characters: one of them has a rule, or
+    has none and turning it into `_` changes the number (`1e2`);
+  - `angle` or `thickness` that is not finite;
+  - a `(` in a replacement with nothing before it, or behind a symbol that can later become a command reading an
+    argument or can disappear (`A(30)` with `A=+`);
+  - an argument on a command whose replacement chain can leave it behind a symbol that later reads it, or behind whatever
+    stands before a symbol that disappears, unless what stands before can never read it;
+  - an argument that can end up unread, including through a rule marked for fractional growth, if its text has a command
+    glyph or a character with a rule (`g(-5)` with `g=z`).
+
+## Environment query `[Proposed — unconfirmed]`
+
+- `query Light(amount, distance)` is a statement that declares a query module and its parameter names. `query Bare`
+  declares one with none. The name is checked like a macro's, and rules and uses agree with the declared count.
+- A query module is otherwise an ordinary module: it may have `grow` and `draw` rules and be used in macros and repeats.
+- Between generations, after the axiom and after the last generation too, the environment is given the generation, the
+  bone tree and every query module with its arguments and the turtle's position, frame and bone after drawing it.
+- The bone tree is at the build's step length and min thickness in Step mode, and at a 1 cm step with no min thickness in
+  Fit mode.
+- The environment sets query module arguments, which are finite, and prunes bones.
+- Pruning a bone: the modules on its branch (those that drew a removed bone or leave the turtle on one) stop growing and
+  are no longer query modules. They stay in the production and count against budgets. Each later drawing draws them, so
+  the turtle's random sequence is unchanged, and removes the bone and its descendants with their polygons and sockets.
+  The remaining bones keep the names of the tree with the branch present, and their indices are compacted
+  ([SDD-rigging.md](SDD-rigging.md), Pruning).
+- Pruning one bone of a module's draw rule keeps the module's bones that are not its descendants.
+- Each query counts its module count plus 64 against the work budget. With an environment that changes nothing, the
+  output is that of the unstepped build unless a budget is reached.
 
 ## Hand-written equivalent: `TREE11.LS`
 
