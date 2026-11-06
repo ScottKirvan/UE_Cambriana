@@ -55,8 +55,8 @@ Standalone asset editor, opened from the grammar asset.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
   size override, size mode and value; a grammar asset reference or inline grammar text.
   Inline `.ls` text is converted.
-- Until conversion exists (M2), inline text and grammar assets hold legacy `.ls` text, read
-  directly by the core. The interim grammar asset holds only that text and a seed; M2 adds
+- The interim grammar asset holds only grammar text and a seed. A new one holds the default
+  grammar as `.lsys` text; one holding legacy `.ls` text is read directly by the core. M2 adds
   import, conversion and the grammar editor, and moves stored text to the Cambriana grammar
   format.
 - The format of inline text and grammar asset text is detected from the text, with no

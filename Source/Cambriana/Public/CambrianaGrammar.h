@@ -5,7 +5,7 @@
 
 #include "CambrianaGrammar.generated.h"
 
-/** Interim grammar asset: legacy .ls text and a seed. */
+/** Interim grammar asset: grammar text (.lsys, or legacy .ls) and a seed. */
 UCLASS(BlueprintType)
 class CAMBRIANA_API UCambrianaGrammar : public UObject
 {
