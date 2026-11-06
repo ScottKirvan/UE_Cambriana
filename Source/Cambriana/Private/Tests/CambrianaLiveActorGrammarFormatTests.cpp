@@ -132,6 +132,29 @@ namespace
 	}
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysMatchesCoreTest,
+	"Cambriana.LiveActor.GrammarFormat.SkLsysEqualsCoreGrammarBuild",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorLsysMatchesCoreTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	const FString Text = LoadFixture(TEXT("sk.lsys"));
+	if (!TestFalse(TEXT("sk.lsys fixture loaded"), Text.IsEmpty()))
+	{
+		return false;
+	}
+	const FCoreOutput Core(ECoreEntry::Grammar, Text, 4321);
+	const ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), Text, 4321);
+	if (!TestTrue(TEXT("Core built"), Core.IsValid()) || !TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
+	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
+	ExpectMeshEqualsCore(*this, TEXT("sk.lsys"), ActorMeshOf(Actor), Core);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLegacyUnchangedTest,
 	"Cambriana.LiveActor.GrammarFormat.SkLsStillBuildsAsLegacy",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
