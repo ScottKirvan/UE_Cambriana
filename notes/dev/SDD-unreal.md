@@ -53,8 +53,8 @@ Standalone asset editor, opened from the grammar asset.
 
 - Dynamic-mesh actor. Rebuilds through the core on property change.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
-  size mode and value; a grammar asset reference or inline grammar text. Inline `.ls` text
-  is converted.
+  size override, size mode and value; a grammar asset reference or inline grammar text.
+  Inline `.ls` text is converted.
 - Until conversion exists (M2), inline text and grammar assets hold legacy `.ls` text, read
   directly by the core. The interim grammar asset holds only that text and a seed; M2 adds
   import, conversion and the grammar editor, and moves stored text to the Cambriana grammar
@@ -65,8 +65,12 @@ Standalone asset editor, opened from the grammar asset.
   or `-`, an optional `.`, then a digit. Otherwise it is `.lsys`, including empty text.
 - `.ls` text builds through `cambriana_build_legacy`; `.lsys` text through
   `cambriana_build_grammar` with the unnamed or first axiom. `[Proposed — unconfirmed]` For
-  `.lsys` text the actor's seed and size mode and value apply over the grammar's `seed` and
-  `size` or `step`. In either format, diagnostics are logged with their line and column, and
+  `.lsys` text the actor's seed applies over the grammar's `seed`. **Decided:** for `.lsys`
+  text the grammar's `size` or `step` applies unless the actor's size override is on, as with
+  the recursion, basic angle and thickness overrides; with the override on, the actor's size
+  mode and value apply. A grammar with neither builds at the core's default size. The
+  override is off by default. `[Proposed — unconfirmed]` `.ls` text always uses the actor's
+  size mode and value, whatever the override. In either format, diagnostics are logged with their line and column, and
   errors leave an empty mesh.
 - Dragging a grammar asset into a level spawns a live actor referencing it. A change to the
   grammar asset rebuilds every live actor referencing it.
