@@ -59,6 +59,15 @@ Standalone asset editor, opened from the grammar asset.
   directly by the core. The interim grammar asset holds only that text and a seed; M2 adds
   import, conversion and the grammar editor, and moves stored text to the Cambriana grammar
   format.
+- The format of inline text and grammar asset text is detected from the text, with no
+  setting. `[Proposed — unconfirmed]` The text is `.ls` if its first line that is neither
+  blank nor a `#` comment (leading whitespace ignored) starts with a number: an optional `+`
+  or `-`, an optional `.`, then a digit. Otherwise it is `.lsys`, including empty text.
+- `.ls` text builds through `cambriana_build_legacy`; `.lsys` text through
+  `cambriana_build_grammar` with the unnamed or first axiom. `[Proposed — unconfirmed]` For
+  `.lsys` text the actor's seed and size mode and value apply over the grammar's `seed` and
+  `size` or `step`. In either format, diagnostics are logged with their line and column, and
+  errors leave an empty mesh.
 - Dragging a grammar asset into a level spawns a live actor referencing it. A change to the
   grammar asset rebuilds every live actor referencing it.
 - No skeleton.
