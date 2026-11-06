@@ -10,6 +10,7 @@ public class CambrianaEditor : ModuleRules
 		{
 			"AssetDefinition",
 			"Cambriana",
+			"CambrianaCore",
 			"Core",
 			"CoreUObject",
 			"EditorFramework",
