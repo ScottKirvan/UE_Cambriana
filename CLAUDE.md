@@ -158,6 +158,22 @@ When a process mistake gets logged in `notes/dev/mistakes.md`, ask whether it's 
 missing test — a regression or acceptance test that would have caught it mechanically
 next time, not just a process note relying on memory.
 
+### Milestone gates
+
+A milestone's PR opens only after these steps, in order:
+
+1. **Code review.** A read-only reviewer agent reads every changed line, looking for defects,
+   dead or repeated code, over-long units and tests that can't fail.
+2. **Fixes.** Findings are fixed red/green. The failing test is committed on its own before the
+   fix, so the red step is in the history.
+3. **Test audit.** A read-only agent breaks the behaviour each acceptance test and each new or
+   changed test claims to check (mutation testing), and lists every test that still passes.
+4. **Test fixes.** Every surviving test is repaired the same way.
+
+Expected values come from the specs, legacy output or hand calculation. A value recorded from
+the code under test is a regression pin and is labelled as one: a passing pin is not evidence
+of correctness.
+
 ## No Shortcuts
 
 Nothing is deferred without explicit permission from the user. A known issue is still
