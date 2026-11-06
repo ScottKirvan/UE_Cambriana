@@ -29,6 +29,7 @@ display baked results.
 - Import: `.lsys` (Cambriana grammar) and `.ls` (Lparser) files, by drag
   and drop and by the import dialog.
   `.ls` files are converted on import.
+- A file's format is set by its extension alone: `.lsys` or `.ls`.
 - The grammar asset stores the source file path and uses Unreal's reimport mechanism when
   the file changes. Reimporting a `.ls` file replaces the grammar text with a new conversion.
 - A `.ls` file the converter rejects shows the error with its line and column, and no asset
