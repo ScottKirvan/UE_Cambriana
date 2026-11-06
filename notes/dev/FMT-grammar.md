@@ -174,9 +174,13 @@ line and column.
 
 - A statement or rule ends at the end of its line. A condition, and the argument list of a command,
   module or function, may span lines; a `repeat` or `mirror` block may span lines.
+- A `{ }` polygon may span lines; it builds what the same polygon on one line builds. `[Proposed — unconfirmed]`
 - Line breaks are also allowed before a rule's `:` and `->`, inside a weight, and inside parentheses in a parameter value
   or `repeat` count. A line break in the parameter list of a rule or `query` is an error. `[Proposed — unconfirmed]`
-- A `grow` or `draw` block's closing `}` starts its own line.
+- A `grow` or `draw` block's closing `}` starts its own line. A `}` closes the block only when no polygon, `repeat` or
+  `mirror` is open; otherwise it is `endpolygon` or the end of that `repeat` or `mirror`, even at the start of a line. A
+  polygon, `repeat` or `mirror` still open at the end of the text is an error, with line and column.
+  `[Proposed — unconfirmed]`
 - `(` is an argument list only directly after its command or module, with no space.
 - Commands with no argument: `. [ ] { } % | $`. Any other command takes at most one.
 - Empty parentheses on a command, `F()`, are an error. `[Proposed — unconfirmed]`
@@ -187,6 +191,10 @@ line and column.
 - `}` closes the innermost open `repeat`, `mirror` or `{`, and is otherwise `endpolygon`. A rule on
   `endpolygon` spells the name. Inside a `repeat` or `mirror` block the serialiser writes `polygon` and
   `endpolygon` as names in either style.
+- Only the glyph `{` opens a polygon that keeps the body open; the name `polygon` does not. A body may start a polygon
+  that a later rule ends by spelling it `polygon`. The serialiser writes a polygon on one line, and writes a `polygon`
+  with no `}` after it in its body as the name in either style; legacy conversion does the same.
+  `[Proposed — unconfirmed]`
 - `#` comments are kept in the model, attached to the statement or rule after them, or on the same line.
 - `thickness` may be negative. `[Proposed — unconfirmed]`
 - Unstated settings default to generations 4, angle 25, thickness 50%. `size` and `step` together are an
