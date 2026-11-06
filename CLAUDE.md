@@ -67,11 +67,11 @@ Layout `[Proposed — unconfirmed]`:
 | `Source/Cambriana/` | Runtime module |
 | `Source/Cambriana/Public/CambrianaBuild.h` | Generation seam `Cambriana::BuildMesh` (grammar text + settings + seed to mesh, material slot IDs and a build report with diagnostics and budget flags) and the preview palette; implemented in `Private/CambrianaBuild.cpp`, the only file that calls the core's build API. Empty grammar text builds nothing without calling the core; a grammar with errors builds an empty mesh `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Private/CambrianaBuildInternal.h` | Seam internals exposed to tests: core-availability gate (logs once), result-flag mapping, report logging to `LogCambriana` `[Proposed — unconfirmed]` |
-| `Source/Cambriana/Public/CambrianaGrammar.h` | Interim grammar asset (legacy `.ls` text and seed); broadcasts `OnGrammarChanged` after edits `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaGrammar.h` | Interim grammar asset (grammar text, `.lsys` or legacy `.ls`, and seed); broadcasts `OnGrammarChanged` after edits `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Public/CambrianaLiveActor.h` | Live actor; rebuilds in `OnConstruction` only when its build input differs from the last build (so moves do not rebuild), and whenever its grammar asset changes `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Public/CambrianaSeed.h` | Seed generation from the OS random source `[Proposed — unconfirmed]` |
 | `Source/CambrianaEditor/` | Editor module |
-| `Source/CambrianaEditor/Private/` | Grammar factory and asset definition, live actor factory (drag and drop), seed field with new-seed button `[Proposed — unconfirmed]` |
+| `Source/CambrianaEditor/Private/` | Grammar factory (new assets hold the default grammar as `.lsys` text) and asset definition, live actor factory (drag and drop), seed field with new-seed button `[Proposed — unconfirmed]` |
 | `Source/*/Private/Tests/` | Automation tests, named `Cambriana.*` |
 | `Source/Cambriana/Private/Tests/Fixtures/` | Byte-exact legacy `.ls` fixtures (`sk.ls`, `TREE11.LS`), kept out of line-ending conversion by `.gitattributes` `[Proposed — unconfirmed]` |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |

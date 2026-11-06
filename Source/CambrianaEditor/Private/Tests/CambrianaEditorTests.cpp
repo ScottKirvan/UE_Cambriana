@@ -78,7 +78,7 @@ bool FCambrianaGrammarFactoryNewAssetTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("New asset holds the default legacy grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
+	TestEqual(TEXT("New asset holds the default grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
 	TestNotEqual(TEXT("Two new assets get different seeds"), First->Seed, Second->Seed);
 	return true;
 }
