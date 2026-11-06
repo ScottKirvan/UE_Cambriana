@@ -177,4 +177,29 @@ bool FCambrianaLiveActorLegacyUnchangedTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysErrorsTest,
+	"Cambriana.LiveActor.GrammarFormat.LsysWithErrorsLeavesAnEmptyMeshAndLogsLineAndColumn",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorLsysErrorsTest::RunTest(const FString& Parameters)
+{
+	AddExpectedMessagePlain(TEXT("Grammar error at line 3, column 3: syntax error"), ELogVerbosity::Error);
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), LoadFixture(TEXT("sk.lsys")), 1);
+	TestTrue(TEXT("Valid grammar builds geometry"), ActorMeshOf(Actor).TriangleCount() > 0);
+
+	Actor->InlineGrammar = TEXT("axiom X\ngrow {\nX > F\n}\n");
+	Actor->Rebuild();
+	TestEqual(TEXT("No vertices"), ActorMeshOf(Actor).VertexCount(), 0);
+	TestEqual(TEXT("No triangles"), ActorMeshOf(Actor).TriangleCount(), 0);
+	const FCambrianaBuildReport& Report = Actor->GetLastBuildReport();
+	TestTrue(TEXT("The actor keeps the errors"), Report.bHasErrors);
+	const FCambrianaDiagnostic* Syntax = Report.Diagnostics.FindByPredicate([](const FCambrianaDiagnostic& Diagnostic)
+	{
+		return Diagnostic.Severity == ECambrianaDiagnosticSeverity::Error && Diagnostic.Line == 3 && Diagnostic.Column == 3;
+	});
+	TestNotNull(TEXT("The actor keeps the error at line 3, column 3"), Syntax);
+	return true;
+}
+
 #endif
