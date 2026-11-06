@@ -38,9 +38,21 @@ Each statement or rule ends at the end of its line, after an optional comment. L
 - inside any parentheses of an expression, a command's or module's arguments, or a weight
 - anywhere inside `attr( )`
 - between a rule's left side and `->`, including around its condition
-- between items while a `repeat` or `mirror` block is open
+- between items while a `repeat` or `mirror` block, or a `{ }` polygon, is open
 
-Line breaks aren't allowed inside the parameter list of a rule or `query`, right after `->`, inside a `{ }` polygon outside such a block, or at the top level of a parameter's value or repeat count. A `grow` or `draw` keyword and its `{` share a line. A rule may follow that `{` on the same line. The block's closing `}` must start a line, since anywhere else it's the `endpolygon` command. Text after it, other than a comment, is an error.
+Line breaks aren't allowed inside the parameter list of a rule or `query`, right after `->`, or at the top level of a parameter's value or repeat count. A `grow` or `draw` keyword and its `{` share a line. A rule may follow that `{` on the same line. The block's closing `}` must start a line, since anywhere else it's the `endpolygon` command. Even at the start of a line, a `}` closes the block only when no polygon, `repeat` or `mirror` is open. Otherwise it ends the innermost one, so this rule's polygon spans three lines and builds what `Leaf -> { + f - - f - - f }` builds:
+
+```text
+generations 1
+axiom F Leaf
+grow {
+    Leaf -> {
+        + f - - f - - f
+    }
+}
+```
+
+A polygon, `repeat` or `mirror` still open at the end of the file is code 9, at the end of the file. Only the glyph `{` keeps a body open. The name `polygon` doesn't, so a polygon that a later rule finishes is started with `polygon`. Text after the block's closing `}`, other than a comment, is an error.
 
 ### Keywords and names
 
@@ -111,6 +123,7 @@ mirror       = "mirror" , "{" , body , "}" ;
 socket       = "socket" , word ;
 attribute    = "attr" , "(" , word , "," , expression , ")" ;
 
+(* Precedence and associativity of binary-op and prefix-op follow the Operators table. *)
 expression   = operand , { binary-op , operand } ;
 operand      = { prefix-op } , primary ;
 primary      = number | word | call | "(" , expression , ")" ;
@@ -275,6 +288,15 @@ A setting's value is a literal, not an expression. Stating one twice is code 13.
 An expression that reads a pose parameter or pose-restricted rule parameter, and every `pose` parameter's own value, may contain only `+ - * /`, negate, `^`, and `abs min max clamp lerp sqrt sin cos tan`.
 
 Pose violations are code 15. A use in the wrong place reports the name, and a disallowed operator or function reports the operator or function, so one expression may give several. Shape violations are code 25, once per expression, at the first shape-restricted name in it.
+
+## Build overview
+
+A build runs four steps in order:
+
+1. **Axiom and parameters.** The axiom is chosen, every parameter's value is computed, and macros, `repeat` and `mirror` are expanded.
+2. **Grow.** `grow` rules rewrite the production for each [generation](#generations), with [growth marking](#growth-marking) in the extra pass of a fractional `generations`.
+3. **Draw.** One pass of [draw rules](#draw-rules) turns modules into commands. A word that has no `draw` rule and isn't a command draws nothing.
+4. **Turtle.** The turtle walks the commands and makes the bones, polygons and sockets, and from them the surface.
 
 ## Rewriting
 
@@ -450,7 +472,7 @@ A grammar parses into an editable model and serialises back to text, in one of t
 
 Kept: statement order, rule order, comments, tiers, growth flags, names, axiom names, `A()`, expression structure, and the choice of `grow` and `draw` blocks.
 
-Not kept: blank lines, indentation, spacing, line breaks inside expressions, repeat and mirror blocks, and unneeded parentheses.
+Not kept: blank lines, indentation, spacing, line breaks inside expressions, repeat and mirror blocks and polygons, and unneeded parentheses.
 
 Canonical form:
 
@@ -460,6 +482,7 @@ Canonical form:
 - Numbers in the shortest form that reads back as the same double
 - Units always written: `thickness 20` becomes `thickness 20%`, `size 100` becomes `size 100cm`
 - In either style, inside `repeat` or `mirror`, polygons are written `polygon` and `endpolygon`, and a rule on `endpolygon` spells its name
+- In either style, a polygon start with no `}` after it in the same body is written `polygon`
 - A comment on a line by itself stays before the statement or rule after it, and a same-line comment stays on that line. A comment on a continuation line, or on the line of a block's `{`, moves before the next statement, rule or closing `}`. Trailing blanks in a comment are removed
 
 ## Conversion from `.ls`
