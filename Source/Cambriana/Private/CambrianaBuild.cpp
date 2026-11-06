@@ -3,6 +3,7 @@
 #include "Algo/BinarySearch.h"
 #include "CambrianaBuildInternal.h"
 #include "CambrianaCoreLoader.h"
+#include "CambrianaGrammarFormat.h"
 #include "CambrianaModule.h"
 #include "DynamicMesh/DynamicMeshAttributeSet.h"
 #include "DynamicMesh/MeshNormals.h"
@@ -28,6 +29,23 @@ namespace
 		case CAMBRIANA_DIAGNOSTIC_UNMATCHED_POP: return ECambrianaDiagnosticCode::UnmatchedPop;
 		case CAMBRIANA_DIAGNOSTIC_UNMATCHED_POLYGON_END: return ECambrianaDiagnosticCode::UnmatchedPolygonEnd;
 		case CAMBRIANA_DIAGNOSTIC_UNCLOSED_POLYGON: return ECambrianaDiagnosticCode::UnclosedPolygon;
+		case CAMBRIANA_DIAGNOSTIC_SYNTAX: return ECambrianaDiagnosticCode::Syntax;
+		case CAMBRIANA_DIAGNOSTIC_COMMAND_USED_AS_NAME: return ECambrianaDiagnosticCode::CommandUsedAsName;
+		case CAMBRIANA_DIAGNOSTIC_RESERVED_NAME: return ECambrianaDiagnosticCode::ReservedName;
+		case CAMBRIANA_DIAGNOSTIC_UNKNOWN_NAME: return ECambrianaDiagnosticCode::UnknownName;
+		case CAMBRIANA_DIAGNOSTIC_DUPLICATE_NAME: return ECambrianaDiagnosticCode::DuplicateName;
+		case CAMBRIANA_DIAGNOSTIC_ARGUMENT_COUNT: return ECambrianaDiagnosticCode::ArgumentCount;
+		case CAMBRIANA_DIAGNOSTIC_POSE_PARAMETER: return ECambrianaDiagnosticCode::PoseParameter;
+		case CAMBRIANA_DIAGNOSTIC_MACRO_CYCLE: return ECambrianaDiagnosticCode::MacroCycle;
+		case CAMBRIANA_DIAGNOSTIC_MODULE_IN_DRAW_RULE: return ECambrianaDiagnosticCode::ModuleInDrawRule;
+		case CAMBRIANA_DIAGNOSTIC_UNKNOWN_AXIOM: return ECambrianaDiagnosticCode::UnknownAxiom;
+		case CAMBRIANA_DIAGNOSTIC_SEGMENT_REPLACED_BY_SEVERAL: return ECambrianaDiagnosticCode::SegmentReplacedBySeveral;
+		case CAMBRIANA_DIAGNOSTIC_UNREACHABLE_RULE: return ECambrianaDiagnosticCode::UnreachableRule;
+		case CAMBRIANA_DIAGNOSTIC_NOT_CONSTANT: return ECambrianaDiagnosticCode::NotConstant;
+		case CAMBRIANA_DIAGNOSTIC_SIZE_AND_STEP: return ECambrianaDiagnosticCode::SizeAndStep;
+		case CAMBRIANA_DIAGNOSTIC_NON_FINITE_VALUE: return ECambrianaDiagnosticCode::NonFiniteValue;
+		case CAMBRIANA_DIAGNOSTIC_NOT_CONVERTIBLE: return ECambrianaDiagnosticCode::NotConvertible;
+		case CAMBRIANA_DIAGNOSTIC_SHAPE_PARAMETER: return ECambrianaDiagnosticCode::ShapeParameter;
 		default: return ECambrianaDiagnosticCode::Unknown;
 		}
 	}
@@ -44,6 +62,23 @@ namespace
 		case ECambrianaDiagnosticCode::UnmatchedPop: return TEXT("unmatched ']'");
 		case ECambrianaDiagnosticCode::UnmatchedPolygonEnd: return TEXT("unmatched '}'");
 		case ECambrianaDiagnosticCode::UnclosedPolygon: return TEXT("unclosed polygon");
+		case ECambrianaDiagnosticCode::Syntax: return TEXT("syntax error");
+		case ECambrianaDiagnosticCode::CommandUsedAsName: return TEXT("command used as a name");
+		case ECambrianaDiagnosticCode::ReservedName: return TEXT("reserved name");
+		case ECambrianaDiagnosticCode::UnknownName: return TEXT("unknown name");
+		case ECambrianaDiagnosticCode::DuplicateName: return TEXT("duplicate name");
+		case ECambrianaDiagnosticCode::ArgumentCount: return TEXT("wrong number of arguments");
+		case ECambrianaDiagnosticCode::PoseParameter: return TEXT("invalid use of a pose parameter");
+		case ECambrianaDiagnosticCode::MacroCycle: return TEXT("macro cycle");
+		case ECambrianaDiagnosticCode::ModuleInDrawRule: return TEXT("module in a draw rule");
+		case ECambrianaDiagnosticCode::UnknownAxiom: return TEXT("unknown axiom");
+		case ECambrianaDiagnosticCode::SegmentReplacedBySeveral: return TEXT("segment replaced by several");
+		case ECambrianaDiagnosticCode::UnreachableRule: return TEXT("unreachable rule");
+		case ECambrianaDiagnosticCode::NotConstant: return TEXT("value is not constant");
+		case ECambrianaDiagnosticCode::SizeAndStep: return TEXT("both size and step are set");
+		case ECambrianaDiagnosticCode::NonFiniteValue: return TEXT("value is not finite");
+		case ECambrianaDiagnosticCode::NotConvertible: return TEXT("not convertible");
+		case ECambrianaDiagnosticCode::ShapeParameter: return TEXT("invalid use of a shape parameter");
 		default: return TEXT("unknown problem");
 		}
 	}
@@ -364,10 +399,20 @@ namespace Cambriana
 			return Out;
 		}
 
-		const cambriana_build_settings Settings = ToCoreSettings(Input);
+		cambriana_build_settings Settings = ToCoreSettings(Input);
 		const FTCHARToUTF8 Text(*Input.GrammarText);
+		const size_t TextLength = static_cast<size_t>(Text.Length());
 		cambriana_result* RawResult = nullptr;
-		const cambriana_status Status = cambriana_build_legacy(Text.Get(), static_cast<size_t>(Text.Length()), &Settings, nullptr, &RawResult);
+		cambriana_status Status;
+		if (DetectGrammarFormat(Input.GrammarText) == ECambrianaGrammarFormat::Legacy)
+		{
+			Status = cambriana_build_legacy(Text.Get(), TextLength, &Settings, nullptr, &RawResult);
+		}
+		else
+		{
+			Settings.overrides |= CAMBRIANA_OVERRIDE_SEED | CAMBRIANA_OVERRIDE_SIZE;
+			Status = cambriana_build_grammar(Text.Get(), TextLength, nullptr, &Settings, nullptr, &RawResult);
+		}
 		const FCoreResult Result(RawResult);
 		if (Status != CAMBRIANA_OK || !Result.Get())
 		{

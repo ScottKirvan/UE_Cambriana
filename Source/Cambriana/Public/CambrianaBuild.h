@@ -57,6 +57,23 @@ enum class ECambrianaDiagnosticCode : uint8
 	UnmatchedPop,
 	UnmatchedPolygonEnd,
 	UnclosedPolygon,
+	Syntax,
+	CommandUsedAsName,
+	ReservedName,
+	UnknownName,
+	DuplicateName,
+	ArgumentCount,
+	PoseParameter,
+	MacroCycle,
+	ModuleInDrawRule,
+	UnknownAxiom,
+	SegmentReplacedBySeveral,
+	UnreachableRule,
+	NotConstant,
+	SizeAndStep,
+	NonFiniteValue,
+	NotConvertible,
+	ShapeParameter,
 };
 
 /** A grammar diagnostic. Parse diagnostics carry a 1-based line and column; turtle diagnostics a production position instead. */
