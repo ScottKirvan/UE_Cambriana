@@ -202,4 +202,24 @@ bool FCambrianaLiveActorLsysErrorsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysOwnSeedAndSizeTest,
+	"Cambriana.LiveActor.GrammarFormat.ActorSeedAndSizeApplyOverTheGrammars",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorLsysOwnSeedAndSizeTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	const FString Text = TEXT("seed 7\nsize 50cm\n") + LoadFixture(TEXT("sk.lsys"));
+	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), Text, 1);
+	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
+	TestNearlyEqual(TEXT("The actor's Fit size applies, not the grammar's"), ActorMeshOf(Actor).GetBounds().MaxDim(), 200.0, 1e-6);
+	const TArray<float> First = ActorBranchRandoms(Actor);
+	TestTrue(TEXT("Branch randoms present"), First.Num() > 0);
+
+	Actor->Seed = 2;
+	Actor->Rebuild();
+	TestTrue(TEXT("The actor's seed applies, not the grammar's"), ActorBranchRandoms(Actor) != First);
+	return true;
+}
+
 #endif
