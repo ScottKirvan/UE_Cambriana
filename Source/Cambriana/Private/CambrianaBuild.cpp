@@ -105,7 +105,7 @@ namespace
 		return Data ? TConstArrayView<T>(Data, static_cast<int32>(FMath::Min<uint64_t>(Count, MAX_int32))) : TConstArrayView<T>();
 	}
 
-	cambriana_build_settings ToCoreSettings(const FCambrianaBuildInput& Input)
+	cambriana_build_settings ToCoreSettings(const FCambrianaBuildInput& Input, ECambrianaGrammarFormat Format)
 	{
 		const FCambrianaBuildSettings& Settings = Input.Settings;
 		cambriana_build_settings Core;
@@ -129,15 +129,26 @@ namespace
 		Core.min_thickness = Settings.MinThickness;
 		Core.closed_form = Settings.bClosedForm ? 1u : 0u;
 		Core.sides = static_cast<uint64_t>(FMath::Max(Settings.Sides, 0));
-		if (Settings.SizeMode == ECambrianaSizeMode::Fit)
+		if (Format == ECambrianaGrammarFormat::Cambriana)
 		{
-			Core.size_mode = CAMBRIANA_SIZE_FIT;
-			Core.fit_size = Settings.SizeValue;
+			Core.overrides |= CAMBRIANA_OVERRIDE_SEED;
+			if (Settings.bOverrideGrammarSize)
+			{
+				Core.overrides |= CAMBRIANA_OVERRIDE_SIZE;
+			}
 		}
-		else
+		if (Format == ECambrianaGrammarFormat::Legacy || Settings.bOverrideGrammarSize)
 		{
-			Core.size_mode = CAMBRIANA_SIZE_STEP;
-			Core.step_length = Settings.SizeValue;
+			if (Settings.SizeMode == ECambrianaSizeMode::Fit)
+			{
+				Core.size_mode = CAMBRIANA_SIZE_FIT;
+				Core.fit_size = Settings.SizeValue;
+			}
+			else
+			{
+				Core.size_mode = CAMBRIANA_SIZE_STEP;
+				Core.step_length = Settings.SizeValue;
+			}
 		}
 		Core.production_budget = Settings.ProductionBudget.Get(Core.production_budget);
 		Core.bone_budget = Settings.BoneBudget.Get(Core.bone_budget);
@@ -399,18 +410,18 @@ namespace Cambriana
 			return Out;
 		}
 
-		cambriana_build_settings Settings = ToCoreSettings(Input);
+		const ECambrianaGrammarFormat Format = DetectGrammarFormat(Input.GrammarText);
+		const cambriana_build_settings Settings = ToCoreSettings(Input, Format);
 		const FTCHARToUTF8 Text(*Input.GrammarText);
 		const size_t TextLength = static_cast<size_t>(Text.Length());
 		cambriana_result* RawResult = nullptr;
 		cambriana_status Status;
-		if (DetectGrammarFormat(Input.GrammarText) == ECambrianaGrammarFormat::Legacy)
+		if (Format == ECambrianaGrammarFormat::Legacy)
 		{
 			Status = cambriana_build_legacy(Text.Get(), TextLength, &Settings, nullptr, &RawResult);
 		}
 		else
 		{
-			Settings.overrides |= CAMBRIANA_OVERRIDE_SEED | CAMBRIANA_OVERRIDE_SIZE;
 			Status = cambriana_build_grammar(Text.Get(), TextLength, nullptr, &Settings, nullptr, &RawResult);
 		}
 		const FCoreResult Result(RawResult);

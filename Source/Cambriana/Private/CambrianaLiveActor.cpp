@@ -57,6 +57,7 @@ FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 	Settings.Sides = Sides;
 	Settings.SizeMode = SizeMode;
 	Settings.SizeValue = SizeValue;
+	Settings.bOverrideGrammarSize = bOverrideSize;
 	return Input;
 }
 
