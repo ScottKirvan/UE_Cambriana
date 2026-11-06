@@ -36,7 +36,7 @@ namespace
 			}
 			else
 			{
-				Settings.overrides |= CAMBRIANA_OVERRIDE_SEED | CAMBRIANA_OVERRIDE_SIZE;
+				Settings.overrides |= CAMBRIANA_OVERRIDE_SEED;
 				cambriana_build_grammar(Utf8.Get(), Utf8.Length(), nullptr, &Settings, nullptr, &Result);
 			}
 		}
@@ -202,23 +202,82 @@ bool FCambrianaLiveActorLsysErrorsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysOwnSeedAndSizeTest,
-	"Cambriana.LiveActor.GrammarFormat.ActorSeedAndSizeApplyOverTheGrammars",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysOwnSeedTest,
+	"Cambriana.LiveActor.GrammarFormat.ActorSeedAppliesOverTheGrammars",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
-bool FCambrianaLiveActorLsysOwnSeedAndSizeTest::RunTest(const FString& Parameters)
+bool FCambrianaLiveActorLsysOwnSeedTest::RunTest(const FString& Parameters)
 {
 	FCambrianaTestWorld World;
-	const FString Text = TEXT("seed 7\nsize 50cm\n") + LoadFixture(TEXT("sk.lsys"));
+	const FString Text = TEXT("seed 7\n") + LoadFixture(TEXT("sk.lsys"));
 	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), Text, 1);
 	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
-	TestNearlyEqual(TEXT("The actor's Fit size applies, not the grammar's"), ActorMeshOf(Actor).GetBounds().MaxDim(), 200.0, 1e-6);
 	const TArray<float> First = ActorBranchRandoms(Actor);
 	TestTrue(TEXT("Branch randoms present"), First.Num() > 0);
 
 	Actor->Seed = 2;
 	Actor->Rebuild();
 	TestTrue(TEXT("The actor's seed applies, not the grammar's"), ActorBranchRandoms(Actor) != First);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysGrammarSizeTest,
+	"Cambriana.LiveActor.GrammarFormat.GrammarSizeAppliesWithoutTheSizeOverride",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorLsysGrammarSizeTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), TEXT("size 50cm\n") + LoadFixture(TEXT("sk.lsys")), 1);
+	TestFalse(TEXT("Size override is off by default"), Actor->bOverrideSize);
+	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
+	TestNearlyEqual(TEXT("The grammar's size applies"), ActorMeshOf(Actor).GetBounds().MaxDim(), 50.0, 1e-6);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysSizeOverrideTest,
+	"Cambriana.LiveActor.GrammarFormat.ActorSizeAppliesWithTheSizeOverride",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorLsysSizeOverrideTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), TEXT("size 50cm\n") + LoadFixture(TEXT("sk.lsys")), 1);
+	Actor->bOverrideSize = true;
+	Actor->SizeMode = ECambrianaSizeMode::Fit;
+	Actor->SizeValue = 200.0;
+	Actor->Rebuild();
+	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
+	TestNearlyEqual(TEXT("The actor's Fit size applies"), ActorMeshOf(Actor).GetBounds().MaxDim(), 200.0, 1e-6);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysGrammarStepTest,
+	"Cambriana.LiveActor.GrammarFormat.GrammarStepAppliesWithoutTheSizeOverride",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorLsysGrammarStepTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), TEXT("step 2cm\n") + LoadFixture(TEXT("sk.lsys")), 1);
+	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
+	TestNearlyEqual(TEXT("The grammar's step applies"), Actor->GetLastBuildReport().StepLength, 2.0, 1e-9);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorLsysNoGrammarSizeTest,
+	"Cambriana.LiveActor.GrammarFormat.CoreDefaultSizeAppliesWithoutAGrammarSizeOrTheSizeOverride",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorLsysNoGrammarSizeTest::RunTest(const FString& Parameters)
+{
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), LoadFixture(TEXT("sk.lsys")), 1);
+	Actor->SizeMode = ECambrianaSizeMode::Fit;
+	Actor->SizeValue = 75.0;
+	Actor->Rebuild();
+	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
+	TestNearlyEqual(TEXT("The core's default Fit size applies"), ActorMeshOf(Actor).GetBounds().MaxDim(), 200.0, 1e-6);
 	return true;
 }
 

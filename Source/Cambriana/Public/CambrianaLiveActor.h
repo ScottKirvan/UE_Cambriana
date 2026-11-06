@@ -56,6 +56,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "3"))
 	int32 Sides = 8;
 
+	/** For .lsys text: the size mode and value apply over the grammar's size or step. .ls text always uses them. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	bool bOverrideSize = false;
+
 	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 

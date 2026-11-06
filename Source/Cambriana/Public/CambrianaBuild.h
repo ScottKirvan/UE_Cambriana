@@ -23,6 +23,8 @@ struct FCambrianaBuildSettings
 	int32 Sides = 8;
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 	double SizeValue = 200.0;
+	/** Cambriana grammar text uses SizeMode and SizeValue only when set; otherwise its own size or step, else the core's default. */
+	bool bOverrideGrammarSize = false;
 	TOptional<uint64> ProductionBudget;
 	TOptional<uint64> BoneBudget;
 	TOptional<uint64> WorkBudget;
