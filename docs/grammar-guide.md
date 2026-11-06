@@ -72,8 +72,8 @@ grow {
 
 ## Writing the file
 
-- One statement per line. A comment runs from `#` to the end of the line.
-- The closing `}` of a `grow` or `draw` block goes on its own line. The opening `{` goes on the same line as `grow` or `draw`.
+- One statement per line. A statement or rule may carry on to the next line while a polygon, `repeat` or `mirror` in it is still open. A comment runs from `#` to the end of the line.
+- The closing `}` of a `grow` or `draw` block goes on its own line, after every polygon, `repeat` and `mirror` in the block is closed. The opening `{` goes on the same line as `grow` or `draw`.
 - A name uses letters, digits and `_`, doesn't start with a digit, and is case sensitive: `Left` is your own word, `left` is a turtle command.
 - Save as UTF-8. A byte order mark at the start is fine.
 
@@ -81,6 +81,10 @@ Two spacing traps are worth learning now:
 
 - `FF` is one word, not two commands. It draws nothing and gives no warning. Write `F F`. Symbols split words on their own, so `F+F` is fine.
 - An argument touches its command: `F(50)`, never `F (50)`.
+
+::: tip Commands or maths?
+In a command list, outside parentheses, `+ - < > ^` are turtle commands: turn, pitch and roll. Inside the parentheses of an argument or a calculation they're maths and comparison operators: add, subtract, less than, greater than and power. So `F(2 ^ 3) ^ F` draws a bone 8% of a step long, then pitches up. Conditions and parameter values are calculations too.
+:::
 
 ## Turtle commands
 
@@ -121,6 +125,20 @@ axiom F ! F ' F !(0.5) F
 ```text
 angle 60
 axiom F { + f - - f - - f }
+```
+
+A polygon can span several lines. The `}` that ends it may start a line, and the block's own `}` comes after it. This builds the same leaf as writing the polygon on one line.
+
+```text
+generations 1
+angle 60
+axiom F Leaf
+
+grow {
+    Leaf -> {
+        + f - - f - - f
+    }
+}
 ```
 
 **Colour.** `c` adds one to the colour number, and `c(3)` sets it. The number selects a material slot.
@@ -270,11 +288,11 @@ grow {
 }
 ```
 
-| Tier | What it changes | Use it for |
-|---|---|---|
-| `pose` | Bone rotations only, so it can be animated | Bends, curls, droop |
-| `shape` | Mesh, same skeleton | Thickness, length, taper |
-| `structure` | Mesh and skeleton | Counts, which rules run |
+| Tier | What it changes | Rebuilt in Unreal when it changes | Use it for |
+|---|---|---|---|
+| `pose` | Bone rotations only, so it can be animated | Nothing: only bone rotations update, with no mesh or skeleton rebuild | Bends, curls, droop |
+| `shape` | Mesh, same skeleton | The mesh; the skeleton stays the same | Thickness, length, taper |
+| `structure` | Mesh and skeleton | The mesh and the skeleton | Counts, which rules run |
 
 Pose parameters are checked strictly, because they have to work on a finished skeleton. They're only allowed in rotation commands (`+ - & ^ < > ~ t : ;`), in a limited set of operators and functions, and in a word's value if that value is in turn only used in rotation commands. See [what pose parameters allow](#what-pose-parameters-allow).
 
