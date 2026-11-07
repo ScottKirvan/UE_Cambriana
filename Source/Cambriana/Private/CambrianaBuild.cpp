@@ -172,15 +172,7 @@ namespace
 
 		for (const cambriana_diagnostic& Core : CoreArray(&cambriana_result_diagnostics, Result))
 		{
-			FCambrianaDiagnostic& Diagnostic = Report.Diagnostics.AddDefaulted_GetRef();
-			Diagnostic.Severity = Core.severity == CAMBRIANA_SEVERITY_ERROR ? ECambrianaDiagnosticSeverity::Error : ECambrianaDiagnosticSeverity::Warning;
-			Diagnostic.Code = ToDiagnosticCode(Core.code);
-			Diagnostic.Line = Core.line;
-			Diagnostic.Column = Core.column;
-			if (Core.production_position != CAMBRIANA_NO_POSITION)
-			{
-				Diagnostic.ProductionPosition = Core.production_position;
-			}
+			Report.Diagnostics.Add(Cambriana::ToDiagnostic(Core));
 		}
 	}
 
@@ -341,6 +333,20 @@ FString FCambrianaDiagnostic::Describe() const
 
 namespace Cambriana
 {
+	FCambrianaDiagnostic ToDiagnostic(const cambriana_diagnostic& Core)
+	{
+		FCambrianaDiagnostic Diagnostic;
+		Diagnostic.Severity = Core.severity == CAMBRIANA_SEVERITY_ERROR ? ECambrianaDiagnosticSeverity::Error : ECambrianaDiagnosticSeverity::Warning;
+		Diagnostic.Code = ToDiagnosticCode(Core.code);
+		Diagnostic.Line = Core.line;
+		Diagnostic.Column = Core.column;
+		if (Core.production_position != CAMBRIANA_NO_POSITION)
+		{
+			Diagnostic.ProductionPosition = Core.production_position;
+		}
+		return Diagnostic;
+	}
+
 	bool ShouldBuildWithCore(bool bCoreAvailable, std::atomic<bool>& UnavailableLogged)
 	{
 		if (bCoreAvailable)

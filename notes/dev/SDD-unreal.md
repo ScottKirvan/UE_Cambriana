@@ -34,6 +34,10 @@ display baked results.
   the file changes. Reimporting a `.ls` file replaces the grammar text with a new conversion.
 - A `.ls` file the converter rejects shows the error with its line and column, and no asset
   is created.
+- `[Proposed — unconfirmed]` The import factory is separate from the new-asset factory. A
+  `.ls` file is rejected when its conversion reports any error; each diagnostic is logged
+  with the file path, line and column. Converted text is serialised in glyph style. The
+  source file path is held in the asset's `UAssetImportData`.
 - Export writes the grammar asset's text to a file.
 
 ## Grammar asset editor
@@ -55,10 +59,10 @@ Standalone asset editor, opened from the grammar asset.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
   size override, size mode and value; a grammar asset reference or inline grammar text.
   Inline `.ls` text is converted.
-- The interim grammar asset holds only grammar text and a seed. A new one holds the default
-  grammar as `.lsys` text; one holding legacy `.ls` text is read directly by the core. M2 adds
-  import, conversion and the grammar editor, and moves stored text to the Cambriana grammar
-  format.
+- The interim grammar asset holds only grammar text, a seed and, when imported, its source
+  file path. A new one holds the default grammar as `.lsys` text; one holding legacy `.ls`
+  text is read directly by the core. M2 adds import, conversion and the grammar editor, and
+  moves stored text to the Cambriana grammar format.
 - The format of inline text and grammar asset text is detected from the text, with no
   setting. `[Proposed — unconfirmed]` The text is `.ls` if its first line that is neither
   blank nor a `#` comment (leading whitespace ignored) starts with a number: an optional `+`
