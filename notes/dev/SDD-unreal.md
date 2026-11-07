@@ -43,6 +43,11 @@ display baked results.
   `.ls` file is rejected when its conversion reports any error; each diagnostic is logged
   with the file path, line and column. Converted text is serialised in glyph style. The
   source file path is held in the asset's `UAssetImportData`.
+- **Decided:** an imported grammar asset's right-click menu shows Reimport through the
+  Content Browser's standard support for assets whose `UAssetImportData` holds source files;
+  it reimports from the source file.
+- **Decided:** nothing but an explicit export writes to a source file on disk; saving the
+  asset, or any other operation, leaves the source file unchanged.
 - Export writes the grammar asset's text to a file.
 
 ## Grammar asset editor
@@ -81,6 +86,9 @@ Standalone asset editor, opened from the grammar asset.
   override is off by default. `[Proposed — unconfirmed]` `.ls` text always uses the actor's
   size mode and value, whatever the override. In either format, diagnostics are logged with their line and column, and
   errors leave an empty mesh.
+- **Decided:** the Cambriana Grammar asset is under a "Boju Studios" category in the Content
+  Browser's Add menu, and the live actor is under a "Boju Studios" category when placing
+  actors.
 - Dragging a grammar asset into a level spawns a live actor referencing it. A change to the
   grammar asset rebuilds every live actor referencing it.
 - No skeleton.
@@ -146,3 +154,8 @@ Requirement: FR-18 ([SRS.md](SRS.md)).
 | CambrianaEditor | Editor | Asset editor, importers, factories, bake, standalone Control Rig writer, editor subsystem, integrations |
 
 Engine dependencies: stable modules only; no experimental engine plugins.
+
+## Plugin descriptor
+
+- **Decided:** the plugin's producer (`CreatedBy`) is Boju Studios. The description keeps
+  the Lparser credit (FR-23).

@@ -16,6 +16,7 @@ public class CambrianaEditor : ModuleRules
 			"CoreUObject",
 			"EditorFramework",
 			"Engine",
+			"PlacementMode",
 			"Projects",
 			"PropertyEditor",
 			"Slate",

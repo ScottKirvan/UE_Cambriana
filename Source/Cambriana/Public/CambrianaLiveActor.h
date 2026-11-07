@@ -87,6 +87,7 @@ public:
 
 private:
 	void RebuildIfInputChanged();
+	void ShowSettingsUsed();
 	void ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds);
 
 	UPROPERTY()
