@@ -171,6 +171,25 @@ bool FCambrianaExportLegacyAsLsysTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaExportRejectedLegacyTest,
+	"Cambriana.Editor.Export.RejectedLegacyTextWritesNoFileAndReportsLineAndColumn",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaExportRejectedLegacyTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = NewGrammar(TEXT("3\n25\n50\nA\nA=F@F@\n@\n"));
+	TestTrue(TEXT("The asset holds legacy text"), Cambriana::DetectGrammarFormat(Grammar->GrammarText) == ECambrianaGrammarFormat::Legacy);
+	const FString Name = Grammar->GetPathName();
+	AddExpectedMessagePlain(FString::Printf(TEXT("%s: error at line 5, column 4: not convertible"), *Name), ELogVerbosity::Error);
+	AddExpectedMessagePlain(FString::Printf(TEXT("%s: error at line 5, column 6: not convertible"), *Name), ELogVerbosity::Error);
+
+	const FString ExportPath = ExportTestPath(TEXT("rejected.lsys"));
+	Export(Grammar, ExportPath);
+	TestFalse(TEXT("No file is written"), IFileManager::Get().FileExists(*ExportPath));
+	IFileManager::Get().Delete(*ExportPath);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaExportActionOfferedTest,
 	"Cambriana.Editor.Export.ExportActionIsOfferedForAGrammarAsset",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
