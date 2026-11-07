@@ -3,6 +3,7 @@
 #include "CambrianaLiveActor.h"
 #include "CambrianaSeedCustomization.h"
 #include "IPlacementModeModule.h"
+#include "Misc/CoreDelegates.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
@@ -15,11 +16,13 @@ public:
 		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
 		RegisterSeedCustomization(PropertyEditor, UCambrianaGrammar::StaticClass(), GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed));
 		RegisterSeedCustomization(PropertyEditor, ACambrianaLiveActor::StaticClass(), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Seed));
-		RegisterPlacementCategory();
+		// Placement mode needs the editor, which isn't up yet while plugin modules start.
+		FCoreDelegates::GetOnPostEngineInit().AddStatic(&FCambrianaEditorModule::RegisterPlacementCategory);
 	}
 
 	virtual void ShutdownModule() override
 	{
+		FCoreDelegates::GetOnPostEngineInit().RemoveAll(this);
 		if (IPlacementModeModule::IsAvailable())
 		{
 			IPlacementModeModule::Get().UnregisterPlacementCategory(Cambriana::Editor::BojuStudiosCategoryName);
@@ -37,6 +40,10 @@ public:
 private:
 	static void RegisterPlacementCategory()
 	{
+		if (!GIsEditor || IsRunningCommandlet())
+		{
+			return;
+		}
 		IPlacementModeModule& Placement = IPlacementModeModule::Get();
 		const FName Category = Cambriana::Editor::BojuStudiosCategoryName;
 		Placement.RegisterPlacementCategory(FPlacementCategoryInfo(Cambriana::Editor::BojuStudiosCategoryText(), Category, TEXT("PMBojuStudios")));
