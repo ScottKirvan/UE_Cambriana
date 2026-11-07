@@ -98,4 +98,57 @@ bool FCambrianaGrammarSaveRestoreTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarSettingsSaveRestoreTest,
+	"Cambriana.Editor.Save.GrammarSizeAndSurfacerSettingsSurviveSavingAndReloading",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarSettingsSaveRestoreTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/SavedGrammarSettings");
+	const FString ShortName = FPackageName::GetShortName(PackageName);
+	const FString PackageFilename = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension()));
+	IFileManager::Get().Delete(*PackageFilename);
+
+	UPackage* Package = CreatePackage(PackageName);
+	UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(Package, *ShortName, RF_Public | RF_Standalone);
+	Grammar->SizeMode = ECambrianaSizeMode::Step;
+	Grammar->SizeValue = 12.5;
+	Grammar->bClosedForm = false;
+	Grammar->Sides = 3;
+	Grammar->MinThickness = 1.5;
+
+	FSavePackageArgs SaveArgs;
+	SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+	SaveArgs.Error = GWarn;
+	if (!TestTrue(TEXT("The package saves to disk"), UPackage::SavePackage(Package, Grammar, *PackageFilename, SaveArgs)))
+	{
+		Unload(Package);
+		return false;
+	}
+	TestTrue(TEXT("The package unloads"), Unload(Package));
+	Grammar = nullptr;
+	Package = nullptr;
+	TestNull(TEXT("No grammar asset is loaded at the asset's path"), FindObject<UCambrianaGrammar>(nullptr, *FString::Printf(TEXT("%s.%s"), PackageName, *ShortName)));
+
+	UPackage* LoadedPackage = LoadPackage(nullptr, PackageName, LOAD_None);
+	const UCambrianaGrammar* Loaded = LoadedPackage ? FindObject<UCambrianaGrammar>(LoadedPackage, *ShortName) : nullptr;
+	if (TestNotNull(TEXT("The grammar asset loads again"), Loaded))
+	{
+		TestTrue(TEXT("Size mode"), Loaded->SizeMode == ECambrianaSizeMode::Step);
+		TestEqual(TEXT("Size value"), Loaded->SizeValue, 12.5);
+		TestFalse(TEXT("Closed form"), Loaded->bClosedForm);
+		TestEqual(TEXT("Sides"), Loaded->Sides, 3);
+		TestEqual(TEXT("Min thickness"), Loaded->MinThickness, 1.5);
+	}
+
+	if (LoadedPackage)
+	{
+		Unload(LoadedPackage);
+	}
+	IFileManager::Get().Delete(*PackageFilename);
+	IFileManager::Get().DeleteDirectory(*FPaths::GetPath(PackageFilename));
+	TestFalse(TEXT("The test package file is deleted"), IFileManager::Get().FileExists(*PackageFilename));
+	return true;
+}
+
 #endif
