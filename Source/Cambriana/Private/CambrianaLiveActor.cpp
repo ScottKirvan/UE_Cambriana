@@ -66,12 +66,40 @@ void ACambrianaLiveActor::Rebuild()
 	LastBuildInput = MakeBuildInput();
 	FCambrianaBuildResult Result = Cambriana::BuildMesh(LastBuildInput);
 	LastBuildReport = MoveTemp(Result.Report);
+	ShowSettingsUsed();
 	if (UDynamicMeshComponent* MeshComponent = GetDynamicMeshComponent())
 	{
 		MeshComponent->SetMesh(MoveTemp(Result.Mesh));
 		ApplyPreviewMaterials(Result.SlotMaterialIds);
 	}
 	++BuildCount;
+}
+
+void ACambrianaLiveActor::ShowSettingsUsed()
+{
+	if (!LastBuildReport.bHasSummary)
+	{
+		return;
+	}
+	// A setting whose override is off shows the value the build used, so turning the override on changes nothing.
+	if (!bOverrideRecursion)
+	{
+		Recursion = LastBuildReport.Recursion;
+	}
+	if (!bOverrideBasicAngle)
+	{
+		BasicAngle = LastBuildReport.BasicAngle;
+	}
+	if (!bOverrideThickness)
+	{
+		Thickness = LastBuildReport.Thickness;
+	}
+	if (!bOverrideSize)
+	{
+		SizeMode = LastBuildReport.SizeMode;
+		SizeValue = LastBuildReport.SizeValue;
+	}
+	LastBuildInput = MakeBuildInput();
 }
 
 void ACambrianaLiveActor::ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds)

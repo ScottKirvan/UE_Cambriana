@@ -19,6 +19,17 @@ void UCambrianaGrammar::PostInitProperties()
 #endif
 }
 
+#if WITH_EDITORONLY_DATA
+void UCambrianaGrammar::GetAssetRegistryTags(FAssetRegistryTagsContext Context) const
+{
+	if (AssetImportData)
+	{
+		Context.AddTag(FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden));
+	}
+	Super::GetAssetRegistryTags(Context);
+}
+#endif
+
 #if WITH_EDITOR
 void UCambrianaGrammar::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {

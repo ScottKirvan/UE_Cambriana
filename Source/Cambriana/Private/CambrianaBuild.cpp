@@ -161,6 +161,7 @@ namespace
 	{
 		if (const cambriana_summary* Summary = cambriana_result_summary(Result))
 		{
+			Report.bHasSummary = true;
 			Cambriana::ApplyResultFlags(Summary->flags, Report);
 			Report.ProductionLength = Summary->production_length;
 			Report.GenerationsRun = Summary->generations_run;
@@ -174,6 +175,37 @@ namespace
 		{
 			Report.Diagnostics.Add(Cambriana::ToDiagnostic(Core));
 		}
+	}
+
+	TOptional<double> StatedGrammarSetting(const FTCHARToUTF8& Text, int32 Setting)
+	{
+		cambriana_grammar* Grammar = nullptr;
+		cambriana_grammar_parse(Text.Get(), static_cast<size_t>(Text.Length()), &Grammar);
+		double Value = 0.0;
+		const bool bStated = Grammar && cambriana_grammar_get_setting(Grammar, Setting, &Value) == CAMBRIANA_OK;
+		cambriana_grammar_destroy(Grammar);
+		return bStated ? TOptional<double>(Value) : TOptional<double>();
+	}
+
+	void ReadSizeUsed(const FTCHARToUTF8& Text, ECambrianaGrammarFormat Format, const FCambrianaBuildSettings& Settings,
+		const cambriana_build_settings& Core, FCambrianaBuildReport& Report)
+	{
+		int32 Mode = Core.size_mode;
+		double FitSize = Core.fit_size;
+		if (Format == ECambrianaGrammarFormat::Cambriana && !Settings.bOverrideGrammarSize)
+		{
+			if (const TOptional<double> Size = StatedGrammarSetting(Text, CAMBRIANA_SETTING_SIZE))
+			{
+				Mode = CAMBRIANA_SIZE_FIT;
+				FitSize = *Size;
+			}
+			else if (StatedGrammarSetting(Text, CAMBRIANA_SETTING_STEP))
+			{
+				Mode = CAMBRIANA_SIZE_STEP;
+			}
+		}
+		Report.SizeMode = Mode == CAMBRIANA_SIZE_FIT ? ECambrianaSizeMode::Fit : ECambrianaSizeMode::Step;
+		Report.SizeValue = Mode == CAMBRIANA_SIZE_FIT ? FitSize : Report.StepLength;
 	}
 
 	struct FChannelScale
@@ -438,6 +470,7 @@ namespace Cambriana
 		}
 
 		ReadReport(Result.Get(), Out.Report);
+		ReadSizeUsed(Text, Format, Input.Settings, Settings, Out.Report);
 		LogBuildReport(Out.Report);
 		if (!Out.Report.bHasErrors)
 		{

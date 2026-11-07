@@ -31,6 +31,9 @@ public:
 	static FOnGrammarChanged& OnGrammarChanged();
 
 	virtual void PostInitProperties() override;
+#if WITH_EDITORONLY_DATA
+	virtual void GetAssetRegistryTags(FAssetRegistryTagsContext Context) const override;
+#endif
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

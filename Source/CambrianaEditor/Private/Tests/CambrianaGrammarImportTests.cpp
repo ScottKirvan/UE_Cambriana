@@ -1,4 +1,7 @@
+#include "AssetDefinition.h"
+#include "AssetDefinitionRegistry.h"
 #include "AssetImportTask.h"
+#include "AssetRegistry/IAssetRegistry.h"
 #include "AssetToolsModule.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
@@ -6,9 +9,12 @@
 #include "CambrianaLiveActor.h"
 #include "EditorFramework/AssetImportData.h"
 #include "EditorReimportHandler.h"
+#include "FileHelpers.h"
 #include "HAL/FileManager.h"
+#include "IAssetTypeActions.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
+#include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "ObjectTools.h"
 
@@ -380,6 +386,91 @@ bool FCambrianaReimportRebuildsLiveActorTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The actor was built from the changed text"), Actor->GetLastBuildInput().GrammarText, FString(SecondLsysText));
 	Actor->GetWorld()->EditorDestroyActor(Actor, false);
 	IFileManager::Get().Delete(*Path);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaReimportActionTest,
+	"Cambriana.Editor.Reimport.ContentBrowserReimportActionIsAvailableAndReimportsTheSourceFile",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaReimportActionTest::RunTest(const FString& Parameters)
+{
+	const FString Path = WriteTemporaryFile(TEXT("reimport-action.lsys"), FirstLsysText);
+	const FImportedGrammar Imported(Path);
+	UCambrianaGrammar* Grammar = Imported.Grammar();
+	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
+	{
+		return false;
+	}
+
+	const TSharedPtr<IAssetTypeActions> Actions = FAssetToolsModule::GetModule().Get().GetAssetTypeActionsForClass(UCambrianaGrammar::StaticClass()).Pin();
+	TestTrue(TEXT("Asset tools treat grammar assets as imported, so the Content Browser shows its imported-asset actions"),
+		Actions.IsValid() && Actions->IsImportedAsset());
+
+	const FAssetData AssetData = IAssetRegistry::GetChecked().GetAssetByObjectPath(FSoftObjectPath(Grammar));
+	const UAssetDefinition* Definition = UAssetDefinitionRegistry::Get()->GetAssetDefinitionForAsset(AssetData);
+	if (!TestTrue(TEXT("The asset registry has the asset"), AssetData.IsValid()) || !TestNotNull(TEXT("The asset has an asset definition"), Definition))
+	{
+		return false;
+	}
+	TArray<FString> SourceFiles;
+	FAssetSourceFilesArgs Args;
+	Args.Assets = MakeArrayView(&AssetData, 1);
+	Args.FilePathFormat = EPathUse::AbsolutePath;
+	Definition->GetSourceFiles(Args, [&SourceFiles](const FAssetSourceFilesResult& Result)
+	{
+		SourceFiles.Add(Result.FilePath);
+		return true;
+	});
+	if (TestEqual(TEXT("The Reimport action has one source file"), SourceFiles.Num(), 1))
+	{
+		TestTrue(TEXT("The Reimport action's source file is the imported file"), FPaths::IsSamePath(SourceFiles[0], Path));
+	}
+
+	WriteTemporaryFile(TEXT("reimport-action.lsys"), SecondLsysText);
+	TArray<UObject*> Selected = { Grammar };
+	FReimportManager::Instance()->ValidateAllSourceFileAndReimport(Selected, false, INDEX_NONE, false, true);
+	TestEqual(TEXT("The Reimport action reads the changed source file"), Grammar->GrammarText, FString(SecondLsysText));
+	IFileManager::Get().Delete(*Path);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaSaveLeavesSourceFileTest,
+	"Cambriana.Editor.Import.SavingAChangedAssetLeavesItsSourceFileUnchanged",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaSaveLeavesSourceFileTest::RunTest(const FString& Parameters)
+{
+	for (const TCHAR* Fixture : { TEXT("sk.ls"), TEXT("sk.lsys") })
+	{
+		TArray<uint8> FixtureBytes;
+		if (!TestTrue(FString::Printf(TEXT("%s fixture read"), Fixture), FFileHelper::LoadFileToArray(FixtureBytes, *FixturePath(Fixture))))
+		{
+			continue;
+		}
+		const FString Path = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::AutomationTransientDir(), TEXT("CambrianaImport"), FString(TEXT("save-")) + Fixture));
+		FFileHelper::SaveArrayToFile(FixtureBytes, *Path);
+
+		const FImportedGrammar Imported(Path);
+		UCambrianaGrammar* Grammar = Imported.Grammar();
+		if (!TestNotNull(FString::Printf(TEXT("Importing %s creates a grammar asset"), Fixture), Grammar))
+		{
+			continue;
+		}
+		Grammar->Modify();
+		Grammar->GrammarText += TEXT("\n# changed in the editor\n");
+		Grammar->Seed += 1;
+		Grammar->MarkPackageDirty();
+		UPackage* Package = Grammar->GetOutermost();
+		TestTrue(FString::Printf(TEXT("The asset imported from %s saves"), Fixture), UEditorLoadingAndSavingUtils::SavePackages({ Package }, false));
+		const FString PackageFile = FPackageName::LongPackageNameToFilename(Package->GetName(), FPackageName::GetAssetPackageExtension());
+		TestTrue(FString::Printf(TEXT("The asset imported from %s is on disk"), Fixture), IFileManager::Get().FileExists(*PackageFile));
+
+		TArray<uint8> SourceBytes;
+		FFileHelper::LoadFileToArray(SourceBytes, *Path);
+		TestTrue(FString::Printf(TEXT("Saving the asset leaves the bytes of %s unchanged"), Fixture), SourceBytes == FixtureBytes);
+		IFileManager::Get().Delete(*Path);
+	}
 	return true;
 }
 

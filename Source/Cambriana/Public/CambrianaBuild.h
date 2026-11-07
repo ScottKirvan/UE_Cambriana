@@ -107,6 +107,11 @@ struct FCambrianaBuildReport
 	double BasicAngle = 0.0;
 	double Thickness = 0.0;
 	double StepLength = 0.0;
+	/** The size mode and value the build used; in Step mode the value is StepLength. */
+	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
+	double SizeValue = 0.0;
+	/** The settings above were reported by a core build. */
+	bool bHasSummary = false;
 };
 
 struct FCambrianaBuildResult
