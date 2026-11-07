@@ -1,0 +1,12 @@
+generations 20
+angle       25
+thickness   50%
+
+axiom  c [ A ] c [ B ] c [ C ] c [ D ]
+
+grow {
+    A -> + F ' A
+    B -> - F ' B
+    C -> ^ F ' C
+    D -> & F ' D
+}

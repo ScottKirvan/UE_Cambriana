@@ -9,11 +9,15 @@ public class CambrianaEditor : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"AssetDefinition",
+			"AssetTools",
 			"Cambriana",
+			"CambrianaCore",
 			"Core",
 			"CoreUObject",
 			"EditorFramework",
 			"Engine",
+			"PlacementMode",
+			"Projects",
 			"PropertyEditor",
 			"Slate",
 			"SlateCore",

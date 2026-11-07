@@ -26,12 +26,36 @@ display baked results.
 
 ## Source files
 
-- Import: `.lsys` (Cambriana grammar), `.ls` (Lparser) and `.l` with `.v` (cpfg) files, by drag
+- Import: `.lsys` (Cambriana grammar) and `.ls` (Lparser) files, by drag
   and drop and by the import dialog.
   `.ls` files are converted on import.
+- A file's format is set by its extension alone: `.lsys` or `.ls`.
 - The grammar asset stores the source file path and uses Unreal's reimport mechanism when
   the file changes. Reimporting a `.ls` file replaces the grammar text with a new conversion.
-- Export writes the grammar asset's text to a file.
+- A `.ls` file the converter rejects shows the error with its line and column, and no asset
+  is created.
+- `[Proposed — unconfirmed]` Reimporting a `.lsys` file replaces the grammar text with the
+  file's text. A reimport keeps the asset's seed unless the file is `.lsys` and sets `seed`,
+  which then becomes the asset's seed. A file the converter rejects on reimport leaves the
+  asset unchanged and shows each error with its line and column. Live actors referencing
+  the asset rebuild after a reimport. The import factory is also the reimport handler.
+- `[Proposed — unconfirmed]` The import factory is separate from the new-asset factory. A
+  `.ls` file is rejected when its conversion reports any error; each diagnostic is logged
+  with the file path, line and column. Converted text is serialised in glyph style. The
+  source file path is held in the asset's `UAssetImportData`.
+- **Decided:** an imported grammar asset's right-click menu shows Reimport through the
+  Content Browser's standard support for assets whose `UAssetImportData` holds source files;
+  it reimports from the source file.
+- **Decided:** nothing but an explicit export writes to a source file on disk; saving the
+  asset, or any other operation, leaves the source file unchanged.
+- **Decided:** export writes the grammar asset's text to a `.lsys` file through Unreal's
+  standard asset export (Content Browser Asset Actions > Export). An asset holding legacy
+  `.ls` text is exported as `.lsys`, converted by the core. Export is the only operation
+  that writes a grammar text file; it writes only to the path the user chooses, never to the
+  asset's source file unless the user picks that path.
+- **Decided:** an exported `.lsys` file is UTF-8 without a byte order mark.
+- `[Proposed — unconfirmed]` A legacy text the converter rejects exports nothing and logs
+  each diagnostic with the asset path, line and column.
 
 ## Grammar asset editor
 
@@ -49,13 +73,39 @@ Standalone asset editor, opened from the grammar asset.
 ## Live actor
 
 - Dynamic-mesh actor. Rebuilds through the core on property change.
+- **Decided:** a grammar asset holds size (mode and value) and surfacer settings (closed form,
+  sides, min thickness). A live actor that references the asset builds with the asset's
+  settings, and the actor's own override toggles still win over them, as they win over a
+  grammar file's settings.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
-  size mode and value; a grammar asset reference or inline grammar text. Inline `.ls` text
-  is converted.
-- Until conversion exists (M2), inline text and grammar assets hold legacy `.ls` text, read
-  directly by the core. The interim grammar asset holds only that text and a seed; M2 adds
-  import, conversion and the grammar editor, and moves stored text to the Cambriana grammar
-  format.
+  size override, size mode and value; a grammar asset reference or inline grammar text.
+  Inline `.ls` text is converted.
+- `[Proposed — unconfirmed]` Min thickness, closed form and sides each have an override
+  toggle, off by default. With a grammar asset, a setting whose toggle is off comes from the
+  asset; without one, the actor's own value always applies, whatever the toggle. With a
+  grammar asset and the size override off, the asset's size mode and value take the place of
+  the actor's: `.ls` text uses them, and `.lsys` text uses them only when it states neither
+  `size` nor `step`, where it would otherwise build at the core's default size.
+- The interim grammar asset holds only grammar text, a seed, size and surfacer settings
+  and, when imported, its source file path. Its settings default to the live actor's. A new one holds the default grammar as `.lsys` text; one holding legacy `.ls`
+  text is read directly by the core. M2 adds import, conversion and the grammar editor, and
+  moves stored text to the Cambriana grammar format.
+- The format of inline text and grammar asset text is detected from the text, with no
+  setting. `[Proposed — unconfirmed]` The text is `.ls` if its first line that is neither
+  blank nor a `#` comment (leading whitespace ignored) starts with a number: an optional `+`
+  or `-`, an optional `.`, then a digit. Otherwise it is `.lsys`, including empty text.
+- `.ls` text builds through `cambriana_build_legacy`; `.lsys` text through
+  `cambriana_build_grammar` with the unnamed or first axiom. `[Proposed — unconfirmed]` For
+  `.lsys` text the actor's seed applies over the grammar's `seed`. **Decided:** for `.lsys`
+  text the grammar's `size` or `step` applies unless the actor's size override is on, as with
+  the recursion, basic angle and thickness overrides; with the override on, the actor's size
+  mode and value apply. A grammar with neither builds at the core's default size. The
+  override is off by default. `[Proposed — unconfirmed]` `.ls` text always uses the actor's
+  size mode and value, whatever the override. In either format, diagnostics are logged with their line and column, and
+  errors leave an empty mesh.
+- **Decided:** the Cambriana Grammar asset is under a "Boju Studios" category in the Content
+  Browser's Add menu, and the live actor is under a "Boju Studios" category when placing
+  actors.
 - Dragging a grammar asset into a level spawns a live actor referencing it. A change to the
   grammar asset rebuilds every live actor referencing it.
 - No skeleton.
@@ -121,3 +171,8 @@ Requirement: FR-18 ([SRS.md](SRS.md)).
 | CambrianaEditor | Editor | Asset editor, importers, factories, bake, standalone Control Rig writer, editor subsystem, integrations |
 
 Engine dependencies: stable modules only; no experimental engine plugins.
+
+## Plugin descriptor
+
+- **Decided:** the plugin's producer (`CreatedBy`) is Boju Studios. The description keeps
+  the Lparser credit (FR-23).

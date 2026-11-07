@@ -1,5 +1,6 @@
 #include "AssetDefinition_CambrianaGrammar.h"
 
+#include "CambrianaEditorCategory.h"
 #include "CambrianaGrammar.h"
 
 #define LOCTEXT_NAMESPACE "CambrianaEditor"
@@ -21,7 +22,7 @@ TSoftClassPtr<UObject> UAssetDefinition_CambrianaGrammar::GetAssetClass() const
 
 TConstArrayView<FAssetCategoryPath> UAssetDefinition_CambrianaGrammar::GetAssetCategories() const
 {
-	static const auto Categories = { EAssetCategoryPaths::Animation };
+	static const FAssetCategoryPath Categories[] = { FAssetCategoryPath(Cambriana::Editor::BojuStudiosCategoryText()) };
 	return Categories;
 }
 

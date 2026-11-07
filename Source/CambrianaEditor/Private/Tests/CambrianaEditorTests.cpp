@@ -1,5 +1,6 @@
 #include "ActorFactoryCambrianaGrammar.h"
 #include "AssetSelection.h"
+#include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarFactory.h"
 #include "CambrianaLiveActor.h"
@@ -15,6 +16,8 @@
 #include "Subsystems/PlacementSubsystem.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+
+using Cambriana::Editor::Tests::PlaceInCurrentLevel;
 
 namespace
 {
@@ -44,14 +47,6 @@ namespace
 		return nullptr;
 	}
 
-	ACambrianaLiveActor* PlaceInCurrentLevel(UCambrianaGrammar* Grammar)
-	{
-		UE::AssetPlacementUtil::FExtraPlaceAssetOptions Options;
-		Options.bSelectOutput = false;
-		const TArray<FTypedElementHandle> Placed = UE::AssetPlacementUtil::PlaceAssetInCurrentLevel(Grammar, Options);
-		return Placed.Num() == 1 ? Cast<ACambrianaLiveActor>(ActorElementDataUtil::GetActorFromHandle(Placed[0])) : nullptr;
-	}
-
 	void EditProperty(UObject* Object, FName PropertyName, TFunctionRef<void()> Change)
 	{
 		FProperty* Property = Object->GetClass()->FindPropertyByName(PropertyName);
@@ -78,7 +73,7 @@ bool FCambrianaGrammarFactoryNewAssetTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("New asset holds the default legacy grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
+	TestEqual(TEXT("New asset holds the default grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
 	TestNotEqual(TEXT("Two new assets get different seeds"), First->Seed, Second->Seed);
 	return true;
 }

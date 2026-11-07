@@ -52,11 +52,14 @@ FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 	{
 		Settings.Thickness = Thickness;
 	}
-	Settings.MinThickness = MinThickness;
-	Settings.bClosedForm = bClosedForm;
-	Settings.Sides = Sides;
-	Settings.SizeMode = SizeMode;
-	Settings.SizeValue = SizeValue;
+	Settings.MinThickness = Grammar && !bOverrideMinThickness ? Grammar->MinThickness : MinThickness;
+	Settings.bClosedForm = Grammar && !bOverrideClosedForm ? Grammar->bClosedForm : bClosedForm;
+	Settings.Sides = Grammar && !bOverrideSides ? Grammar->Sides : Sides;
+	const bool bAssetSize = Grammar && !bOverrideSize;
+	Settings.SizeMode = bAssetSize ? Grammar->SizeMode : SizeMode;
+	Settings.SizeValue = bAssetSize ? Grammar->SizeValue : SizeValue;
+	Settings.bOverrideGrammarSize = bOverrideSize;
+	Settings.bSizeForGrammarWithoutSize = bAssetSize;
 	return Input;
 }
 
@@ -65,12 +68,53 @@ void ACambrianaLiveActor::Rebuild()
 	LastBuildInput = MakeBuildInput();
 	FCambrianaBuildResult Result = Cambriana::BuildMesh(LastBuildInput);
 	LastBuildReport = MoveTemp(Result.Report);
+	ShowSettingsUsed();
 	if (UDynamicMeshComponent* MeshComponent = GetDynamicMeshComponent())
 	{
 		MeshComponent->SetMesh(MoveTemp(Result.Mesh));
 		ApplyPreviewMaterials(Result.SlotMaterialIds);
 	}
 	++BuildCount;
+}
+
+void ACambrianaLiveActor::ShowSettingsUsed()
+{
+	if (!LastBuildReport.bHasSummary)
+	{
+		return;
+	}
+	// A setting whose override is off shows the value the build used, so turning the override on changes nothing.
+	if (!bOverrideRecursion)
+	{
+		Recursion = LastBuildReport.Recursion;
+	}
+	if (!bOverrideBasicAngle)
+	{
+		BasicAngle = LastBuildReport.BasicAngle;
+	}
+	if (!bOverrideThickness)
+	{
+		Thickness = LastBuildReport.Thickness;
+	}
+	if (!bOverrideSize)
+	{
+		SizeMode = LastBuildReport.SizeMode;
+		SizeValue = LastBuildReport.SizeValue;
+	}
+	const FCambrianaBuildSettings& Used = LastBuildInput.Settings;
+	if (!bOverrideMinThickness)
+	{
+		MinThickness = Used.MinThickness;
+	}
+	if (!bOverrideClosedForm)
+	{
+		bClosedForm = Used.bClosedForm;
+	}
+	if (!bOverrideSides)
+	{
+		Sides = Used.Sides;
+	}
+	LastBuildInput = MakeBuildInput();
 }
 
 void ACambrianaLiveActor::ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds)

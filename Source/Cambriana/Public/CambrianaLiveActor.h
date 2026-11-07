@@ -47,14 +47,30 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideThickness", ClampMin = "0"))
 	double Thickness = 50.0;
 
+	/** With a grammar asset: the min thickness applies over the asset's. Without one it always applies. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	bool bOverrideMinThickness = false;
+
 	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "0", Units = "Centimeters"))
 	double MinThickness = 0.0;
+
+	/** With a grammar asset: the closed form applies over the asset's. Without one it always applies. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	bool bOverrideClosedForm = false;
 
 	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	bool bClosedForm = true;
 
+	/** With a grammar asset: the sides apply over the asset's. Without one they always apply. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	bool bOverrideSides = false;
+
 	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "3"))
 	int32 Sides = 8;
+
+	/** The size mode and value apply over a grammar asset's size and over .lsys text's size or step. Without an asset, .ls text always uses them. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	bool bOverrideSize = false;
 
 	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
@@ -83,6 +99,7 @@ public:
 
 private:
 	void RebuildIfInputChanged();
+	void ShowSettingsUsed();
 	void ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds);
 
 	UPROPERTY()

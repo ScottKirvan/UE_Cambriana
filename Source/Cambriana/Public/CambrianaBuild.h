@@ -23,6 +23,10 @@ struct FCambrianaBuildSettings
 	int32 Sides = 8;
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 	double SizeValue = 200.0;
+	/** Cambriana grammar text uses SizeMode and SizeValue only when set; otherwise its own size or step, else the core's default. */
+	bool bOverrideGrammarSize = false;
+	/** Cambriana grammar text stating neither size nor step uses SizeMode and SizeValue instead of the core's default. */
+	bool bSizeForGrammarWithoutSize = false;
 	TOptional<uint64> ProductionBudget;
 	TOptional<uint64> BoneBudget;
 	TOptional<uint64> WorkBudget;
@@ -57,6 +61,23 @@ enum class ECambrianaDiagnosticCode : uint8
 	UnmatchedPop,
 	UnmatchedPolygonEnd,
 	UnclosedPolygon,
+	Syntax,
+	CommandUsedAsName,
+	ReservedName,
+	UnknownName,
+	DuplicateName,
+	ArgumentCount,
+	PoseParameter,
+	MacroCycle,
+	ModuleInDrawRule,
+	UnknownAxiom,
+	SegmentReplacedBySeveral,
+	UnreachableRule,
+	NotConstant,
+	SizeAndStep,
+	NonFiniteValue,
+	NotConvertible,
+	ShapeParameter,
 };
 
 /** A grammar diagnostic. Parse diagnostics carry a 1-based line and column; turtle diagnostics a production position instead. */
@@ -88,6 +109,11 @@ struct FCambrianaBuildReport
 	double BasicAngle = 0.0;
 	double Thickness = 0.0;
 	double StepLength = 0.0;
+	/** The size mode and value the build used; in Step mode the value is StepLength. */
+	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
+	double SizeValue = 0.0;
+	/** The settings above were reported by a core build. */
+	bool bHasSummary = false;
 };
 
 struct FCambrianaBuildResult

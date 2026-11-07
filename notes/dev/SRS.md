@@ -28,7 +28,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | ID | As a | I want to | So that |
 |---|---|---|---|
 | US-01 | Artist | create a new grammar asset from the Content Browser and see a default form at once | I start from something that works |
-| US-02 | Artist | import an existing Lparser `.ls` file or cpfg `.l` model and reimport it when the file changes on disk | existing L-system files are usable as they are |
+| US-02 | Artist | import an existing Lparser `.ls` file and reimport it when the file changes on disk | existing L-system files are usable as they are |
 | US-03 | Technical artist | edit grammar text with a live preview and errors shown at the right line | I see the effect of every edit |
 | US-04 | Artist | adjust generations, angle, thickness, size, sides and seed with immediate feedback, and roll a new seed with one click | I can explore variations quickly |
 | US-05 | Level designer | drag a grammar asset into a level and see it there without baking | I judge it in context before committing |
@@ -79,7 +79,6 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | FR-24 | Grammars are in the Cambriana grammar format, file extension `.lsys` ([FMT-grammar.md](FMT-grammar.md)); the legacy dialect (core repo, `notes/dev/FMT-legacy-ls.md`) is read only for conversion. Until conversion exists (M2), live actors and grammar assets read legacy text directly. | US-02, US-03 |
 | FR-25 | A creature definition (grammar, seed, parameter values) serialises to a compact, versioned form; regenerating from it on any supported platform reproduces the creature exactly. | US-19 |
 | FR-26 | Run-time generated meshes support pose parameters, growth and the engine's animation systems in the same way as baked meshes. | US-20 |
-| FR-27 | cpfg models are converted to the Cambriana grammar format on import. The `.l` file is read with its `.v` view file; constructs that cannot be converted are reported with line and column. | US-02 |
 | FR-28 | Rig hints in the grammar (FK, IK, pole, aim) produce Control Rig controls on baked and run-time generated meshes. An editor action writes a standalone Control Rig asset from a mesh's hints. | US-21 |
 
 ## 4. Non-functional requirements
