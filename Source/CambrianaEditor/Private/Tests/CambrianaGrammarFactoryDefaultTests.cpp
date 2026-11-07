@@ -1,3 +1,4 @@
+#include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarFactory.h"
 #include "CambrianaGrammarFormat.h"
@@ -6,6 +7,8 @@
 #include <cambriana/cambriana.h>
 
 #if WITH_DEV_AUTOMATION_TESTS
+
+using namespace Cambriana::Editor::Tests;
 
 namespace
 {
@@ -18,59 +21,6 @@ namespace
 			GetTransientPackage(), MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional,
 			nullptr, nullptr));
 		return Grammar ? Grammar->GrammarText : FString();
-	}
-
-	class FCoreResult
-	{
-	public:
-		FCoreResult(ECambrianaGrammarFormat Format, const FString& Text, uint32 Seed)
-		{
-			cambriana_build_settings Settings;
-			cambriana_build_settings_init(&Settings, sizeof(Settings));
-			Settings.seed = Seed;
-			Settings.overrides |= CAMBRIANA_OVERRIDE_SEED;
-			const FTCHARToUTF8 Utf8(*Text);
-			if (Format == ECambrianaGrammarFormat::Legacy)
-			{
-				cambriana_build_legacy(Utf8.Get(), Utf8.Length(), &Settings, nullptr, &Result);
-			}
-			else
-			{
-				cambriana_build_grammar(Utf8.Get(), Utf8.Length(), nullptr, &Settings, nullptr, &Result);
-			}
-		}
-
-		~FCoreResult() { cambriana_result_destroy(Result); }
-
-		FCoreResult(const FCoreResult&) = delete;
-		FCoreResult& operator=(const FCoreResult&) = delete;
-
-		bool IsValid() const { return Result != nullptr; }
-
-		bool HasErrors() const { return (cambriana_result_summary(Result)->flags & CAMBRIANA_RESULT_HAS_ERRORS) != 0; }
-
-		TConstArrayView<cambriana_bone> Bones() const
-		{
-			uint64_t Count = 0;
-			const cambriana_bone* Data = cambriana_result_bones(Result, &Count);
-			return TConstArrayView<cambriana_bone>(Data, static_cast<int32>(Count));
-		}
-
-	private:
-		cambriana_result* Result = nullptr;
-	};
-
-	bool operator==(const cambriana_vec3& A, const cambriana_vec3& B)
-	{
-		return A.x == B.x && A.y == B.y && A.z == B.z;
-	}
-
-	bool SameBone(const cambriana_bone& A, const cambriana_bone& B)
-	{
-		return A.start == B.start && A.end == B.end && A.frame.side == B.frame.side && A.frame.forward == B.frame.forward
-			&& A.frame.up == B.frame.up && A.radius == B.radius && A.parent == B.parent && A.colour == B.colour
-			&& A.generation == B.generation && A.kind == B.kind && A.symbol == B.symbol && A.chain_break_before == B.chain_break_before
-			&& FCStringAnsi::Strcmp(A.name ? A.name : "", B.name ? B.name : "") == 0;
 	}
 }
 
@@ -119,12 +69,7 @@ bool FCambrianaNewAssetBuildsLegacyDefaultBonesTest::RunTest(const FString& Para
 	{
 		return false;
 	}
-	int32 Mismatches = 0;
-	for (int32 Index = 0; Index < LegacyBones.Num(); ++Index)
-	{
-		Mismatches += !SameBone(NewBones[Index], LegacyBones[Index]);
-	}
-	TestEqual(TEXT("Bones that differ from the legacy default's"), Mismatches, 0);
+	TestEqual(TEXT("Bones that differ from the legacy default's"), CountBoneMismatches(NewBones, LegacyBones), 0);
 	return true;
 }
 
