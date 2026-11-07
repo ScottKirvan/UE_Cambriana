@@ -53,9 +53,9 @@ display baked results.
   `.ls` text is exported as `.lsys`, converted by the core. Export is the only operation
   that writes a grammar text file; it writes only to the path the user chooses, never to the
   asset's source file unless the user picks that path.
-- `[Proposed — unconfirmed]` The exporter is a binary `UExporter` in the editor module, so
-  the file is written as UTF-8 without a byte order mark. A legacy text the converter
-  rejects exports nothing and logs each diagnostic with the asset path, line and column.
+- **Decided:** an exported `.lsys` file is UTF-8 without a byte order mark.
+- `[Proposed — unconfirmed]` A legacy text the converter rejects exports nothing and logs
+  each diagnostic with the asset path, line and column.
 
 ## Grammar asset editor
 
