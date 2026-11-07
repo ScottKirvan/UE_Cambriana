@@ -1,7 +1,11 @@
 #pragma once
 
+#include "AssetSelection.h"
+#include "CambrianaGrammar.h"
 #include "CambrianaGrammarFormat.h"
+#include "CambrianaLiveActor.h"
 #include "CoreMinimal.h"
+#include "Elements/Actor/ActorElementData.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/Paths.h"
 
@@ -9,6 +13,14 @@
 
 namespace Cambriana::Editor::Tests
 {
+	inline ACambrianaLiveActor* PlaceInCurrentLevel(UCambrianaGrammar* Grammar)
+	{
+		UE::AssetPlacementUtil::FExtraPlaceAssetOptions Options;
+		Options.bSelectOutput = false;
+		const TArray<FTypedElementHandle> Placed = UE::AssetPlacementUtil::PlaceAssetInCurrentLevel(Grammar, Options);
+		return Placed.Num() == 1 ? Cast<ACambrianaLiveActor>(ActorElementDataUtil::GetActorFromHandle(Placed[0])) : nullptr;
+	}
+
 	inline FString FixturePath(const TCHAR* FileName)
 	{
 		const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("Cambriana"));
