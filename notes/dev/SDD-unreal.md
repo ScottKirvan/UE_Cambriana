@@ -48,7 +48,14 @@ display baked results.
   it reimports from the source file.
 - **Decided:** nothing but an explicit export writes to a source file on disk; saving the
   asset, or any other operation, leaves the source file unchanged.
-- Export writes the grammar asset's text to a file.
+- **Decided:** export writes the grammar asset's text to a `.lsys` file through Unreal's
+  standard asset export (Content Browser Asset Actions > Export). An asset holding legacy
+  `.ls` text is exported as `.lsys`, converted by the core. Export is the only operation
+  that writes a grammar text file; it writes only to the path the user chooses, never to the
+  asset's source file unless the user picks that path.
+- `[Proposed — unconfirmed]` The exporter is a binary `UExporter` in the editor module, so
+  the file is written as UTF-8 without a byte order mark. A legacy text the converter
+  rejects exports nothing and logs each diagnostic with the asset path, line and column.
 
 ## Grammar asset editor
 
