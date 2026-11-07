@@ -73,6 +73,10 @@ Standalone asset editor, opened from the grammar asset.
 ## Live actor
 
 - Dynamic-mesh actor. Rebuilds through the core on property change.
+- **Decided:** a grammar asset holds size (mode and value) and surfacer settings (closed form,
+  sides, min thickness). A live actor that references the asset builds with the asset's
+  settings, and the actor's own override toggles still win over them, as they win over a
+  grammar file's settings.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
   size override, size mode and value; a grammar asset reference or inline grammar text.
   Inline `.ls` text is converted.
