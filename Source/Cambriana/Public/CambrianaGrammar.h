@@ -1,13 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CambrianaBuild.h"
 #include "UObject/Object.h"
 
 #include "CambrianaGrammar.generated.h"
 
 class UAssetImportData;
 
-/** Interim grammar asset: grammar text (.lsys, or legacy .ls), a seed and, when imported, its source file. */
+/** Interim grammar asset: grammar text (.lsys, or legacy .ls), a seed, size and surfacer settings and, when imported, its source file. */
 UCLASS(BlueprintType)
 class CAMBRIANA_API UCambrianaGrammar : public UObject
 {
@@ -19,6 +20,22 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Grammar")
 	uint32 Seed = 0;
+
+	UPROPERTY(EditAnywhere, Category = "Size")
+	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
+
+	/** Target size in Fit mode, step length in Step mode. */
+	UPROPERTY(EditAnywhere, Category = "Size", meta = (ClampMin = "0.01", Units = "Centimeters"))
+	double SizeValue = 200.0;
+
+	UPROPERTY(EditAnywhere, Category = "Surfacer")
+	bool bClosedForm = true;
+
+	UPROPERTY(EditAnywhere, Category = "Surfacer", meta = (ClampMin = "3"))
+	int32 Sides = 8;
+
+	UPROPERTY(EditAnywhere, Category = "Surfacer", meta = (ClampMin = "0", Units = "Centimeters"))
+	double MinThickness = 0.0;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere, Instanced, Category = "Import")
