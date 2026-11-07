@@ -267,6 +267,100 @@ bool FCambrianaGrammarAssetActorSizeOverrideTest::RunTest(const FString& Paramet
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetSurfacerOverridesTest,
+	"Cambriana.GrammarAsset.Settings.ActorSurfacerOverridesWinOverAssetSettings",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarAssetSurfacerOverridesTest::RunTest(const FString& Parameters)
+{
+	const FString Text = LoadFixture(TEXT("sk.ls"));
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnActor(World.Get());
+	if (!TestFalse(TEXT("sk.ls fixture loaded"), Text.IsEmpty()) || !TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
+	TestFalse(TEXT("Sides override is off by default"), Actor->bOverrideSides);
+	TestFalse(TEXT("Closed form override is off by default"), Actor->bOverrideClosedForm);
+	TestFalse(TEXT("Min thickness override is off by default"), Actor->bOverrideMinThickness);
+
+	UCambrianaGrammar* Grammar = MakeGrammar(Text);
+	Grammar->Sides = 3;
+	Grammar->bClosedForm = true;
+	Grammar->MinThickness = 0.0;
+	Actor->bOverrideSides = true;
+	Actor->Sides = 5;
+	Actor->bOverrideClosedForm = true;
+	Actor->bClosedForm = false;
+	Actor->bOverrideMinThickness = true;
+	Actor->MinThickness = 20.0;
+	Actor->SetGrammar(Grammar);
+
+	const FCambrianaBuildSettings& Used = Actor->GetLastBuildInput().Settings;
+	TestEqual(TEXT("The actor's sides are used"), Used.Sides, 5);
+	TestFalse(TEXT("The actor's closed form is used"), Used.bClosedForm);
+	TestEqual(TEXT("The actor's min thickness is used"), Used.MinThickness, 20.0);
+
+	Actor->bOverrideClosedForm = false;
+	Actor->bOverrideMinThickness = false;
+	Actor->Rebuild();
+	TestEqual(TEXT("Closed tubes with the actor's sides: 84 rings of 5 vertices"), MeshOf(Actor).VertexCount(), 84 * 5);
+
+	Actor->bOverrideSides = false;
+	Actor->Rebuild();
+	TestEqual(TEXT("With every override off the asset's sides are used"), MeshOf(Actor).VertexCount(), LegacyCoreCounts(Text, 3).Vertices);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetShownSurfacerTest,
+	"Cambriana.GrammarAsset.Settings.ActorShowsTheAssetsSurfacerSettingsAndOverridesTurnedOnChangeNothing",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
+{
+	const FString Text = LoadFixture(TEXT("sk.ls"));
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnActor(World.Get());
+	if (!TestFalse(TEXT("sk.ls fixture loaded"), Text.IsEmpty()) || !TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
+	UCambrianaGrammar* Grammar = MakeGrammar(Text);
+	Grammar->SizeMode = ECambrianaSizeMode::Step;
+	Grammar->SizeValue = 10.0;
+	Grammar->Sides = 3;
+	Grammar->bClosedForm = false;
+	Grammar->MinThickness = 20.0;
+	Actor->SetGrammar(Grammar);
+
+	TestEqual(TEXT("Shown sides are the asset's"), Actor->Sides, 3);
+	TestFalse(TEXT("Shown closed form is the asset's"), Actor->bClosedForm);
+	TestEqual(TEXT("Shown min thickness is the asset's"), Actor->MinThickness, 20.0);
+
+	const TArray<FVector3d> Baseline = PositionsOf(Actor);
+	TestTrue(TEXT("Built geometry"), Baseline.Num() > 0);
+	struct FOverride
+	{
+		const TCHAR* Name;
+		bool ACambrianaLiveActor::*Flag;
+	};
+	const FOverride Overrides[] = {
+		{ TEXT("sides"), &ACambrianaLiveActor::bOverrideSides },
+		{ TEXT("closed form"), &ACambrianaLiveActor::bOverrideClosedForm },
+		{ TEXT("min thickness"), &ACambrianaLiveActor::bOverrideMinThickness },
+		{ TEXT("size"), &ACambrianaLiveActor::bOverrideSize },
+	};
+	for (const FOverride& Override : Overrides)
+	{
+		Actor->*Override.Flag = true;
+		Actor->Rebuild();
+		TestTrue(FString::Printf(TEXT("Turning the %s override on leaves the vertex positions unchanged"), Override.Name), PositionsOf(Actor) == Baseline);
+		Actor->*Override.Flag = false;
+		Actor->Rebuild();
+	}
+	return true;
+}
+
 #if WITH_EDITOR
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetSettingChangeRebuildsTest,
 	"Cambriana.GrammarAsset.Settings.ChangingAnAssetSettingRebuildsReferencingActors",
