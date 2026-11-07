@@ -137,7 +137,7 @@ namespace
 				Core.overrides |= CAMBRIANA_OVERRIDE_SIZE;
 			}
 		}
-		if (Format == ECambrianaGrammarFormat::Legacy || Settings.bOverrideGrammarSize)
+		if (Format == ECambrianaGrammarFormat::Legacy || Settings.bOverrideGrammarSize || Settings.bSizeForGrammarWithoutSize)
 		{
 			if (Settings.SizeMode == ECambrianaSizeMode::Fit)
 			{

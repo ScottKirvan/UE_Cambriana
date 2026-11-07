@@ -25,6 +25,8 @@ struct FCambrianaBuildSettings
 	double SizeValue = 200.0;
 	/** Cambriana grammar text uses SizeMode and SizeValue only when set; otherwise its own size or step, else the core's default. */
 	bool bOverrideGrammarSize = false;
+	/** Cambriana grammar text stating neither size nor step uses SizeMode and SizeValue instead of the core's default. */
+	bool bSizeForGrammarWithoutSize = false;
 	TOptional<uint64> ProductionBudget;
 	TOptional<uint64> BoneBudget;
 	TOptional<uint64> WorkBudget;

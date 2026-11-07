@@ -21,6 +21,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Grammar")
 	uint32 Seed = 0;
 
+	/** Used by live actors without a size override; for .lsys text, only when the text states neither size nor step. */
 	UPROPERTY(EditAnywhere, Category = "Size")
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 
