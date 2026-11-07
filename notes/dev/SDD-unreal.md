@@ -34,6 +34,11 @@ display baked results.
   the file changes. Reimporting a `.ls` file replaces the grammar text with a new conversion.
 - A `.ls` file the converter rejects shows the error with its line and column, and no asset
   is created.
+- `[Proposed — unconfirmed]` Reimporting a `.lsys` file replaces the grammar text with the
+  file's text. A reimport keeps the asset's seed unless the file is `.lsys` and sets `seed`,
+  which then becomes the asset's seed. A file the converter rejects on reimport leaves the
+  asset unchanged and shows each error with its line and column. Live actors referencing
+  the asset rebuild after a reimport. The import factory is also the reimport handler.
 - `[Proposed — unconfirmed]` The import factory is separate from the new-asset factory. A
   `.ls` file is rejected when its conversion reports any error; each diagnostic is logged
   with the file path, line and column. Converted text is serialised in glyph style. The

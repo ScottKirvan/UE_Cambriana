@@ -12,13 +12,13 @@
 
 namespace
 {
-	struct FImportedText
+	struct FSourceGrammar
 	{
 		FString GrammarText;
-		uint32 Seed = 0;
+		TOptional<uint32> Seed;
 	};
 
-	TOptional<FImportedText> ConvertLegacyFile(const FString& Filename, const FString& FileText, FFeedbackContext* Warn)
+	TOptional<FString> ConvertLegacyFile(const FString& Filename, const FString& FileText, FFeedbackContext* Warn)
 	{
 		const FCambrianaLegacyConversion Conversion = Cambriana::ConvertLegacyGrammar(FileText);
 		if (Conversion.bCoreUnavailable)
@@ -39,7 +39,30 @@ namespace
 			}
 			return {};
 		}
-		return FImportedText{ *Conversion.GrammarText, Cambriana::GenerateSeed() };
+		return *Conversion.GrammarText;
+	}
+
+	TOptional<FSourceGrammar> ReadSourceGrammar(const FString& Filename, FFeedbackContext* Warn)
+	{
+		FString FileText;
+		if (!FFileHelper::LoadFileToString(FileText, *Filename))
+		{
+			Warn->Logf(ELogVerbosity::Error, TEXT("%s: the file could not be read"), *Filename);
+			return {};
+		}
+		if (FPaths::GetExtension(Filename).Equals(TEXT("ls"), ESearchCase::IgnoreCase))
+		{
+			TOptional<FString> Converted = ConvertLegacyFile(Filename, FileText, Warn);
+			return Converted ? FSourceGrammar{ MoveTemp(*Converted), {} } : TOptional<FSourceGrammar>();
+		}
+		const TOptional<uint32> Seed = Cambriana::GrammarSeed(FileText);
+		return FSourceGrammar{ MoveTemp(FileText), Seed };
+	}
+
+	UCambrianaGrammar* GrammarWithSourceFile(UObject* Obj)
+	{
+		UCambrianaGrammar* Grammar = Cast<UCambrianaGrammar>(Obj);
+		return Grammar && Grammar->AssetImportData && !Grammar->AssetImportData->GetFirstFilename().IsEmpty() ? Grammar : nullptr;
 	}
 }
 
@@ -56,33 +79,59 @@ UCambrianaGrammarImportFactory::UCambrianaGrammarImportFactory()
 UObject* UCambrianaGrammarImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags,
 	const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	const FString Extension = FPaths::GetExtension(Filename);
-	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, *Extension);
-
-	FString FileText;
-	TOptional<FImportedText> Imported;
-	if (!FFileHelper::LoadFileToString(FileText, *Filename))
-	{
-		Warn->Logf(ELogVerbosity::Error, TEXT("%s: the file could not be read"), *Filename);
-	}
-	else if (Extension.Equals(TEXT("ls"), ESearchCase::IgnoreCase))
-	{
-		Imported = ConvertLegacyFile(Filename, FileText, Warn);
-	}
-	else
-	{
-		Imported = FImportedText{ FileText, Cambriana::GrammarSeed(FileText).Get(Cambriana::GenerateSeed()) };
-	}
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, *FPaths::GetExtension(Filename));
 
 	UCambrianaGrammar* Grammar = nullptr;
-	if (Imported)
+	if (TOptional<FSourceGrammar> Source = ReadSourceGrammar(Filename, Warn))
 	{
 		Grammar = NewObject<UCambrianaGrammar>(InParent, InClass, InName, Flags);
-		Grammar->GrammarText = MoveTemp(Imported->GrammarText);
-		Grammar->Seed = Imported->Seed;
+		Grammar->GrammarText = MoveTemp(Source->GrammarText);
+		Grammar->Seed = Source->Seed.Get(Cambriana::GenerateSeed());
 		Grammar->AssetImportData->Update(Filename);
 	}
 
 	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Grammar);
 	return Grammar;
+}
+
+bool UCambrianaGrammarImportFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilenames)
+{
+	const UCambrianaGrammar* Grammar = GrammarWithSourceFile(Obj);
+	if (!Grammar)
+	{
+		return false;
+	}
+	Grammar->AssetImportData->ExtractFilenames(OutFilenames);
+	return true;
+}
+
+void UCambrianaGrammarImportFactory::SetReimportPaths(UObject* Obj, const TArray<FString>& NewReimportPaths)
+{
+	UCambrianaGrammar* Grammar = Cast<UCambrianaGrammar>(Obj);
+	if (Grammar && Grammar->AssetImportData && NewReimportPaths.Num() == 1)
+	{
+		Grammar->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
+	}
+}
+
+EReimportResult::Type UCambrianaGrammarImportFactory::Reimport(UObject* Obj)
+{
+	UCambrianaGrammar* Grammar = GrammarWithSourceFile(Obj);
+	if (!Grammar)
+	{
+		return EReimportResult::Failed;
+	}
+	const FString Filename = Grammar->AssetImportData->GetFirstFilename();
+	TOptional<FSourceGrammar> Source = ReadSourceGrammar(Filename, GWarn);
+	if (!Source)
+	{
+		return EReimportResult::Failed;
+	}
+
+	Grammar->Modify();
+	Grammar->GrammarText = MoveTemp(Source->GrammarText);
+	Grammar->Seed = Source->Seed.Get(Grammar->Seed);
+	Grammar->AssetImportData->Update(Filename);
+	Grammar->MarkPackageDirty();
+	return EReimportResult::Succeeded;
 }
