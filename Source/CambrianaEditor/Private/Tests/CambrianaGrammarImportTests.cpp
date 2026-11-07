@@ -164,8 +164,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaImportRejectedLegacyTest,
 
 bool FCambrianaImportRejectedLegacyTest::RunTest(const FString& Parameters)
 {
-	const FString Path = WriteTemporaryFile(TEXT("rejected.ls"), TEXT("3\n25\n50\nA\nA=F@F\n@\n"));
+	const FString Path = WriteTemporaryFile(TEXT("rejected.ls"), TEXT("3\n25\n50\nA\nA=F@F@\n@\n"));
 	AddExpectedMessagePlain(TEXT("rejected.ls: error at line 5, column 4: not convertible"), ELogVerbosity::Error);
+	AddExpectedMessagePlain(TEXT("rejected.ls: error at line 5, column 6: not convertible"), ELogVerbosity::Error);
 	AddExpectedMessagePlain(TEXT("Failed to import"), ELogVerbosity::Warning);
 	const FImportedGrammar Imported(Path);
 	TestEqual(TEXT("The import returns no objects"), Imported.NumObjects(), 0);
