@@ -5,7 +5,9 @@
 
 #include "CambrianaGrammar.generated.h"
 
-/** Interim grammar asset: grammar text (.lsys, or legacy .ls) and a seed. */
+class UAssetImportData;
+
+/** Interim grammar asset: grammar text (.lsys, or legacy .ls), a seed and, when imported, its source file. */
 UCLASS(BlueprintType)
 class CAMBRIANA_API UCambrianaGrammar : public UObject
 {
@@ -18,10 +20,17 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Grammar")
 	uint32 Seed = 0;
 
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(VisibleAnywhere, Instanced, Category = "Import")
+	TObjectPtr<UAssetImportData> AssetImportData;
+#endif
+
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnGrammarChanged, const UCambrianaGrammar*);
 
 	/** Broadcast after any grammar asset changes. */
 	static FOnGrammarChanged& OnGrammarChanged();
+
+	virtual void PostInitProperties() override;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
