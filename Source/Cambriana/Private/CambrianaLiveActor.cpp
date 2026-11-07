@@ -52,12 +52,14 @@ FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 	{
 		Settings.Thickness = Thickness;
 	}
-	Settings.MinThickness = MinThickness;
-	Settings.bClosedForm = bClosedForm;
-	Settings.Sides = Sides;
-	Settings.SizeMode = SizeMode;
-	Settings.SizeValue = SizeValue;
+	Settings.MinThickness = Grammar ? Grammar->MinThickness : MinThickness;
+	Settings.bClosedForm = Grammar ? Grammar->bClosedForm : bClosedForm;
+	Settings.Sides = Grammar ? Grammar->Sides : Sides;
+	const bool bAssetSize = Grammar && !bOverrideSize;
+	Settings.SizeMode = bAssetSize ? Grammar->SizeMode : SizeMode;
+	Settings.SizeValue = bAssetSize ? Grammar->SizeValue : SizeValue;
 	Settings.bOverrideGrammarSize = bOverrideSize;
+	Settings.bSizeForGrammarWithoutSize = bAssetSize;
 	return Input;
 }
 
