@@ -73,7 +73,7 @@ grow {
 
 | Construct | Syntax |
 |---|---|
-| Settings | `generations`, `angle`, `thickness`, `size` (Fit target) or `step` (step length), `seed` |
+| Settings | `generations`, `angle`, `thickness`, `size` (Fit target) or `step` (step length), `seed`; optional surfacer settings `sides`, `surface tubes` or `surface blocks`, `minthickness` (cm) |
 | Comments | `#` to end of line, anywhere |
 | Modules | Names: `Spine`, `BranchA` |
 | Parameters | `pose param`, `shape param`, `structure param`, `param` |
