@@ -80,12 +80,10 @@ Standalone asset editor, opened from the grammar asset.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
   size override, size mode and value; a grammar asset reference or inline grammar text.
   Inline `.ls` text is converted.
-- `[Proposed — unconfirmed]` Min thickness, closed form and sides each have an override
-  toggle, off by default. With a grammar asset, a setting whose toggle is off comes from the
-  asset; without one, the actor's own value always applies, whatever the toggle. With a
-  grammar asset and the size override off, the asset's size mode and value take the place of
-  the actor's: `.ls` text uses them, and `.lsys` text uses them only when it states neither
-  `size` nor `step`, where it would otherwise build at the core's default size.
+- **Decided:** min thickness, closed form and sides each have an override toggle, off by
+  default, like size. Each size and surfacer setting is taken from the first of: the actor,
+  when its override is on; the grammar text, when it states the setting; the grammar asset;
+  the default. Without a grammar asset, the actor's own value takes the asset's place.
 - The interim grammar asset holds only grammar text, a seed, size and surfacer settings
   and, when imported, its source file path. Its settings default to the live actor's. A new one holds the default grammar as `.lsys` text; one holding legacy `.ls`
   text is read directly by the core. M2 adds import, conversion and the grammar editor, and
