@@ -387,15 +387,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewDefaultTest,
 
 bool FCambrianaGrammarPreviewDefaultTest::RunTest(const FString& Parameters)
 {
-	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	UCambrianaGrammar* Grammar = CreateGrammarInPackage(TEXT("/Game/CambrianaEditorTests/PreviewedGrammar"));
 	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
 	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
 		CloseGrammarEditor(Grammar);
+		UnloadPackage(Grammar->GetPackage());
 		return false;
 	}
 	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
 	const UDynamicMeshComponent* Mesh = Preview.GetMeshComponent();
+	TestTrue(TEXT("The grammar has a package of its own"), Grammar->GetPackage() != GetTransientPackage());
 	if (TestNotNull(TEXT("The preview has a mesh"), Mesh))
 	{
 		TestTrue(TEXT("The preview mesh is in the viewport's scene"), Mesh->IsRegistered() && Mesh->GetWorld() == Preview.GetWorld());
@@ -406,6 +408,7 @@ bool FCambrianaGrammarPreviewDefaultTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The preview builds the asset's text"), Preview.GetLastBuildInput().GrammarText, Grammar->GrammarText);
 	TestEqual(TEXT("The preview builds with the asset's seed"), Preview.GetLastBuildInput().Seed, Grammar->Seed);
 	CloseGrammarEditor(Grammar);
+	UnloadPackage(Grammar->GetPackage());
 	return true;
 }
 
