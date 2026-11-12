@@ -191,6 +191,17 @@ Standalone asset editor, opened from the grammar asset.
   default, like size. Each size and surfacer setting is taken from the first of: the actor,
   when its override is on; the grammar text, when it states the setting; the grammar asset;
   the default. Without a grammar asset, the actor's own value takes the asset's place.
+- **Decided:** turning an actor's override off changes none of the actor's values; the build
+  then takes the setting from the grammar text, the grammar asset or the default, and turning
+  the override back on builds with the actor's kept value.
+- **Decided:** a live actor placed from a grammar asset starts each setting that has an
+  override (recursion, basic angle, thickness, size, min thickness, closed form, sides) from
+  the first of: the grammar text, when it states the setting; the grammar asset; the default.
+  Afterwards the actor's values are independent of the asset's.
+- **Decided:** a grammar asset's size and surfacer settings start from its grammar text, for
+  each setting the text states; otherwise from the default. `[Proposed — unconfirmed]` This
+  applies when the asset is created, by the new-asset factory or by import; a reimport or a
+  text edit leaves the asset's settings unchanged.
 - The interim grammar asset holds only grammar text, a seed, parameter values, size and
   surfacer settings and, when imported, its source file path. Its settings default to the live actor's. A new one holds the default grammar as `.lsys` text; one holding legacy `.ls`
   text is read directly by the core. M2 adds import, conversion and the grammar editor, and
