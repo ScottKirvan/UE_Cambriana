@@ -55,12 +55,19 @@ namespace Cambriana::Editor::Tests
 	{
 		if (FCambrianaGrammarEditorToolkit* Toolkit = FindGrammarEditor(Grammar))
 		{
-			Toolkit->SetUnsavedEditsPrompt([](const FText&) { return EAppReturnType::No; });
+			Toolkit->SetUnsavedEditsPrompt([](EAppMsgType::Type, const FText&) { return EAppReturnType::No; });
 		}
 		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
 	}
 
-	/** Closes the grammar's editors, leaving any close prompt to whatever answer the editor has been given. */
+	/** Closes the grammar editor as its tab's close button does, the one close the editor can stop; returns whether it closed. */
+	inline bool CloseFromTab(FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		const TSharedPtr<SDockTab> Tab = Toolkit.GetTabManager() ? Toolkit.GetTabManager()->GetOwnerTab() : nullptr;
+		return Tab && Tab->RequestCloseTab();
+	}
+
+	/** Closes the grammar's editors as the asset editor subsystem does, a close the editor cannot stop, leaving any close prompt to whatever answer the editor has been given. */
 	inline void CloseAsking(UCambrianaGrammar* Grammar)
 	{
 		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
