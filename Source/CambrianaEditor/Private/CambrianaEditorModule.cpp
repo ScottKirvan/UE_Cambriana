@@ -4,6 +4,7 @@
 #include "CambrianaLiveActor.h"
 #include "CambrianaLiveActorCustomization.h"
 #include "CambrianaSeedCustomization.h"
+#include "Engine/Engine.h"
 #include "IPlacementModeModule.h"
 #include "Misc/CoreDelegates.h"
 #include "Modules/ModuleInterface.h"
@@ -20,8 +21,15 @@ public:
 			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaGrammarCustomization::MakeInstance));
 		RegisterCustomization(PropertyEditor, ACambrianaLiveActor::StaticClass(),
 			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaLiveActorCustomization::MakeInstance));
-		// Placement mode needs the editor, which isn't up yet while plugin modules start.
-		FCoreDelegates::GetOnPostEngineInit().AddStatic(&FCambrianaEditorModule::RegisterPlacementCategory);
+		// Placement mode needs the editor, which isn't up yet while plugin modules start at their usual loading phase.
+		if (GEngine && GEngine->IsInitialized())
+		{
+			RegisterPlacementCategory();
+		}
+		else
+		{
+			FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &FCambrianaEditorModule::RegisterPlacementCategory);
+		}
 	}
 
 	virtual void ShutdownModule() override
@@ -42,7 +50,7 @@ public:
 	}
 
 private:
-	static void RegisterPlacementCategory()
+	void RegisterPlacementCategory()
 	{
 		if (!GIsEditor || IsRunningCommandlet())
 		{
