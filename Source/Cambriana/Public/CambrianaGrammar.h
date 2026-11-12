@@ -56,6 +56,7 @@ public:
 	static FOnGrammarChanged& OnGrammarChanged();
 
 	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 #if WITH_EDITORONLY_DATA
 	virtual void GetAssetRegistryTags(FAssetRegistryTagsContext Context) const override;
 #endif

@@ -23,7 +23,19 @@ void UCambrianaGrammar::PostInitProperties()
 {
 	Super::PostInitProperties();
 #if WITH_EDITORONLY_DATA
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	// As UTexture: a grammar being loaded takes its import data from its package; PostLoad fills the gap if the package has none.
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
+	}
+#endif
+}
+
+void UCambrianaGrammar::PostLoad()
+{
+	Super::PostLoad();
+#if WITH_EDITORONLY_DATA
+	if (!AssetImportData)
 	{
 		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
 	}
