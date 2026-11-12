@@ -3,16 +3,21 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarPreview.h"
 #include "CambrianaGrammarWorkingCopy.h"
+#include "ContentBrowserModule.h"
+#include "FileHelpers.h"
+#include "IContentBrowserSingleton.h"
 #include "IDetailsView.h"
 #include "IMessageLogListing.h"
 #include "MessageLogModule.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/PackageName.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "SCambrianaGrammarViewport.h"
 #include "ScopedTransaction.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Subsystems/AssetEditorSubsystem.h"
 #include "Widgets/Layout/SSplitter.h"
 
 #define LOCTEXT_NAMESPACE "CambrianaGrammarEditor"
@@ -38,6 +43,17 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 {
 	WorkingCopy.Reset(Cambriana::Editor::DuplicateWorkingCopy(*Grammar));
 	UnsavedEditsPrompt = [](const FText& Message) { return FMessageDialog::Open(EAppMsgType::YesNoCancel, Message); };
+	SaveAsPrompt = [](const UCambrianaGrammar& Edited)
+	{
+		FSaveAssetDialogConfig Config;
+		Config.DefaultPath = FPackageName::GetLongPackagePath(Edited.GetPackage()->GetName());
+		Config.DefaultAssetName = Edited.GetName();
+		Config.AssetClassNames.Add(UCambrianaGrammar::StaticClass()->GetClassPathName());
+		Config.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+		Config.DialogTitleOverride = LOCTEXT("SaveAsTitle", "Save Grammar As");
+		const FString ObjectPath = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser")).Get().CreateModalSaveAssetDialog(Config);
+		return ObjectPath.IsEmpty() ? FString() : FPackageName::ObjectPathToPackageName(ObjectPath);
+	};
 
 	RulesTextBox = SNew(SMultiLineEditableTextBox)
 		.Text(FText::FromString(WorkingCopy->GrammarText))
@@ -136,14 +152,17 @@ bool FCambrianaGrammarEditorToolkit::OnRequestClose(EAssetEditorCloseReason InCl
 {
 	ApplyPendingRulesEdit();
 	const UCambrianaGrammar* Grammar = GetGrammar();
-	if (Grammar && InCloseReason != EAssetEditorCloseReason::AssetForceDeleted && HasUnsavedEdits())
+	if (Grammar && !bClosingForSaveAs && InCloseReason != EAssetEditorCloseReason::AssetForceDeleted && HasUnsavedEdits())
 	{
 		const FText Message = FText::Format(LOCTEXT("UnsavedEditsPrompt", "Save your changes to {0}?\n(Selecting 'No' discards them.)"),
 			FText::FromString(Grammar->GetPathName()));
 		switch (UnsavedEditsPrompt(Message))
 		{
 		case EAppReturnType::Yes:
-			SaveAsset_Execute();
+			if (!SaveWorkingCopy())
+			{
+				return false;
+			}
 			break;
 		case EAppReturnType::No:
 			break;
@@ -156,14 +175,42 @@ bool FCambrianaGrammarEditorToolkit::OnRequestClose(EAssetEditorCloseReason InCl
 
 void FCambrianaGrammarEditorToolkit::SaveAsset_Execute()
 {
-	CopyWorkingCopyIntoGrammar();
-	FAssetEditorToolkit::SaveAsset_Execute();
+	SaveWorkingCopy();
 }
 
 void FCambrianaGrammarEditorToolkit::SaveAssetAs_Execute()
 {
-	CopyWorkingCopyIntoGrammar();
-	FAssetEditorToolkit::SaveAssetAs_Execute();
+	ApplyPendingRulesEdit();
+	UCambrianaGrammar* Grammar = GetGrammar();
+	const FString NewPackageName = Grammar ? SaveAsPrompt(*Grammar) : FString();
+	if (NewPackageName.IsEmpty())
+	{
+		return;
+	}
+	if (NewPackageName == Grammar->GetPackage()->GetName())
+	{
+		SaveWorkingCopy();
+		return;
+	}
+	FText InvalidName;
+	if (!FFileHelper::IsFilenameValidForSaving(NewPackageName, InvalidName))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, InvalidName);
+		return;
+	}
+	UCambrianaGrammar* NewGrammar = Cambriana::Editor::DuplicateAsAsset(*WorkingCopy, NewPackageName);
+	if (!NewGrammar || FEditorFileUtils::PromptForCheckoutAndSave({ NewGrammar->GetPackage() }, false, false) != FEditorFileUtils::PR_Success)
+	{
+		return;
+	}
+	// Closing releases the editor's last reference to itself.
+	const TSharedRef<FCambrianaGrammarEditorToolkit> KeepAlive = SharedThis(this);
+	const TSharedPtr<IToolkitHost> Host = ToolkitHost.Pin();
+	UAssetEditorSubsystem* AssetEditors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+	bClosingForSaveAs = true;
+	AssetEditors->CloseAllEditorsForAsset(Grammar);
+	AssetEditors->OpenEditorForAsset(NewGrammar, ToolkitMode, Host);
+	OnAssetsSavedAs({ NewGrammar });
 }
 
 bool FCambrianaGrammarEditorToolkit::HasUnsavedEdits() const
@@ -321,13 +368,39 @@ void FCambrianaGrammarEditorToolkit::ApplyPendingRulesEdit()
 	}
 }
 
-void FCambrianaGrammarEditorToolkit::CopyWorkingCopyIntoGrammar()
+bool FCambrianaGrammarEditorToolkit::SaveWorkingCopy()
 {
 	ApplyPendingRulesEdit();
-	if (UCambrianaGrammar* Grammar = GetGrammar())
+	UCambrianaGrammar* Grammar = GetGrammar();
+	if (!Grammar)
 	{
-		Cambriana::Editor::CopyGrammar(*WorkingCopy, *Grammar);
+		return false;
 	}
+	if (!Grammar->IsAsset())
+	{
+		// Nothing on disk to write.
+		Cambriana::Editor::CopyGrammar(*WorkingCopy, *Grammar);
+		return true;
+	}
+	// The asset takes the edits for the save without a change event, so its actors rebuild only once it is saved.
+	UPackage* Package = Grammar->GetPackage();
+	const bool bWasDirty = Package->IsDirty();
+	UCambrianaGrammar* BeforeSave = NewObject<UCambrianaGrammar>(GetTransientPackage());
+	const TStrongObjectPtr<UCambrianaGrammar> KeepBeforeSave(BeforeSave);
+	Cambriana::Editor::CopyGrammarValues(*Grammar, *BeforeSave);
+	const bool bChanged = Cambriana::Editor::CopyGrammarValues(*WorkingCopy, *Grammar);
+	if (FEditorFileUtils::PromptForCheckoutAndSave({ Package }, false, false) != FEditorFileUtils::PR_Success)
+	{
+		Cambriana::Editor::CopyGrammarValues(*BeforeSave, *Grammar);
+		Package->SetDirtyFlag(bWasDirty);
+		return false;
+	}
+	if (bChanged)
+	{
+		Cambriana::Editor::NotifyGrammarChanged(*Grammar);
+	}
+	OnAssetsSaved({ Grammar });
+	return true;
 }
 
 void FCambrianaGrammarEditorToolkit::CancelPendingRulesEdit()

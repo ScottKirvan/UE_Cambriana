@@ -15,4 +15,13 @@ namespace Cambriana::Editor
 
 	/** Copies those properties from From into To as one change event outside the undo history; returns false, changing nothing, when they already hold the same grammar. */
 	bool CopyGrammar(const UCambrianaGrammar& From, UCambrianaGrammar& To);
+
+	/** Copies those properties from From into To with no change event and outside the undo history; returns whether To changed. */
+	bool CopyGrammarValues(const UCambrianaGrammar& From, UCambrianaGrammar& To);
+
+	/** Broadcasts the change event CopyGrammar sends, for values CopyGrammarValues copied. */
+	void NotifyGrammarChanged(UCambrianaGrammar& Grammar);
+
+	/** A new, dirty, standalone public asset holding Grammar's values, named after LongPackageName and registered with the asset registry. */
+	UCambrianaGrammar* DuplicateAsAsset(const UCambrianaGrammar& Grammar, const FString& LongPackageName);
 }
