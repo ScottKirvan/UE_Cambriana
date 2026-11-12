@@ -2,6 +2,7 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarCustomization.h"
 #include "CambrianaLiveActor.h"
+#include "CambrianaLiveActorCustomization.h"
 #include "CambrianaSeedCustomization.h"
 #include "IPlacementModeModule.h"
 #include "Misc/CoreDelegates.h"
@@ -18,8 +19,7 @@ public:
 		RegisterCustomization(PropertyEditor, UCambrianaGrammar::StaticClass(),
 			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaGrammarCustomization::MakeInstance));
 		RegisterCustomization(PropertyEditor, ACambrianaLiveActor::StaticClass(),
-			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaSeedCustomization::MakeInstance,
-				GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Seed), ACambrianaLiveActor::StaticClass()));
+			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaLiveActorCustomization::MakeInstance));
 		// Placement mode needs the editor, which isn't up yet while plugin modules start.
 		FCoreDelegates::GetOnPostEngineInit().AddStatic(&FCambrianaEditorModule::RegisterPlacementCategory);
 	}

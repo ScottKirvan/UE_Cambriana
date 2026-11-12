@@ -10,6 +10,19 @@ class UCambrianaGrammar;
 class UMaterialInstanceDynamic;
 class UMaterialInterface;
 
+/** The live actor's settings that have an override toggle. */
+struct FCambrianaOverridableSettings
+{
+	double Recursion = 0.0;
+	double BasicAngle = 0.0;
+	double Thickness = 0.0;
+	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
+	double SizeValue = 0.0;
+	int32 Sides = 0;
+	bool bClosedForm = false;
+	double MinThickness = 0.0;
+};
+
 /** Dynamic-mesh actor that rebuilds its mesh from a grammar whenever its inputs change. */
 UCLASS()
 class CAMBRIANA_API ACambrianaLiveActor : public ADynamicMeshActor
@@ -83,6 +96,15 @@ public:
 
 	/** Placement from a grammar asset: references it, copies its seed, and starts each overridable setting from the text, else the asset, else the default. */
 	void PlaceFromGrammar(UCambrianaGrammar* Source);
+
+	/** The value each overridable setting starts from: the grammar text's when it states the setting, else the grammar asset's, else the default. */
+	FCambrianaOverridableSettings GetStartingSettings() const;
+
+	/** The properties of the overridable settings, each reset on its own to its starting value. */
+	static TConstArrayView<FName> GetStartingValueProperties();
+
+	bool IsAtStartingValue(FName PropertyName) const;
+	void ResetToStartingValue(FName PropertyName);
 
 	FCambrianaBuildInput MakeBuildInput() const;
 
