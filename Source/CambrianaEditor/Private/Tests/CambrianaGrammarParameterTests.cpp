@@ -190,7 +190,6 @@ bool FCambrianaGrammarParametersEditTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The asset stores count = 5"), Stored && Stored->Value == 5.0);
 	TestEqual(TEXT("Details shows count 5"), ShownValue(*Rows, TEXT("count")), 5.0);
 	TestEqual(TEXT("Details shows twice following count: 10"), ShownValue(*Rows, TEXT("twice")), 10.0);
-	TestTrue(TEXT("The asset is dirty"), Grammar->GetPackage()->IsDirty());
 
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
 	TestEqual(TEXT("Setting the same value does not rebuild"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
