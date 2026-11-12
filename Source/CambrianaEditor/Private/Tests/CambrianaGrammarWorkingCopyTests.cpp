@@ -19,6 +19,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 using Cambriana::Editor::Tests::CloseAsking;
+using Cambriana::Editor::Tests::CloseFromTab;
 using Cambriana::Editor::Tests::CloseGrammarEditor;
 using Cambriana::Editor::Tests::CreateGrammarInPackage;
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
@@ -318,7 +319,7 @@ bool FCambrianaWorkingCopyCloseCleanTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::Cancel; });
+	Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::Cancel; });
 	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing does not ask"), Asked, 0);
 	if (!TestNull(TEXT("The editor closes"), FindGrammarEditor(Grammar)))
@@ -354,7 +355,7 @@ bool FCambrianaWorkingCopyCloseSaveTest::RunTest(const FString& Parameters)
 	const int32 ActorBuildsBefore = Actor->GetBuildCount();
 	int32 Asked = 0;
 	FString Message;
-	Toolkit->SetUnsavedEditsPrompt([&Asked, &Message](const FText& Text) { ++Asked; Message = Text.ToString(); return EAppReturnType::Yes; });
+	Toolkit->SetUnsavedEditsPrompt([&Asked, &Message](EAppMsgType::Type, const FText& Text) { ++Asked; Message = Text.ToString(); return EAppReturnType::Yes; });
 
 	RunWithoutSavePrompt([Grammar] { CloseAsking(Grammar); });
 	TestEqual(TEXT("Closing asks once"), Asked, 1);
@@ -393,7 +394,7 @@ bool FCambrianaWorkingCopyCloseDiscardTest::RunTest(const FString& Parameters)
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
 	const int32 ActorBuildsBefore = Actor->GetBuildCount();
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::No; });
+	Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::No; });
 
 	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing asks once"), Asked, 1);
@@ -419,10 +420,12 @@ bool FCambrianaWorkingCopyCloseCancelTest::RunTest(const FString& Parameters)
 	}
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::Cancel; });
+	EAppMsgType::Type Offered = EAppMsgType::Ok;
+	Toolkit->SetUnsavedEditsPrompt([&Asked, &Offered](EAppMsgType::Type Buttons, const FText&) { ++Asked; Offered = Buttons; return EAppReturnType::Cancel; });
 
-	CloseAsking(Grammar);
+	TestFalse(TEXT("The tab does not close"), CloseFromTab(*Toolkit));
 	TestEqual(TEXT("Closing asks once"), Asked, 1);
+	TestTrue(TEXT("Closing the tab offers Cancel"), Offered == EAppMsgType::YesNoCancel);
 	if (!TestTrue(TEXT("Cancelling keeps the editor open"), FindGrammarEditor(Grammar) == Toolkit))
 	{
 		return false;
@@ -575,8 +578,8 @@ bool FCambrianaWorkingCopyCloseSaveCancelledTest::RunTest(const FString& Paramet
 		return false;
 	}
 	int32 Asked = 0;
-	Edited.Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::Yes; });
-	CloseAsking(Edited.Grammar);
+	Edited.Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::Yes; });
+	TestFalse(TEXT("The tab does not close"), CloseFromTab(*Edited.Toolkit));
 	TestEqual(TEXT("Closing asks once"), Asked, 1);
 	Edited.TestGrammarAndActorUnchanged(*this);
 	Edited.TestEditorKeepsTheEdits(*this);
