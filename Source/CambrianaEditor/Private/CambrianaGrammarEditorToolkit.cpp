@@ -1,5 +1,6 @@
 #include "CambrianaGrammarEditorToolkit.h"
 
+#include "Algo/AnyOf.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarPreview.h"
 #include "CambrianaGrammarWorkingCopy.h"
@@ -266,9 +267,14 @@ TArray<TWeakObjectPtr<UObject>> FCambrianaGrammarEditorToolkit::GetDetailsObject
 	return DetailsView->GetSelectedObjects();
 }
 
-bool FCambrianaGrammarEditorToolkit::IsDetailsPropertyVisible(FName PropertyName) const
+bool FCambrianaGrammarEditorToolkit::IsDetailsPropertyVisible(FName PropertyName, TConstArrayView<FName> ParentPropertyNames) const
 {
-	return PropertyName != GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText);
+	// Rules shows the text. The import data stays with the asset, so a save would drop changes made to the working copy's.
+	const auto IsHidden = [](FName Name)
+	{
+		return Name == GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText) || Name == GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData);
+	};
+	return !IsHidden(PropertyName) && !Algo::AnyOf(ParentPropertyNames, IsHidden);
 }
 
 FOnTextCommitted FCambrianaGrammarEditorToolkit::MakeRulesCommittedDelegate()
@@ -368,7 +374,12 @@ bool FCambrianaGrammarEditorToolkit::HandleRulesApplyTimer(float DeltaTime)
 
 bool FCambrianaGrammarEditorToolkit::HandleIsDetailsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const
 {
-	return IsDetailsPropertyVisible(PropertyAndParent.Property.GetFName());
+	TArray<FName, TInlineAllocator<4>> ParentNames;
+	for (const FProperty* Parent : PropertyAndParent.ParentProperties)
+	{
+		ParentNames.Add(Parent ? Parent->GetFName() : NAME_None);
+	}
+	return IsDetailsPropertyVisible(PropertyAndParent.Property.GetFName(), ParentNames);
 }
 
 void FCambrianaGrammarEditorToolkit::ApplyPendingRulesEdit()
