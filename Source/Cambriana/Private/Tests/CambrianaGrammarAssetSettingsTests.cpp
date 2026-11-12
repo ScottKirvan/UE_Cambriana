@@ -619,7 +619,7 @@ bool FCambrianaGrammarAssetOwnBuildInputTest::RunTest(const FString& Parameters)
 	Grammar->MinThickness = 1.5;
 
 	const FCambrianaBuildInput Input = ACambrianaLiveActor::MakeBuildInputFor(*Grammar);
-	TestEqual(TEXT("The asset's text"), Input.GrammarText, Text);
+	TestEqualSensitive(TEXT("The asset's text"), Input.GrammarText, Text);
 	TestEqual(TEXT("The asset's seed"), Input.Seed, uint32(4242));
 	const FCambrianaBuildSettings& Settings = Input.Settings;
 	TestFalse(TEXT("The grammar's recursion"), Settings.Recursion.IsSet());

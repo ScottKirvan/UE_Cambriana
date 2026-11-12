@@ -49,7 +49,7 @@ bool FCambrianaGrammarFactoryNewAssetTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("New asset holds the default grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
+	TestEqualSensitive(TEXT("New asset holds the default grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
 	TestNotEqual(TEXT("Two new assets get different seeds"), First->Seed, Second->Seed);
 	return true;
 }
@@ -86,7 +86,7 @@ bool FCambrianaDragGrammarIntoLevelTest::RunTest(const FString& Parameters)
 	if (TestNotNull(TEXT("The placed element is a live actor"), Actor))
 	{
 		TestTrue(TEXT("The live actor references the dropped grammar"), Actor->Grammar == Grammar);
-		TestEqual(TEXT("The live actor was built from the grammar's text"), Actor->GetLastBuildInput().GrammarText, Grammar->GrammarText);
+		TestEqualSensitive(TEXT("The live actor was built from the grammar's text"), Actor->GetLastBuildInput().GrammarText, Grammar->GrammarText);
 		Actor->GetWorld()->EditorDestroyActor(Actor, false);
 	}
 	return true;

@@ -97,10 +97,10 @@ bool FCambrianaLiveActorGrammarTextSourceTest::RunTest(const FString& Parameters
 		return false;
 	}
 	Actor->InlineGrammar = SimpleGrammar(1);
-	TestEqual(TEXT("Inline text is used without a grammar asset"), Actor->MakeBuildInput().GrammarText, SimpleGrammar(1));
+	TestEqualSensitive(TEXT("Inline text is used without a grammar asset"), Actor->MakeBuildInput().GrammarText, SimpleGrammar(1));
 
 	Actor->SetGrammar(MakeGrammar(SimpleGrammar(2)));
-	TestEqual(TEXT("Asset text is used with a grammar asset"), Actor->GetLastBuildInput().GrammarText, SimpleGrammar(2));
+	TestEqualSensitive(TEXT("Asset text is used with a grammar asset"), Actor->GetLastBuildInput().GrammarText, SimpleGrammar(2));
 	return true;
 }
 
@@ -186,8 +186,8 @@ bool FCambrianaLiveActorRebuildsOnGrammarChangeTest::RunTest(const FString& Para
 
 	TestEqual(TEXT("First referencing actor rebuilt once"), First->GetBuildCount(), FirstCount + 1);
 	TestEqual(TEXT("Second referencing actor rebuilt once"), Second->GetBuildCount(), SecondCount + 1);
-	TestEqual(TEXT("First actor built from the changed text"), First->GetLastBuildInput().GrammarText, SimpleGrammar(5));
-	TestEqual(TEXT("Second actor built from the changed text"), Second->GetLastBuildInput().GrammarText, SimpleGrammar(5));
+	TestEqualSensitive(TEXT("First actor built from the changed text"), First->GetLastBuildInput().GrammarText, SimpleGrammar(5));
+	TestEqualSensitive(TEXT("Second actor built from the changed text"), Second->GetLastBuildInput().GrammarText, SimpleGrammar(5));
 	TestEqual(TEXT("Actor referencing another asset did not rebuild"), Unrelated->GetBuildCount(), UnrelatedCount);
 
 	const int32 FirstCountBeforeSeed = First->GetBuildCount();

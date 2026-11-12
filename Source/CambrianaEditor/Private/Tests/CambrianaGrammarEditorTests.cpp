@@ -92,7 +92,7 @@ bool FCambrianaGrammarEditorRulesShowTextTest::RunTest(const FString& Parameters
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	TestEqual(TEXT("Rules text"), Toolkit->GetRulesText().ToString(), FString(TEXT("axiom X\n\ngrow {\n    X -> F [ + X ] - X\n}\n")));
+	TestEqualSensitive(TEXT("Rules text"), Toolkit->GetRulesText().ToString(), FString(TEXT("axiom X\n\ngrow {\n    X -> F [ + X ] - X\n}\n")));
 	CloseGrammarEditor(Grammar);
 	return true;
 }
@@ -121,14 +121,14 @@ bool FCambrianaGrammarEditorRulesEditTest::RunTest(const FString& Parameters)
 
 	const int32 BuildsBeforeEdit = Actor->GetBuildCount();
 	Toolkit->CommitRulesText(FText::FromString(NewText));
-	TestEqual(TEXT("The working copy holds the edited text"), Toolkit->GetWorkingCopy()->GrammarText, NewText);
-	TestEqual(TEXT("The grammar keeps its text"), Grammar->GrammarText, OldText);
+	TestEqualSensitive(TEXT("The working copy holds the edited text"), Toolkit->GetWorkingCopy()->GrammarText, NewText);
+	TestEqualSensitive(TEXT("The grammar keeps its text"), Grammar->GrammarText, OldText);
 	TestEqual(TEXT("The actor did not rebuild"), Actor->GetBuildCount(), BuildsBeforeEdit);
-	TestEqual(TEXT("The actor still built the grammar's text"), Actor->GetLastBuildInput().GrammarText, OldText);
+	TestEqualSensitive(TEXT("The actor still built the grammar's text"), Actor->GetLastBuildInput().GrammarText, OldText);
 
 	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
-	TestEqual(TEXT("Undo restores the working copy's text"), Toolkit->GetWorkingCopy()->GrammarText, OldText);
-	TestEqual(TEXT("Undo restores the Rules text"), Toolkit->GetRulesText().ToString(), OldText);
+	TestEqualSensitive(TEXT("Undo restores the working copy's text"), Toolkit->GetWorkingCopy()->GrammarText, OldText);
+	TestEqualSensitive(TEXT("Undo restores the Rules text"), Toolkit->GetRulesText().ToString(), OldText);
 	TestEqual(TEXT("The actor did not rebuild for the undo"), Actor->GetBuildCount(), BuildsBeforeEdit);
 
 	CloseGrammarEditor(Grammar);
@@ -151,7 +151,7 @@ bool FCambrianaGrammarEditorNewAssetTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	TestEqual(TEXT("Rules shows the default grammar"), Toolkit->GetRulesText().ToString(), FString(UCambrianaGrammarFactory::DefaultGrammarText));
+	TestEqualSensitive(TEXT("Rules shows the default grammar"), Toolkit->GetRulesText().ToString(), FString(UCambrianaGrammarFactory::DefaultGrammarText));
 	const TArray<TWeakObjectPtr<UObject>> DetailsObjects = Toolkit->GetDetailsObjects();
 	TestTrue(TEXT("Details shows the new grammar's working copy"), DetailsObjects.Num() == 1 && DetailsObjects[0].Get() == Toolkit->GetWorkingCopy());
 	TestEqual(TEXT("The working copy holds the new grammar's seed"), Toolkit->GetWorkingCopy()->Seed, Grammar->Seed);
@@ -192,15 +192,15 @@ bool FCambrianaGrammarEditorTypingTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Typing is an unsaved edit at once"), Toolkit->HasUnsavedEdits());
 
 	PauseTyping(1.0f);
-	TestEqual(TEXT("After a one-second pause the working copy holds the typed text"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
+	TestEqualSensitive(TEXT("After a one-second pause the working copy holds the typed text"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 	TestEqual(TEXT("The preview rebuilt once for the whole typed edit"), Toolkit->GetPreview().GetBuildCount(), PreviewBuildsBeforeTyping + 1);
-	TestEqual(TEXT("The grammar keeps its text"), Grammar->GrammarText, OldText);
+	TestEqualSensitive(TEXT("The grammar keeps its text"), Grammar->GrammarText, OldText);
 	TestFalse(TEXT("The grammar's package stays clean"), Grammar->GetPackage()->IsDirty());
 	TestEqual(TEXT("The actor did not rebuild"), Actor->GetBuildCount(), BuildsBeforeTyping);
 
 	TestTrue(TEXT("The typed edit can be undone"), GEditor->UndoTransaction());
-	TestEqual(TEXT("One undo restores the working copy's text from before typing"), Toolkit->GetWorkingCopy()->GrammarText, OldText);
-	TestEqual(TEXT("Undo restores the Rules text"), Toolkit->GetRulesText().ToString(), OldText);
+	TestEqualSensitive(TEXT("One undo restores the working copy's text from before typing"), Toolkit->GetWorkingCopy()->GrammarText, OldText);
+	TestEqualSensitive(TEXT("Undo restores the Rules text"), Toolkit->GetRulesText().ToString(), OldText);
 	TestFalse(TEXT("Undoing back to the grammar's text leaves no unsaved edit"), Toolkit->HasUnsavedEdits());
 
 	CloseGrammarEditor(Grammar);
@@ -233,7 +233,7 @@ bool FCambrianaGrammarEditorTypingSavedTest::RunTest(const FString& Parameters)
 
 	TypeOverRules(*Rules);
 	RunWithoutSavePrompt([Toolkit] { Toolkit->SaveAsset_Execute(); });
-	TestEqual(TEXT("The save gives the grammar the typed text"), Grammar->GrammarText, FString(TypedGrammarText));
+	TestEqualSensitive(TEXT("The save gives the grammar the typed text"), Grammar->GrammarText, FString(TypedGrammarText));
 	TestTrue(TEXT("The package is on disk"), IFileManager::Get().FileExists(*Filename));
 	TestFalse(TEXT("The saved package is clean"), Package->IsDirty());
 	TestFalse(TEXT("Nothing is left unsaved"), Toolkit->HasUnsavedEdits());
@@ -247,7 +247,7 @@ bool FCambrianaGrammarEditorTypingSavedTest::RunTest(const FString& Parameters)
 	const UCambrianaGrammar* Loaded = LoadedPackage ? FindObject<UCambrianaGrammar>(LoadedPackage, *ShortName) : nullptr;
 	if (TestNotNull(TEXT("The saved grammar loads again"), Loaded))
 	{
-		TestEqual(TEXT("The saved grammar holds the typed text"), Loaded->GrammarText, FString(TypedGrammarText));
+		TestEqualSensitive(TEXT("The saved grammar holds the typed text"), Loaded->GrammarText, FString(TypedGrammarText));
 	}
 	if (LoadedPackage)
 	{
@@ -278,7 +278,7 @@ bool FCambrianaGrammarEditorTypingClosedTest::RunTest(const FString& Parameters)
 	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing asks once about the typed edit"), Asked, 1);
 	TestNull(TEXT("Discarding closes the editor"), Cambriana::Editor::Tests::FindGrammarEditor(Grammar));
-	TestEqual(TEXT("The discarded typing leaves the grammar's text"), Grammar->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
+	TestEqualSensitive(TEXT("The discarded typing leaves the grammar's text"), Grammar->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
 	return true;
 }
 
@@ -299,7 +299,7 @@ bool FCambrianaGrammarEditorTypingSelectionTest::RunTest(const FString& Paramete
 	TypeOverRules(*Rules);
 	Rules->SelectAllText();
 	PauseTyping(1.0f);
-	TestEqual(TEXT("The working copy holds the typed text"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
+	TestEqualSensitive(TEXT("The working copy holds the typed text"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 	TestTrue(TEXT("The Rules selection survives the edit reaching the working copy"), Rules->AnyTextSelected());
 	CloseGrammarEditor(Grammar);
 	return true;
@@ -359,7 +359,7 @@ bool FCambrianaGrammarPreviewDefaultTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("Nothing of the preview is in the grammar's package"), Mesh->IsIn(Grammar->GetPackage()));
 	}
 	TestEqual(TEXT("The preview built once"), Preview.GetBuildCount(), 1);
-	TestEqual(TEXT("The preview builds the asset's text"), Preview.GetLastBuildInput().GrammarText, Grammar->GrammarText);
+	TestEqualSensitive(TEXT("The preview builds the asset's text"), Preview.GetLastBuildInput().GrammarText, Grammar->GrammarText);
 	TestEqual(TEXT("The preview builds with the asset's seed"), Preview.GetLastBuildInput().Seed, Grammar->Seed);
 	CloseGrammarEditor(Grammar);
 	UnloadPackage(Grammar->GetPackage());
@@ -688,8 +688,11 @@ namespace
 		return Preview.GetScene().GetFloorMeshComponent()->GetComponentLocation().Z;
 	}
 
-	// FEditorViewportClient::FocusViewportOnBox: the camera keeps its rotation and backs away from the box centre until the
-	// box's half-diagonal, widened by the aspect ratio when the view is wider than tall, fills half the horizontal field of view.
+	// Regression pin of engine behaviour, not a spec value: the expected camera re-derives FEditorViewportClient::FocusViewportOnBox,
+	// which keeps the rotation and backs away from the box centre until the box's half-diagonal, widened by the aspect ratio when the
+	// view is wider than tall, fills half the horizontal field of view. The spec says only that the camera frames the mesh's bounds
+	// with that function; the engine's fit lets near corners of the bounds reach slightly outside the frustum, so no exact
+	// containment check holds.
 	void TestFramesBox(FAutomationTestBase& Test, const FEditorViewportClient& Client, const FBox& Box)
 	{
 		const FVector Centre = Box.GetCenter();
@@ -813,15 +816,18 @@ bool FCambrianaGrammarViewportFocusTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("F runs a viewport command"), Viewport->GetCommandList()->ProcessCommandBindings(PressF));
 
 	const TWeakPtr<FEditorViewportClient> WeakClient = Client;
-	ADD_LATENT_AUTOMATION_COMMAND(FDelayedFunctionLatentCommand([this, Grammar, WeakClient, Toolkit]()
+	const TWeakPtr<FCambrianaGrammarEditorToolkit> WeakToolkit = StaticCastSharedRef<FCambrianaGrammarEditorToolkit>(Toolkit->AsShared());
+	ADD_LATENT_AUTOMATION_COMMAND(FDelayedFunctionLatentCommand([this, Grammar, WeakClient, WeakToolkit]()
 	{
-		if (const TSharedPtr<FEditorViewportClient> FramedClient = WeakClient.Pin())
+		const TSharedPtr<FEditorViewportClient> FramedClient = WeakClient.Pin();
+		const TSharedPtr<FCambrianaGrammarEditorToolkit> FramedToolkit = WeakToolkit.Pin();
+		if (FramedClient && FramedToolkit)
 		{
-			TestFramesBox(*this, *FramedClient, PreviewVertexBounds(Toolkit->GetPreview()));
+			TestFramesBox(*this, *FramedClient, PreviewVertexBounds(FramedToolkit->GetPreview()));
 		}
 		else
 		{
-			AddError(TEXT("The viewport closed before the camera finished moving"));
+			AddError(TEXT("The grammar editor or its viewport closed before the camera finished moving"));
 		}
 		CloseGrammarEditor(Grammar);
 	}, 1.0f));
