@@ -165,11 +165,7 @@ bool FCambrianaGrammarParametersSaveRestoreTest::RunTest(const FString& Paramete
 
 	UPackage* Package = CreatePackage(PackageName);
 	UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(Package, *ShortName, RF_Public | RF_Standalone);
-	Grammar->GrammarText = TEXT("structure param count = 3
-shape param girth = 1.5
-
-axiom repeat count { F }
-");
+	Grammar->GrammarText = TEXT("structure param count = 3\nshape param girth = 1.5\n\naxiom repeat count { F }\n");
 	FCambrianaParameterValue Count;
 	Count.Name = TEXT("count");
 	Count.Value = 5.0;
