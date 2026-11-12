@@ -175,4 +175,65 @@ bool FCambrianaLiveActorShownSettingsGrammarSizeTest::RunTest(const FString& Par
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorShownSettingsGrammarSurfacerTest,
+	"Cambriana.LiveActor.ShownSettings.LsysSurfacerSettingsAreShownAndOverridesTurnedOnChangeNothing",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorShownSettingsGrammarSurfacerTest::RunTest(const FString& Parameters)
+{
+	const FString Text = LoadFixture(TEXT("sk.lsys"));
+	if (!TestFalse(TEXT("sk.lsys fixture loaded"), Text.IsEmpty()))
+	{
+		return false;
+	}
+
+	const FOverride SurfacerOverrides[] = {
+		{ TEXT("sides"), &ACambrianaLiveActor::bOverrideSides },
+		{ TEXT("closed form"), &ACambrianaLiveActor::bOverrideClosedForm },
+		{ TEXT("min thickness"), &ACambrianaLiveActor::bOverrideMinThickness },
+	};
+	struct FCase
+	{
+		const TCHAR* Setting;
+		int32 Sides;
+		bool bClosedForm;
+		double MinThickness;
+	};
+	for (const FCase& Case : { FCase{ TEXT("sides 3"), 3, true, 0.0 }, FCase{ TEXT("surface blocks"), 8, false, 0.0 },
+			 FCase{ TEXT("minthickness 5cm"), 8, true, 5.0 } })
+	{
+		for (const ETextSource Source : { ETextSource::Inline, ETextSource::Asset })
+		{
+			const FString Label = FString::Printf(TEXT("sk.lsys with \"%s\" from %s"), Case.Setting, Source == ETextSource::Asset ? TEXT("an asset") : TEXT("inline text"));
+			FCambrianaTestWorld World;
+			ACambrianaLiveActor* Actor = SpawnWithStaleSettings(World.Get());
+			if (!TestNotNull(Label + TEXT(": actor spawned"), Actor))
+			{
+				continue;
+			}
+			Actor->Sides = 8;
+			Actor->bClosedForm = true;
+			Actor->MinThickness = 0.0;
+			BuildFrom(Actor, Source, FString(Case.Setting) + TEXT("\nstep 2cm\n") + Text);
+			TestFalse(Label + TEXT(": no errors"), Actor->GetLastBuildReport().bHasErrors);
+			TestEqual(Label + TEXT(": shown sides"), Actor->Sides, Case.Sides);
+			TestEqual(Label + TEXT(": shown closed form"), Actor->bClosedForm, Case.bClosedForm);
+			TestEqual(Label + TEXT(": shown min thickness"), Actor->MinThickness, Case.MinThickness);
+
+			const TArray<FVector3d> Baseline = PositionsOf(Actor);
+			TestTrue(Label + TEXT(": built geometry"), Baseline.Num() > 0);
+			for (const FOverride& Override : SurfacerOverrides)
+			{
+				Actor->*Override.Flag = true;
+				Actor->Rebuild();
+				TestTrue(FString::Printf(TEXT("%s: turning the %s override on leaves the vertex positions unchanged"), *Label, Override.Name),
+					PositionsOf(Actor) == Baseline);
+				Actor->*Override.Flag = false;
+				Actor->Rebuild();
+			}
+		}
+	}
+	return true;
+}
+
 #endif

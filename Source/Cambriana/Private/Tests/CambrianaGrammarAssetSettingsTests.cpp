@@ -44,6 +44,30 @@ namespace
 		return Counts;
 	}
 
+	TArray<FVector3d> LsysCorePositions(const FString& Text, TFunctionRef<void(cambriana_build_settings&)> Configure)
+	{
+		cambriana_build_settings Settings;
+		cambriana_build_settings_init(&Settings, sizeof(Settings));
+		Settings.seed = TestSeed;
+		Settings.overrides = CAMBRIANA_OVERRIDE_SEED;
+		Configure(Settings);
+		const FTCHARToUTF8 Utf8(*Text);
+		cambriana_result* Result = nullptr;
+		cambriana_build_grammar(Utf8.Get(), Utf8.Length(), nullptr, &Settings, nullptr, &Result);
+		TArray<FVector3d> Positions;
+		if (Result)
+		{
+			uint64_t Count = 0;
+			const cambriana_vec3* Data = cambriana_result_surface_positions(Result, &Count);
+			for (uint64_t Index = 0; Data && Index < Count; ++Index)
+			{
+				Positions.Add(FVector3d(Data[Index].x, Data[Index].y, Data[Index].z));
+			}
+			cambriana_result_destroy(Result);
+		}
+		return Positions;
+	}
+
 	UCambrianaGrammar* MakeGrammar(const FString& Text)
 	{
 		UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(GetTransientPackage());
@@ -357,6 +381,165 @@ bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("Turning the %s override on leaves the vertex positions unchanged"), Override.Name), PositionsOf(Actor) == Baseline);
 		Actor->*Override.Flag = false;
 		Actor->Rebuild();
+	}
+	return true;
+}
+
+namespace
+{
+	enum class ETextSource
+	{
+		Inline,
+		Asset,
+	};
+
+	const TCHAR* Describe(ETextSource Source)
+	{
+		return Source == ETextSource::Asset ? TEXT("from an asset") : TEXT("inline");
+	}
+
+	/** Builds sk.lsys preceded by step 2cm and Statement; the asset's surfacer settings are copied from the actor's. */
+	ACambrianaLiveActor* BuildLsysWith(UWorld* World, ETextSource Source, const FString& Statement, TFunctionRef<void(ACambrianaLiveActor&)> Configure)
+	{
+		ACambrianaLiveActor* Actor = SpawnActor(World);
+		if (!Actor)
+		{
+			return nullptr;
+		}
+		Configure(*Actor);
+		const FString Text = TEXT("step 2cm\n") + Statement + TEXT("\n") + LoadFixture(TEXT("sk.lsys"));
+		if (Source == ETextSource::Asset)
+		{
+			UCambrianaGrammar* Grammar = MakeGrammar(Text);
+			Grammar->Sides = Actor->Sides;
+			Grammar->bClosedForm = Actor->bClosedForm;
+			Grammar->MinThickness = Actor->MinThickness;
+			Actor->SetGrammar(Grammar);
+		}
+		else
+		{
+			Actor->InlineGrammar = Text;
+			Actor->Rebuild();
+		}
+		return Actor;
+	}
+
+	TArray<FVector3d> PlainLsysCorePositions(TFunctionRef<void(cambriana_build_settings&)> Configure)
+	{
+		return LsysCorePositions(TEXT("step 2cm\n") + LoadFixture(TEXT("sk.lsys")), Configure);
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetLsysSidesWinTest,
+	"Cambriana.GrammarAsset.Settings.LsysTextSidesWinOverAssetAndActorSides",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarAssetLsysSidesWinTest::RunTest(const FString& Parameters)
+{
+	const TArray<FVector3d> ThreeSided = PlainLsysCorePositions([](cambriana_build_settings& Settings) { Settings.sides = 3; });
+	const TArray<FVector3d> EightSided = PlainLsysCorePositions([](cambriana_build_settings& Settings) { Settings.sides = 8; });
+	TestTrue(TEXT("The core builds geometry at 3 sides"), ThreeSided.Num() > 0);
+	TestNotEqual(TEXT("3 and 8 sides give different vertex counts in the core"), ThreeSided.Num(), EightSided.Num());
+	for (const ETextSource Source : { ETextSource::Inline, ETextSource::Asset })
+	{
+		FCambrianaTestWorld World;
+		const ACambrianaLiveActor* Actor = BuildLsysWith(World.Get(), Source, TEXT("sides 3"), [](ACambrianaLiveActor& Actor) { Actor.Sides = 8; });
+		if (!TestNotNull(TEXT("Actor spawned"), Actor))
+		{
+			continue;
+		}
+		TestEqual(FString::Printf(TEXT("%s: vertex count is the core's at 3 sides"), Describe(Source)), MeshOf(Actor).VertexCount(), ThreeSided.Num());
+		TestTrue(FString::Printf(TEXT("%s: vertex positions are the core's at 3 sides"), Describe(Source)), PositionsOf(Actor) == ThreeSided);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetActorSidesOverLsysTest,
+	"Cambriana.GrammarAsset.Settings.ActorSidesOverrideWinsOverLsysTextSides",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarAssetActorSidesOverLsysTest::RunTest(const FString& Parameters)
+{
+	const TArray<FVector3d> FiveSided = PlainLsysCorePositions([](cambriana_build_settings& Settings) { Settings.sides = 5; });
+	TestTrue(TEXT("The core builds geometry at 5 sides"), FiveSided.Num() > 0);
+	for (const ETextSource Source : { ETextSource::Inline, ETextSource::Asset })
+	{
+		FCambrianaTestWorld World;
+		const ACambrianaLiveActor* Actor = BuildLsysWith(World.Get(), Source, TEXT("sides 3"), [](ACambrianaLiveActor& Actor)
+			{
+				Actor.bOverrideSides = true;
+				Actor.Sides = 5;
+			});
+		if (!TestNotNull(TEXT("Actor spawned"), Actor))
+		{
+			continue;
+		}
+		TestEqual(FString::Printf(TEXT("%s: vertex count is the core's at 5 sides"), Describe(Source)), MeshOf(Actor).VertexCount(), FiveSided.Num());
+		TestTrue(FString::Printf(TEXT("%s: vertex positions are the core's at 5 sides"), Describe(Source)), PositionsOf(Actor) == FiveSided);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetLsysSurfaceTest,
+	"Cambriana.GrammarAsset.Settings.LsysTextSurfaceBlocksWinsUnlessClosedFormIsOverridden",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarAssetLsysSurfaceTest::RunTest(const FString& Parameters)
+{
+	const TArray<FVector3d> Blocks = PlainLsysCorePositions([](cambriana_build_settings& Settings) { Settings.closed_form = 0; });
+	const TArray<FVector3d> Tubes = PlainLsysCorePositions([](cambriana_build_settings& Settings) { Settings.closed_form = 1; });
+	TestTrue(TEXT("The core builds blocks"), Blocks.Num() > 0);
+	TestFalse(TEXT("Blocks and tubes differ in the core"), Blocks == Tubes);
+	for (const ETextSource Source : { ETextSource::Inline, ETextSource::Asset })
+	{
+		for (const bool bOverride : { false, true })
+		{
+			FCambrianaTestWorld World;
+			const ACambrianaLiveActor* Actor = BuildLsysWith(World.Get(), Source, TEXT("surface blocks"), [bOverride](ACambrianaLiveActor& Actor)
+				{
+					Actor.bOverrideClosedForm = bOverride;
+					Actor.bClosedForm = true;
+				});
+			if (!TestNotNull(TEXT("Actor spawned"), Actor))
+			{
+				continue;
+			}
+			const FString Case = FString::Printf(TEXT("%s, closed form override %s"), Describe(Source), bOverride ? TEXT("on") : TEXT("off"));
+			TestTrue(FString::Printf(TEXT("%s: vertex positions are the core's %s"), *Case, bOverride ? TEXT("tubes") : TEXT("blocks")),
+				PositionsOf(Actor) == (bOverride ? Tubes : Blocks));
+		}
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetLsysMinThicknessTest,
+	"Cambriana.GrammarAsset.Settings.LsysTextMinThicknessWinsUnlessMinThicknessIsOverridden",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarAssetLsysMinThicknessTest::RunTest(const FString& Parameters)
+{
+	const TArray<FVector3d> Thick = PlainLsysCorePositions([](cambriana_build_settings& Settings) { Settings.min_thickness = 5.0; });
+	const TArray<FVector3d> Thin = PlainLsysCorePositions([](cambriana_build_settings& Settings) { Settings.min_thickness = 0.0; });
+	TestTrue(TEXT("The core builds geometry at min thickness 5cm"), Thick.Num() > 0);
+	TestFalse(TEXT("Min thickness 5cm and 0cm differ in the core"), Thick == Thin);
+	for (const ETextSource Source : { ETextSource::Inline, ETextSource::Asset })
+	{
+		for (const bool bOverride : { false, true })
+		{
+			FCambrianaTestWorld World;
+			const ACambrianaLiveActor* Actor = BuildLsysWith(World.Get(), Source, TEXT("minthickness 5cm"), [bOverride](ACambrianaLiveActor& Actor)
+				{
+					Actor.bOverrideMinThickness = bOverride;
+					Actor.MinThickness = 0.0;
+				});
+			if (!TestNotNull(TEXT("Actor spawned"), Actor))
+			{
+				continue;
+			}
+			const FString Case = FString::Printf(TEXT("%s, min thickness override %s"), Describe(Source), bOverride ? TEXT("on") : TEXT("off"));
+			TestTrue(FString::Printf(TEXT("%s: vertex positions are the core's at min thickness %s"), *Case, bOverride ? TEXT("0cm") : TEXT("5cm")),
+				PositionsOf(Actor) == (bOverride ? Thin : Thick));
+		}
 	}
 	return true;
 }
