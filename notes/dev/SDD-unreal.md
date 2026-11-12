@@ -69,6 +69,9 @@ Standalone asset editor, opened from the grammar asset.
 | Outputs | Baked assets; Bake, Regenerate, Detach |
 
 - The editor layout reserves space for a variant grid (AR-01).
+- `[Proposed — unconfirmed]` A Rules edit marks the grammar asset dirty at once and reaches
+  the asset, as one undoable change that rebuilds live actors once, when typing pauses for
+  0.5 s, when the text loses focus, before the asset is saved and when the editor closes.
 
 ## Live actor
 

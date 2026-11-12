@@ -5,6 +5,8 @@
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "ScopedTransaction.h"
+#include "UObject/ObjectSaveContext.h"
+#include "UObject/UObjectGlobals.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
 
@@ -20,6 +22,7 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 {
 	RulesTextBox = SNew(SMultiLineEditableTextBox)
 		.Text(FText::FromString(Grammar->GrammarText))
+		.OnTextChanged(FOnTextChanged::CreateSP(this, &FCambrianaGrammarEditorToolkit::HandleRulesTextChanged))
 		.OnTextCommitted(MakeRulesCommittedDelegate());
 
 	FDetailsViewArgs DetailsArgs;
@@ -28,7 +31,8 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	DetailsView->SetIsPropertyVisibleDelegate(MakeDetailsPropertyVisibleDelegate());
 	DetailsView->SetObject(Grammar);
 
-	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddRaw(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
+	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
+	ObjectPreSaveHandle = FCoreUObjectDelegates::OnObjectPreSave.AddSP(this, &FCambrianaGrammarEditorToolkit::HandleObjectPreSave);
 
 	const TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout(TEXT("Standalone_CambrianaGrammarEditor_Layout_v1"))
 		->AddArea(FTabManager::NewPrimaryArea()->SetOrientation(Orient_Horizontal)
@@ -41,6 +45,8 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 FCambrianaGrammarEditorToolkit::~FCambrianaGrammarEditorToolkit()
 {
 	UCambrianaGrammar::OnGrammarChanged().Remove(GrammarChangedHandle);
+	FCoreUObjectDelegates::OnObjectPreSave.Remove(ObjectPreSaveHandle);
+	FTSTicker::RemoveTicker(RulesApplyTimer);
 }
 
 void FCambrianaGrammarEditorToolkit::RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager)
@@ -83,6 +89,24 @@ FLinearColor FCambrianaGrammarEditorToolkit::GetWorldCentricTabColorScale() cons
 	return FLinearColor(FColor(64, 160, 96));
 }
 
+bool FCambrianaGrammarEditorToolkit::OnRequestClose(EAssetEditorCloseReason InCloseReason)
+{
+	ApplyPendingRulesEdit();
+	return FAssetEditorToolkit::OnRequestClose(InCloseReason);
+}
+
+void FCambrianaGrammarEditorToolkit::SaveAsset_Execute()
+{
+	ApplyPendingRulesEdit();
+	FAssetEditorToolkit::SaveAsset_Execute();
+}
+
+void FCambrianaGrammarEditorToolkit::SaveAssetAs_Execute()
+{
+	ApplyPendingRulesEdit();
+	FAssetEditorToolkit::SaveAssetAs_Execute();
+}
+
 FText FCambrianaGrammarEditorToolkit::GetRulesText() const
 {
 	return RulesTextBox->GetText();
@@ -90,6 +114,7 @@ FText FCambrianaGrammarEditorToolkit::GetRulesText() const
 
 void FCambrianaGrammarEditorToolkit::CommitRulesText(const FText& NewText)
 {
+	CancelPendingRulesEdit();
 	UCambrianaGrammar* Grammar = GetGrammar();
 	const FString NewGrammarText = NewText.ToString();
 	if (!Grammar || Grammar->GrammarText.Equals(NewGrammarText, ESearchCase::CaseSensitive))
@@ -116,13 +141,12 @@ bool FCambrianaGrammarEditorToolkit::IsDetailsPropertyVisible(FName PropertyName
 
 FOnTextCommitted FCambrianaGrammarEditorToolkit::MakeRulesCommittedDelegate()
 {
-	return FOnTextCommitted::CreateLambda([this](const FText& NewText, ETextCommit::Type) { CommitRulesText(NewText); });
+	return FOnTextCommitted::CreateSP(this, &FCambrianaGrammarEditorToolkit::HandleRulesTextCommitted);
 }
 
 FIsPropertyVisible FCambrianaGrammarEditorToolkit::MakeDetailsPropertyVisibleDelegate()
 {
-	return FIsPropertyVisible::CreateLambda(
-		[this](const FPropertyAndParent& PropertyAndParent) { return IsDetailsPropertyVisible(PropertyAndParent.Property.GetFName()); });
+	return FIsPropertyVisible::CreateSP(this, &FCambrianaGrammarEditorToolkit::HandleIsDetailsPropertyVisible);
 }
 
 UCambrianaGrammar* FCambrianaGrammarEditorToolkit::GetGrammar() const
@@ -142,10 +166,79 @@ TSharedRef<SDockTab> FCambrianaGrammarEditorToolkit::SpawnDetailsTab(const FSpaw
 
 void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGrammar* ChangedGrammar)
 {
-	if (ChangedGrammar == GetGrammar() && !RulesTextBox->GetText().ToString().Equals(ChangedGrammar->GrammarText, ESearchCase::CaseSensitive))
+	if (ChangedGrammar != GetGrammar())
+	{
+		return;
+	}
+	// A change that left the grammar text alone keeps a Rules edit still waiting to be applied.
+	if (bRulesEditPending && ChangedGrammar->GrammarText.Equals(RulesTextBeforeEdit, ESearchCase::CaseSensitive))
+	{
+		return;
+	}
+	CancelPendingRulesEdit();
+	if (!RulesTextBox->GetText().ToString().Equals(ChangedGrammar->GrammarText, ESearchCase::CaseSensitive))
 	{
 		RulesTextBox->SetText(FText::FromString(ChangedGrammar->GrammarText));
 	}
+}
+
+void FCambrianaGrammarEditorToolkit::HandleRulesTextChanged(const FText& NewText)
+{
+	UCambrianaGrammar* Grammar = GetGrammar();
+	if (!Grammar)
+	{
+		return;
+	}
+	if (!bRulesEditPending)
+	{
+		bRulesEditPending = true;
+		RulesTextBeforeEdit = Grammar->GrammarText;
+	}
+	Grammar->MarkPackageDirty();
+	FTSTicker::RemoveTicker(RulesApplyTimer);
+	RulesApplyTimer = FTSTicker::GetCoreTicker().AddTicker(
+		FTickerDelegate::CreateSP(this, &FCambrianaGrammarEditorToolkit::HandleRulesApplyTimer), RulesApplyDelaySeconds);
+}
+
+void FCambrianaGrammarEditorToolkit::HandleRulesTextCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	CommitRulesText(NewText);
+}
+
+bool FCambrianaGrammarEditorToolkit::HandleRulesApplyTimer(float DeltaTime)
+{
+	RulesApplyTimer.Reset();
+	ApplyPendingRulesEdit();
+	return false;
+}
+
+void FCambrianaGrammarEditorToolkit::HandleObjectPreSave(UObject* Object, FObjectPreSaveContext SaveContext)
+{
+	if (Object && Object == GetGrammar())
+	{
+		ApplyPendingRulesEdit();
+	}
+}
+
+bool FCambrianaGrammarEditorToolkit::HandleIsDetailsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const
+{
+	return IsDetailsPropertyVisible(PropertyAndParent.Property.GetFName());
+}
+
+void FCambrianaGrammarEditorToolkit::ApplyPendingRulesEdit()
+{
+	if (bRulesEditPending)
+	{
+		CommitRulesText(RulesTextBox->GetText());
+	}
+}
+
+void FCambrianaGrammarEditorToolkit::CancelPendingRulesEdit()
+{
+	FTSTicker::RemoveTicker(RulesApplyTimer);
+	RulesApplyTimer.Reset();
+	bRulesEditPending = false;
+	RulesTextBeforeEdit.Reset();
 }
 
 #undef LOCTEXT_NAMESPACE
