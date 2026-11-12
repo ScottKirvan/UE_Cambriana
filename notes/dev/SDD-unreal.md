@@ -190,7 +190,10 @@ Standalone asset editor, opened from the grammar asset.
 - **Decided:** min thickness, closed form and sides each have an override toggle, off by
   default, like size. Each size and surfacer setting is taken from the first of: the actor,
   when its override is on; the grammar text, when it states the setting; the grammar asset;
-  the default. Without a grammar asset, the actor's own value takes the asset's place.
+  the default. Without a grammar asset, the actor's own min thickness, closed form and sides
+  take the asset's place; size has no asset step and falls back to the core's default size.
+- **Decided:** inline `.lsys` text (no grammar asset) with neither `size` nor `step` and the
+  size override off builds at the core's default size.
 - **Decided:** turning an actor's override off changes none of the actor's values; the build
   then takes the setting from the grammar text, the grammar asset or the default, and turning
   the override back on builds with the actor's kept value.
