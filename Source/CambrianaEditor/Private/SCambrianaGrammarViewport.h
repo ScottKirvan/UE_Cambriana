@@ -17,8 +17,10 @@ public:
 
 protected:
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
+	virtual void OnFocusViewportToSelection() override;
 
 private:
+	void FrameMesh(bool bInstant);
 	void HandlePreviewRebuilt();
 
 	TSharedPtr<FCambrianaGrammarPreview> Preview;

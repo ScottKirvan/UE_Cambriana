@@ -23,7 +23,7 @@ public:
 	FCambrianaGrammarPreview(const FCambrianaGrammarPreview&) = delete;
 	FCambrianaGrammarPreview& operator=(const FCambrianaGrammarPreview&) = delete;
 
-	/** Rebuilds unless the grammar's build input equals the last build's. */
+	/** Rebuilds unless the grammar's build input equals the last build's, then rests the scene floor under the mesh. */
 	void Update(const UCambrianaGrammar& Grammar);
 
 	FAdvancedPreviewScene& GetScene() const { return *Scene; }
@@ -38,6 +38,8 @@ public:
 	virtual FString GetReferencerName() const override;
 
 private:
+	void RestFloorUnderMesh();
+
 	TSharedRef<FAdvancedPreviewScene> Scene;
 	TObjectPtr<UDynamicMeshComponent> MeshComponent;
 	TObjectPtr<UMaterialInterface> BaseMaterial;

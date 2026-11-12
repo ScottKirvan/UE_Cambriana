@@ -26,6 +26,7 @@ void SCambrianaGrammarViewport::Construct(const FArguments& InArgs, const TShare
 	Preview = InPreview;
 	SEditorViewport::Construct(SEditorViewport::FArguments());
 	PreviewRebuiltHandle = Preview->OnRebuilt().AddSP(this, &SCambrianaGrammarViewport::HandlePreviewRebuilt);
+	FrameMesh(true);
 }
 
 SCambrianaGrammarViewport::~SCambrianaGrammarViewport()
@@ -39,11 +40,18 @@ SCambrianaGrammarViewport::~SCambrianaGrammarViewport()
 TSharedRef<FEditorViewportClient> SCambrianaGrammarViewport::MakeEditorViewportClient()
 {
 	const TSharedRef<FCambrianaGrammarViewportClient> ViewportClient = MakeShared<FCambrianaGrammarViewportClient>(Preview->GetScene(), SharedThis(this));
-	const FBoxSphereBounds Bounds = Preview->GetMeshComponent()->Bounds;
-	const bool bHasBounds = Bounds.SphereRadius > UE_KINDA_SMALL_NUMBER;
 	ViewportClient->SetViewRotation(FRotator(-20.0, -45.0, 0.0));
-	ViewportClient->SetViewLocationForOrbiting(bHasBounds ? Bounds.Origin : FVector::ZeroVector, static_cast<float>(bHasBounds ? Bounds.SphereRadius * 3.0 : 500.0));
 	return ViewportClient;
+}
+
+void SCambrianaGrammarViewport::OnFocusViewportToSelection()
+{
+	FrameMesh(false);
+}
+
+void SCambrianaGrammarViewport::FrameMesh(bool bInstant)
+{
+	Client->FocusViewportOnBox(Preview->GetMeshComponent()->Bounds.GetBox(), bInstant);
 }
 
 void SCambrianaGrammarViewport::HandlePreviewRebuilt()
