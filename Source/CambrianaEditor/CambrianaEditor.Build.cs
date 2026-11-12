@@ -20,6 +20,7 @@ public class CambrianaEditor : ModuleRules
 			"GeometryFramework",
 			"InputCore",
 			"Engine",
+			"MessageLog",
 			"PlacementMode",
 			"Projects",
 			"PropertyEditor",

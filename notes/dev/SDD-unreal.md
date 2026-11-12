@@ -81,6 +81,12 @@ Standalone asset editor, opened from the grammar asset.
   palette. It rebuilds when the asset changes (Rules or Details edit, undo, redo, reimport)
   and its build input differs from the last build's. The scene, mesh and materials are
   transient; nothing of the preview is saved in the asset.
+- `[Proposed — unconfirmed]` The Rules tab shows, under the text, the preview build's
+  diagnostics as a message log listing (`IMessageLogListing`): one row per diagnostic, in report order,
+  with the severity's icon and `line L, column C: <problem>`, or `production position P:
+  <problem>` for a diagnostic without a line. The listing is replaced after every preview
+  build, so diagnostics go away when the text is fixed. It comes from the preview's build
+  report; nothing else parses or builds for it. Its rows are not mirrored to the Output Log.
 - `[Proposed — unconfirmed]` Each preview rebuild asks the Viewport to redraw, so the new
   mesh shows without user input.
 - `[Proposed — unconfirmed]` After each rebuild the preview scene's floor moves to the
