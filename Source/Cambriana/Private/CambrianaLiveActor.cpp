@@ -51,7 +51,7 @@ void ACambrianaLiveActor::PlaceFromGrammar(UCambrianaGrammar* Source)
 FCambrianaOverridableSettings ACambrianaLiveActor::GetStartingSettings() const
 {
 	const ACambrianaLiveActor* Default = GetDefault<ACambrianaLiveActor>();
-	const FCambrianaStatedSettings Stated = Cambriana::ReadStatedSettings(Grammar ? Grammar->GrammarText : InlineGrammar);
+	const FCambrianaStatedSettings& Stated = GetStatedSettings();
 	FCambrianaOverridableSettings Starting;
 	Starting.Recursion = Stated.Recursion.Get(Default->Recursion);
 	Starting.BasicAngle = Stated.BasicAngle.Get(Default->BasicAngle);
@@ -62,6 +62,17 @@ FCambrianaOverridableSettings ACambrianaLiveActor::GetStartingSettings() const
 	Starting.bClosedForm = Stated.bClosedForm.Get(Grammar ? Grammar->bClosedForm : Default->bClosedForm);
 	Starting.MinThickness = Stated.MinThickness.Get(Grammar ? Grammar->MinThickness : Default->MinThickness);
 	return Starting;
+}
+
+const FCambrianaStatedSettings& ACambrianaLiveActor::GetStatedSettings() const
+{
+	const FString& Text = Grammar ? Grammar->GrammarText : InlineGrammar;
+	if (!Text.Equals(StatedSettingsText, ESearchCase::CaseSensitive))
+	{
+		StatedSettings = Cambriana::ReadStatedSettings(Text);
+		StatedSettingsText = Text;
+	}
+	return StatedSettings;
 }
 
 TConstArrayView<FName> ACambrianaLiveActor::GetStartingValueProperties()

@@ -124,6 +124,7 @@ public:
 
 private:
 	void RebuildIfInputChanged();
+	const FCambrianaStatedSettings& GetStatedSettings() const;
 	FCambrianaBuildInput MakeBuildInputWith(const UCambrianaGrammar* InGrammar, uint32 InSeed) const;
 
 	UPROPERTY()
@@ -135,4 +136,9 @@ private:
 	int32 BuildCount = 0;
 	FCambrianaBuildInput LastBuildInput;
 	FCambrianaBuildReport LastBuildReport;
+
+	// The Details reset arrows query the starting settings every frame; reading them parses the text through the core.
+	// Invariant: StatedSettings == Cambriana::ReadStatedSettings(StatedSettingsText), true initially for empty text.
+	mutable FString StatedSettingsText;
+	mutable FCambrianaStatedSettings StatedSettings;
 };
