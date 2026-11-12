@@ -1,6 +1,8 @@
 #include "CambrianaGrammarWorkingCopy.h"
 
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "CambrianaGrammar.h"
+#include "Misc/PackageName.h"
 #include "Misc/ITransaction.h"
 #include "Templates/UnrealTemplate.h"
 #include "UObject/Package.h"
@@ -67,12 +69,43 @@ namespace Cambriana::Editor
 		}
 		const TGuardValue<ITransaction*> OutsideUndoHistory(GUndo, nullptr);
 		To.PreEditChange(nullptr);
+		CopyGrammarValues(From, To);
+		NotifyGrammarChanged(To);
+		return true;
+	}
+
+	bool CopyGrammarValues(const UCambrianaGrammar& From, UCambrianaGrammar& To)
+	{
+		if (HoldSameGrammar(From, To))
+		{
+			return false;
+		}
 		ForEachGrammarProperty([&](const FProperty& Property)
 		{
 			Property.CopyCompleteValue_InContainer(&To, &From);
 		});
-		FPropertyChangedEvent Event(nullptr);
-		To.PostEditChangeProperty(Event);
 		return true;
+	}
+
+	void NotifyGrammarChanged(UCambrianaGrammar& Grammar)
+	{
+		const TGuardValue<ITransaction*> OutsideUndoHistory(GUndo, nullptr);
+		FPropertyChangedEvent Event(nullptr);
+		Grammar.PostEditChangeProperty(Event);
+	}
+
+	UCambrianaGrammar* DuplicateAsAsset(const UCambrianaGrammar& Grammar, const FString& LongPackageName)
+	{
+		UPackage* Package = CreatePackage(*LongPackageName);
+		UCambrianaGrammar* Asset = Cast<UCambrianaGrammar>(StaticDuplicateObject(&Grammar, Package, *FPackageName::GetLongPackageAssetName(LongPackageName)));
+		if (!Asset)
+		{
+			return nullptr;
+		}
+		Asset->ClearFlags(RF_Transient);
+		Asset->SetFlags(RF_Public | RF_Standalone | RF_Transactional);
+		Asset->MarkPackageDirty();
+		FAssetRegistryModule::AssetCreated(Asset);
+		return Asset;
 	}
 }

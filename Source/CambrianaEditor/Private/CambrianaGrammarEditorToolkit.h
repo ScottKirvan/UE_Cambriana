@@ -77,7 +77,8 @@ private:
 	bool HandleRulesApplyTimer(float DeltaTime);
 	bool HandleIsDetailsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const;
 	void ApplyPendingRulesEdit();
-	void CopyWorkingCopyIntoGrammar();
+	/** Saves the working copy into the asset; when the save does not complete the asset is left as it was. */
+	bool SaveWorkingCopy();
 	void CancelPendingRulesEdit();
 	void UpdatePreview(const UCambrianaGrammar& Grammar);
 
@@ -94,4 +95,5 @@ private:
 	FString RulesTextBeforeEdit;
 	FUnsavedEditsPrompt UnsavedEditsPrompt;
 	FSaveAsPrompt SaveAsPrompt;
+	bool bClosingForSaveAs = false;
 };

@@ -10,10 +10,12 @@ public class CambrianaEditor : ModuleRules
 		{
 			"AdvancedPreviewScene",
 			"AssetDefinition",
+			"AssetRegistry",
 			"AssetTools",
 			"Cambriana",
 			"CambrianaCore",
 			"Core",
+			"ContentBrowser",
 			"CoreUObject",
 			"EditorFramework",
 			"GeometryCore",
