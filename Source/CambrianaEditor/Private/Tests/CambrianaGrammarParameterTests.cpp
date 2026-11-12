@@ -172,7 +172,7 @@ bool FCambrianaGrammarParametersOrderTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarParametersEditTest,
-	"Cambriana.Editor.GrammarEditor.Parameters.EditingAParameterRebuildsThePreviewAndUndoRestoresIt",
+	"Cambriana.Editor.GrammarEditor.Parameters.EditingAParameterChangesTheWorkingCopyRebuildsThePreviewAndUndoRestoresIt",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaGrammarParametersEditTest::RunTest(const FString& Parameters)
@@ -184,25 +184,26 @@ bool FCambrianaGrammarParametersEditTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
 	TestEqual(TEXT("The text's count of 3: 3 segments at 8 sides"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
 	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
 
-	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
+	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 	TestEqual(TEXT("The edit rebuilt the preview once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
 	TestEqual(TEXT("count 5: 5 segments at 8 sides"), PreviewVertices(*Toolkit), TubeVertices(5, 8));
-	const FCambrianaParameterValue* Stored = FindStored(*Grammar, TEXT("count"));
-	TestTrue(TEXT("The asset stores count = 5"), Stored && Stored->Value == 5.0);
+	const FCambrianaParameterValue* Stored = FindStored(*Toolkit->GetWorkingCopy(), TEXT("count"));
+	TestTrue(TEXT("The working copy stores count = 5"), Stored && Stored->Value == 5.0);
+	TestEqual(TEXT("The grammar stores no parameter value"), Grammar->ParameterValues.Num(), 0);
 	TestEqual(TEXT("Details shows count 5"), ShownValue(*Rows, TEXT("count")), 5.0);
 	TestEqual(TEXT("Details shows twice following count: 10"), ShownValue(*Rows, TEXT("twice")), 10.0);
 
-	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
+	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 	TestEqual(TEXT("Setting the same value does not rebuild"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
 
 	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
 	TestEqual(TEXT("Undo rebuilt the preview once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 2);
 	TestEqual(TEXT("Undo restores 3 segments"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
-	TestNull(TEXT("Undo removes the stored value"), FindStored(*Grammar, TEXT("count")));
+	TestNull(TEXT("Undo removes the stored value"), FindStored(*Toolkit->GetWorkingCopy(), TEXT("count")));
 	TestEqual(TEXT("Details shows the text's 3 again"), ShownValue(*Rows, TEXT("count")), 3.0);
 	CloseGrammarEditor(Grammar);
 	return true;
@@ -221,15 +222,15 @@ bool FCambrianaGrammarParametersResetTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
+	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
 
-	Cambriana::Editor::ResetParameterValue(*Grammar, TEXT("count"));
+	Cambriana::Editor::ResetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"));
 	TestEqual(TEXT("The reset rebuilt the preview once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
-	TestNull(TEXT("The asset no longer stores count"), FindStored(*Grammar, TEXT("count")));
+	TestNull(TEXT("The working copy no longer stores count"), FindStored(*Toolkit->GetWorkingCopy(), TEXT("count")));
 	TestEqual(TEXT("The text's count of 3 applies"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
 
-	Cambriana::Editor::ResetParameterValue(*Grammar, TEXT("count"));
+	Cambriana::Editor::ResetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"));
 	TestEqual(TEXT("Resetting an unchanged parameter does not rebuild"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
 
 	TestTrue(TEXT("The reset can be undone"), GEditor->UndoTransaction());
@@ -271,17 +272,17 @@ bool FCambrianaGrammarParametersTextValueTest::RunTest(const FString& Parameters
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(4)));
 	TestEqual(TEXT("Unchanged count follows the text to 4 segments"), PreviewVertices(*Toolkit), TubeVertices(4, 8));
 	TestEqual(TEXT("Details shows the text's new 4"), ShownValue(*Rows, TEXT("count")), 4.0);
 
-	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
+	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(2)));
 	TestEqual(TEXT("Stored count 5 wins over the text's new 2"), PreviewVertices(*Toolkit), TubeVertices(5, 8));
 	TestEqual(TEXT("Details still shows the stored 5"), ShownValue(*Rows, TEXT("count")), 5.0);
-	const TArray<FCambrianaParameter> Read = Cambriana::ReadParameters(Grammar->GrammarText, Grammar->ParameterValues);
+	const TArray<FCambrianaParameter> Read = Cambriana::ReadParameters(Toolkit->GetWorkingCopy()->GrammarText, Toolkit->GetWorkingCopy()->ParameterValues);
 	TestTrue(TEXT("Resetting would return count to the text's new 2"), Read.IsValidIndex(2) && Read[2].TextValue == 2.0);
 	CloseGrammarEditor(Grammar);
 	return true;
@@ -300,20 +301,20 @@ bool FCambrianaGrammarParametersRenameTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
-	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
+	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
+	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(3, TEXT("count"), TEXT("structure param extra = 2\n"))));
 	TestTrue(TEXT("An added parameter is shown in its tier, in file order"),
 		ParameterRows(*Rows).FindRef(StructureCategory) == TArray<FString>{ TEXT("count"), TEXT("extra") });
 	TestEqual(TEXT("The added parameter shows the text's value"), ShownValue(*Rows, TEXT("extra")), 2.0);
-	TestNull(TEXT("The added parameter has no stored value"), FindStored(*Grammar, TEXT("extra")));
+	TestNull(TEXT("The added parameter has no stored value"), FindStored(*Toolkit->GetWorkingCopy(), TEXT("extra")));
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(3, TEXT("n"))));
 	TestTrue(TEXT("The renamed parameter is shown under its new name"), ParameterRows(*Rows).FindRef(StructureCategory) == TArray<FString>{ TEXT("n") });
 	TestEqual(TEXT("The renamed parameter uses the text's value"), ShownValue(*Rows, TEXT("n")), 3.0);
 	TestEqual(TEXT("The text's 3 segments are built"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
-	const FCambrianaParameterValue* Kept = FindStored(*Grammar, TEXT("count"));
+	const FCambrianaParameterValue* Kept = FindStored(*Toolkit->GetWorkingCopy(), TEXT("count"));
 	TestTrue(TEXT("The old name's stored value is kept"), Kept && Kept->Value == 5.0);
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(3)));
@@ -350,7 +351,7 @@ namespace
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarTypedSeedTest,
-	"Cambriana.Editor.GrammarEditor.Seed.ATypedSeedChangesTheStoredSeedAndRebuildsThePreview",
+	"Cambriana.Editor.GrammarEditor.Seed.ATypedSeedChangesTheWorkingCopysSeedAndRebuildsThePreview",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaGrammarTypedSeedTest::RunTest(const FString& Parameters)
@@ -363,7 +364,7 @@ bool FCambrianaGrammarTypedSeedTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
 	const TSharedPtr<IPropertyHandle> Seed = FindPropertyHandle(Rows->GetRootTreeNodes(), GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed));
 	if (!TestTrue(TEXT("Details shows the seed"), Seed.IsValid()))
 	{
@@ -373,7 +374,8 @@ bool FCambrianaGrammarTypedSeedTest::RunTest(const FString& Parameters)
 	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
 
 	TestEqual(TEXT("The typed seed is accepted"), Seed->SetValue(uint32(2222)), FPropertyAccess::Success);
-	TestEqual(TEXT("The asset stores the typed seed"), Grammar->Seed, 2222u);
+	TestEqual(TEXT("The working copy stores the typed seed"), Toolkit->GetWorkingCopy()->Seed, 2222u);
+	TestEqual(TEXT("The grammar keeps its seed"), Grammar->Seed, 1111u);
 	TestEqual(TEXT("The preview rebuilt once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
 	TestEqual(TEXT("The preview builds with the typed seed"), Toolkit->GetPreview().GetLastBuildInput().Seed, 2222u);
 	CloseGrammarEditor(Grammar);
@@ -381,7 +383,7 @@ bool FCambrianaGrammarTypedSeedTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarNewSeedButtonTest,
-	"Cambriana.Editor.GrammarEditor.Seed.TheNewSeedButtonChangesTheStoredSeedAndRebuildsThePreview",
+	"Cambriana.Editor.GrammarEditor.Seed.TheNewSeedButtonChangesTheWorkingCopysSeedAndRebuildsThePreview",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaGrammarNewSeedButtonTest::RunTest(const FString& Parameters)
@@ -394,7 +396,7 @@ bool FCambrianaGrammarNewSeedButtonTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
 	const TSharedPtr<SButton> NewSeed = NewSeedButtonOf(*Rows);
 	if (!TestTrue(TEXT("The seed row has a new-seed button"), NewSeed.IsValid()))
 	{
@@ -404,9 +406,10 @@ bool FCambrianaGrammarNewSeedButtonTest::RunTest(const FString& Parameters)
 	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
 
 	NewSeed->SimulateClick();
-	TestNotEqual(TEXT("The asset stores a new seed"), Grammar->Seed, 1111u);
+	TestNotEqual(TEXT("The working copy stores a new seed"), Toolkit->GetWorkingCopy()->Seed, 1111u);
+	TestEqual(TEXT("The grammar keeps its seed"), Grammar->Seed, 1111u);
 	TestEqual(TEXT("The preview rebuilt once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
-	TestEqual(TEXT("The preview builds with the new seed"), Toolkit->GetPreview().GetLastBuildInput().Seed, Grammar->Seed);
+	TestEqual(TEXT("The preview builds with the new seed"), Toolkit->GetPreview().GetLastBuildInput().Seed, Toolkit->GetWorkingCopy()->Seed);
 	CloseGrammarEditor(Grammar);
 	return true;
 }
