@@ -302,6 +302,29 @@ bool FCambrianaGrammarEditorTypingClosedTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorTypingSelectionTest,
+	"Cambriana.Editor.GrammarEditor.RulesTypingKeepsTheRulesSelectionWhenTheEditReachesTheGrammar",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarEditorTypingSelectionTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<SMultiLineEditableTextBox> Rules = Toolkit ? RulesTextBoxOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows Rules"), Rules.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	TypeOverRules(*Rules);
+	Rules->SelectAllText();
+	PauseTyping(1.0f);
+	TestEqual(TEXT("The grammar holds the typed text"), Grammar->GrammarText, FString(TypedGrammarText));
+	TestTrue(TEXT("The Rules selection survives the edit reaching the grammar"), Rules->AnyTextSelected());
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorDelegatesTest,
 	"Cambriana.Editor.GrammarEditor.WidgetCallbacksDoNotRunOnceTheEditorIsGone",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
