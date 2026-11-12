@@ -2,8 +2,10 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarEditorToolkit.h"
 #include "CambrianaGrammarFactory.h"
+#include "CambrianaGrammarPreview.h"
 #include "CambrianaLiveActor.h"
 #include "Editor.h"
+#include "Components/DynamicMeshComponent.h"
 #include "Containers/Ticker.h"
 #include "Framework/Docking/TabManager.h"
 #include "HAL/FileManager.h"
@@ -11,6 +13,7 @@
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "PackageTools.h"
+#include "ScopedTransaction.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 #include "UObject/Package.h"
 #include "UObject/SavePackage.h"
@@ -84,7 +87,7 @@ namespace
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorOpensWithTabsTest,
-	"Cambriana.Editor.GrammarEditor.OpeningAGrammarOpensTheGrammarEditorWithRulesAndDetailsTabs",
+	"Cambriana.Editor.GrammarEditor.OpeningAGrammarOpensTheGrammarEditorWithRulesViewportDetailsAndOutputsTabs",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaGrammarEditorOpensWithTabsTest::RunTest(const FString& Parameters)
@@ -101,9 +104,13 @@ bool FCambrianaGrammarEditorOpensWithTabsTest::RunTest(const FString& Parameters
 	if (TestTrue(TEXT("The editor has a tab manager"), Tabs.IsValid()))
 	{
 		TestTrue(TEXT("A Rules tab is registered"), Tabs->HasTabSpawner(FCambrianaGrammarEditorToolkit::RulesTabId));
+		TestTrue(TEXT("A Viewport tab is registered"), Tabs->HasTabSpawner(FCambrianaGrammarEditorToolkit::ViewportTabId));
 		TestTrue(TEXT("A Details tab is registered"), Tabs->HasTabSpawner(FCambrianaGrammarEditorToolkit::DetailsTabId));
+		TestTrue(TEXT("An Outputs tab is registered"), Tabs->HasTabSpawner(FCambrianaGrammarEditorToolkit::OutputsTabId));
 		TestTrue(TEXT("The Rules tab is open"), Tabs->FindExistingLiveTab(FCambrianaGrammarEditorToolkit::RulesTabId).IsValid());
+		TestTrue(TEXT("The Viewport tab is open"), Tabs->FindExistingLiveTab(FCambrianaGrammarEditorToolkit::ViewportTabId).IsValid());
 		TestTrue(TEXT("The Details tab is open"), Tabs->FindExistingLiveTab(FCambrianaGrammarEditorToolkit::DetailsTabId).IsValid());
+		TestTrue(TEXT("The Outputs tab is open"), Tabs->FindExistingLiveTab(FCambrianaGrammarEditorToolkit::OutputsTabId).IsValid());
 	}
 	CloseGrammarEditor(Grammar);
 	return true;
@@ -352,6 +359,162 @@ bool FCambrianaGrammarEditorDelegatesTest::RunTest(const FString& Parameters)
 	}
 	TestFalse(TEXT("The Rules commit callback is unbound once the editor is gone"), RulesCommitted.IsBound());
 	TestFalse(TEXT("The Details visibility callback is unbound once the editor is gone"), DetailsPropertyVisible.IsBound());
+	return true;
+}
+
+namespace
+{
+	// Each tube ring has one vertex per side, and an unbranched chain of N segments has N + 1 rings (SDD-surfacing.md, Tubes).
+	constexpr int32 TubeVertices(int32 Segments, int32 Sides)
+	{
+		return (Segments + 1) * Sides;
+	}
+
+	void EditGrammarSides(UCambrianaGrammar* Grammar, int32 Sides)
+	{
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Edit Sides")));
+		FProperty* Property = UCambrianaGrammar::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Sides));
+		Grammar->PreEditChange(Property);
+		Grammar->Sides = Sides;
+		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
+		Grammar->PostEditChangeProperty(Event);
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewDefaultTest,
+	"Cambriana.Editor.GrammarEditor.Preview.ViewportShowsTheTransientResultOfTheDefaultGrammar",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarPreviewDefaultTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
+	const UDynamicMeshComponent* Mesh = Preview.GetMeshComponent();
+	if (TestNotNull(TEXT("The preview has a mesh"), Mesh))
+	{
+		TestTrue(TEXT("The preview mesh is in the viewport's scene"), Mesh->IsRegistered() && Mesh->GetWorld() == Preview.GetWorld());
+		TestEqual(TEXT("The default grammar's 4 segments in one chain at the asset's 8 sides"), Mesh->GetMesh()->VertexCount(), TubeVertices(4, 8));
+		TestFalse(TEXT("Nothing of the preview is in the grammar's package"), Mesh->IsIn(Grammar->GetPackage()));
+	}
+	TestEqual(TEXT("The preview built once"), Preview.GetBuildCount(), 1);
+	TestEqual(TEXT("The preview builds the asset's text"), Preview.GetLastBuildInput().GrammarText, Grammar->GrammarText);
+	TestEqual(TEXT("The preview builds with the asset's seed"), Preview.GetLastBuildInput().Seed, Grammar->Seed);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewRulesEditTest,
+	"Cambriana.Editor.GrammarEditor.Preview.RulesEditRebuildsThePreviewOnceAndUndoRestoresIt",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarPreviewRulesEditTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<SMultiLineEditableTextBox> Rules = Toolkit ? RulesTextBoxOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows Rules"), Rules.IsValid()) || !TestNotNull(TEXT("The preview has a mesh"), Toolkit->GetPreview().GetMeshComponent()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
+	const int32 BuildsBefore = Preview.GetBuildCount();
+
+	TypeOverRules(*Rules);
+	TestEqual(TEXT("Typing alone does not rebuild the preview"), Preview.GetBuildCount(), BuildsBefore);
+	PauseTyping(1.0f);
+	TestEqual(TEXT("The Rules edit rebuilt the preview once"), Preview.GetBuildCount(), BuildsBefore + 1);
+	TestEqual(TEXT("The edited grammar's 2 segments in one chain at 8 sides"), Preview.GetMeshComponent()->GetMesh()->VertexCount(), TubeVertices(2, 8));
+
+	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
+	TestEqual(TEXT("Undo rebuilt the preview once"), Preview.GetBuildCount(), BuildsBefore + 2);
+	TestEqual(TEXT("Undo restores the default grammar's preview"), Preview.GetMeshComponent()->GetMesh()->VertexCount(), TubeVertices(4, 8));
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewDetailsEditTest,
+	"Cambriana.Editor.GrammarEditor.Preview.DetailsSettingChangeRebuildsThePreviewAndUndoRestoresIt",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarPreviewDetailsEditTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	Grammar->GrammarText = TypedGrammarText;
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit) || !TestNotNull(TEXT("The preview has a mesh"), Toolkit->GetPreview().GetMeshComponent()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
+	TestEqual(TEXT("2 segments at the asset's 8 sides"), Preview.GetMeshComponent()->GetMesh()->VertexCount(), TubeVertices(2, 8));
+	const int32 BuildsBefore = Preview.GetBuildCount();
+
+	EditGrammarSides(Grammar, 3);
+	TestEqual(TEXT("The Details change rebuilt the preview once"), Preview.GetBuildCount(), BuildsBefore + 1);
+	TestEqual(TEXT("2 segments at the asset's new 3 sides"), Preview.GetMeshComponent()->GetMesh()->VertexCount(), TubeVertices(2, 3));
+
+	TestTrue(TEXT("The change can be undone"), GEditor->UndoTransaction());
+	TestEqual(TEXT("Undo rebuilt the preview once"), Preview.GetBuildCount(), BuildsBefore + 2);
+	TestEqual(TEXT("Undo restores 8 sides"), Preview.GetMeshComponent()->GetMesh()->VertexCount(), TubeVertices(2, 8));
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewErrorsTest,
+	"Cambriana.Editor.GrammarEditor.Preview.TextWithErrorsShowsAnEmptyPreview",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarPreviewErrorsTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit) || !TestNotNull(TEXT("The preview has a mesh"), Toolkit->GetPreview().GetMeshComponent()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
+	TestTrue(TEXT("The default grammar's preview has geometry"), Preview.GetMeshComponent()->GetMesh()->TriangleCount() > 0);
+
+	AddExpectedMessagePlain(TEXT("Grammar error at line"), ELogVerbosity::Error);
+	Toolkit->CommitRulesText(FText::FromString(TEXT("20\n25\n50\n")));
+	TestTrue(TEXT("The build reports errors"), Preview.GetLastBuildReport().bHasErrors);
+	TestEqual(TEXT("The preview has no vertices"), Preview.GetMeshComponent()->GetMesh()->VertexCount(), 0);
+	TestEqual(TEXT("The preview has no triangles"), Preview.GetMeshComponent()->GetMesh()->TriangleCount(), 0);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewOtherGrammarTest,
+	"Cambriana.Editor.GrammarEditor.Preview.ChangesThatLeaveTheBuildInputAloneDoNotRebuildThePreview",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarPreviewOtherGrammarTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	UCambrianaGrammar* Other = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
+	const int32 BuildsBefore = Preview.GetBuildCount();
+
+	EditGrammarSides(Other, 3);
+	TestEqual(TEXT("Another grammar's change does not rebuild the preview"), Preview.GetBuildCount(), BuildsBefore);
+	EditGrammarSides(Grammar, Grammar->Sides);
+	TestEqual(TEXT("A change to the same value does not rebuild the preview"), Preview.GetBuildCount(), BuildsBefore);
+	CloseGrammarEditor(Grammar);
 	return true;
 }
 
