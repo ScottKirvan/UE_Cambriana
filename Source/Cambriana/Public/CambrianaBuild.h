@@ -187,6 +187,22 @@ struct FCambrianaBuildReport
 	bool bHasSummary = false;
 };
 
+/** The settings grammar text states; each is unset when the text does not state it. */
+struct FCambrianaStatedSettings
+{
+	TOptional<double> Recursion;
+	TOptional<double> BasicAngle;
+	TOptional<double> Thickness;
+	/** Fit with the size, or Step with the step length. */
+	TOptional<ECambrianaSizeMode> SizeMode;
+	TOptional<double> SizeValue;
+	TOptional<int32> Sides;
+	TOptional<bool> bClosedForm;
+	TOptional<double> MinThickness;
+
+	bool operator==(const FCambrianaStatedSettings&) const = default;
+};
+
 struct FCambrianaBuildResult
 {
 	/** Each triangle's material ID is a slot index. */
@@ -203,6 +219,9 @@ namespace Cambriana
 
 	/** The parameters Cambriana grammar text declares, in file order, with StoredValues applied; none for legacy text. */
 	CAMBRIANA_API TArray<FCambrianaParameter> ReadParameters(const FString& GrammarText, TConstArrayView<FCambrianaParameterValue> StoredValues = {});
+
+	/** The settings the grammar text states: .lsys settings statements, or the .ls header of text without errors. */
+	CAMBRIANA_API FCambrianaStatedSettings ReadStatedSettings(const FString& GrammarText);
 
 	constexpr int32 PreviewPaletteSize = 10;
 

@@ -196,6 +196,12 @@ namespace Cambriana::Editor::Tests
 		return Placed.Num() == 1 ? Cast<ACambrianaLiveActor>(ActorElementDataUtil::GetActorFromHandle(Placed[0])) : nullptr;
 	}
 
+	inline FString DescribeSizeAndSurfacer(const UCambrianaGrammar& Grammar)
+	{
+		return FString::Printf(TEXT("size %s %g, sides %d, surface %s, min thickness %g"), Grammar.SizeMode == ECambrianaSizeMode::Fit ? TEXT("Fit") : TEXT("Step"),
+			Grammar.SizeValue, Grammar.Sides, Grammar.bClosedForm ? TEXT("tubes") : TEXT("blocks"), Grammar.MinThickness);
+	}
+
 	inline FString FixturePath(const TCHAR* FileName)
 	{
 		const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("Cambriana"));

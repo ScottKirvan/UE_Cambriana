@@ -73,4 +73,23 @@ bool FCambrianaNewAssetBuildsLegacyDefaultBonesTest::RunTest(const FString& Para
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaNewAssetSettingsTest,
+	"Cambriana.Editor.GrammarFactory.NewAssetSizeAndSurfacerSettingsAreTheDefaultsTheDefaultTextLeaves",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaNewAssetSettingsTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammarFactory* Factory = NewObject<UCambrianaGrammarFactory>();
+	const UCambrianaGrammar* Grammar = Cast<UCambrianaGrammar>(Factory->FactoryCreateNew(UCambrianaGrammar::StaticClass(),
+		GetTransientPackage(), MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional,
+		nullptr, nullptr));
+	if (!TestNotNull(TEXT("New asset created"), Grammar))
+	{
+		return false;
+	}
+	TestEqual(TEXT("The default text states no size or surfacer setting, so each is the default"), DescribeSizeAndSurfacer(*Grammar),
+		FString(TEXT("size Fit 200, sides 8, surface tubes, min thickness 0")));
+	return true;
+}
+
 #endif

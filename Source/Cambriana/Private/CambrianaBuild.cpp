@@ -581,6 +581,11 @@ namespace Cambriana
 		return Parameters;
 	}
 
+	FCambrianaStatedSettings ReadStatedSettings(const FString& GrammarText)
+	{
+		return {};
+	}
+
 	int32 PreviewPaletteIndex(int64 MaterialId)
 	{
 		return static_cast<int32>(((MaterialId % PreviewPaletteSize) + PreviewPaletteSize) % PreviewPaletteSize);
