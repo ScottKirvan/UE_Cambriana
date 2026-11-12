@@ -9,6 +9,22 @@
 #include "UObject/ConstructorHelpers.h"
 #include "UObject/UObjectIterator.h"
 
+namespace
+{
+	template <typename FActor, typename FVisit>
+	void ForEachOverridableSetting(FActor& Actor, const FCambrianaOverridableSettings& Starting, FVisit&& Visit)
+	{
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Recursion), Actor.Recursion, Starting.Recursion);
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, BasicAngle), Actor.BasicAngle, Starting.BasicAngle);
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Thickness), Actor.Thickness, Starting.Thickness);
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeMode), Actor.SizeMode, Starting.SizeMode);
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeValue), Actor.SizeValue, Starting.SizeValue);
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, MinThickness), Actor.MinThickness, Starting.MinThickness);
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bClosedForm), Actor.bClosedForm, Starting.bClosedForm);
+		Visit(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Sides), Actor.Sides, Starting.Sides);
+	}
+}
+
 ACambrianaLiveActor::ACambrianaLiveActor()
 {
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BaseMaterial(Cambriana::PreviewBaseMaterialPath);
@@ -23,21 +39,65 @@ void ACambrianaLiveActor::SetGrammar(UCambrianaGrammar* NewGrammar)
 
 void ACambrianaLiveActor::PlaceFromGrammar(UCambrianaGrammar* Source)
 {
+	Grammar = Source;
 	if (Source)
 	{
 		Seed = Source->Seed;
-		const ACambrianaLiveActor* Default = GetDefault<ACambrianaLiveActor>();
-		const FCambrianaStatedSettings Stated = Cambriana::ReadStatedSettings(Source->GrammarText);
-		Recursion = Stated.Recursion.Get(Default->Recursion);
-		BasicAngle = Stated.BasicAngle.Get(Default->BasicAngle);
-		Thickness = Stated.Thickness.Get(Default->Thickness);
-		SizeMode = Stated.SizeMode.Get(Source->SizeMode);
-		SizeValue = Stated.SizeValue.Get(Source->SizeValue);
-		Sides = Stated.Sides.Get(Source->Sides);
-		bClosedForm = Stated.bClosedForm.Get(Source->bClosedForm);
-		MinThickness = Stated.MinThickness.Get(Source->MinThickness);
+		ForEachOverridableSetting(*this, GetStartingSettings(), [](FName, auto& Value, const auto& Starting) { Value = Starting; });
 	}
-	SetGrammar(Source);
+	Rebuild();
+}
+
+FCambrianaOverridableSettings ACambrianaLiveActor::GetStartingSettings() const
+{
+	const ACambrianaLiveActor* Default = GetDefault<ACambrianaLiveActor>();
+	const FCambrianaStatedSettings Stated = Cambriana::ReadStatedSettings(Grammar ? Grammar->GrammarText : InlineGrammar);
+	FCambrianaOverridableSettings Starting;
+	Starting.Recursion = Stated.Recursion.Get(Default->Recursion);
+	Starting.BasicAngle = Stated.BasicAngle.Get(Default->BasicAngle);
+	Starting.Thickness = Stated.Thickness.Get(Default->Thickness);
+	Starting.SizeMode = Stated.SizeMode.Get(Grammar ? Grammar->SizeMode : Default->SizeMode);
+	Starting.SizeValue = Stated.SizeValue.Get(Grammar ? Grammar->SizeValue : Default->SizeValue);
+	Starting.Sides = Stated.Sides.Get(Grammar ? Grammar->Sides : Default->Sides);
+	Starting.bClosedForm = Stated.bClosedForm.Get(Grammar ? Grammar->bClosedForm : Default->bClosedForm);
+	Starting.MinThickness = Stated.MinThickness.Get(Grammar ? Grammar->MinThickness : Default->MinThickness);
+	return Starting;
+}
+
+TConstArrayView<FName> ACambrianaLiveActor::GetStartingValueProperties()
+{
+	static const TArray<FName> Names = []
+	{
+		TArray<FName> Collected;
+		ForEachOverridableSetting(*GetDefault<ACambrianaLiveActor>(), FCambrianaOverridableSettings(),
+			[&Collected](FName Name, const auto&, const auto&) { Collected.Add(Name); });
+		return Collected;
+	}();
+	return Names;
+}
+
+bool ACambrianaLiveActor::IsAtStartingValue(FName PropertyName) const
+{
+	bool bAtStartingValue = true;
+	ForEachOverridableSetting(*this, GetStartingSettings(), [PropertyName, &bAtStartingValue](FName Name, const auto& Value, const auto& Starting)
+	{
+		if (Name == PropertyName)
+		{
+			bAtStartingValue = Value == Starting;
+		}
+	});
+	return bAtStartingValue;
+}
+
+void ACambrianaLiveActor::ResetToStartingValue(FName PropertyName)
+{
+	ForEachOverridableSetting(*this, GetStartingSettings(), [PropertyName](FName Name, auto& Value, const auto& Starting)
+	{
+		if (Name == PropertyName)
+		{
+			Value = Starting;
+		}
+	});
 }
 
 FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
