@@ -23,17 +23,6 @@ namespace Cambriana::Editor
 	}
 }
 
-TSharedRef<IDetailCustomization> FCambrianaSeedCustomization::MakeInstance(FName SeedPropertyName, UClass* OwnerClass)
-{
-	return MakeShareable(new FCambrianaSeedCustomization(SeedPropertyName, OwnerClass));
-}
-
-FCambrianaSeedCustomization::FCambrianaSeedCustomization(FName InSeedPropertyName, UClass* InOwnerClass)
-	: SeedPropertyName(InSeedPropertyName)
-	, OwnerClass(InOwnerClass)
-{
-}
-
 void Cambriana::Editor::CustomizeSeedRow(IDetailLayoutBuilder& DetailBuilder, FName SeedPropertyName, UClass* OwnerClass)
 {
 	const TSharedRef<IPropertyHandle> SeedHandle = DetailBuilder.GetProperty(SeedPropertyName, OwnerClass);
@@ -73,11 +62,6 @@ void Cambriana::Editor::CustomizeSeedRow(IDetailLayoutBuilder& DetailBuilder, FN
 				})
 			]
 		];
-}
-
-void FCambrianaSeedCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
-{
-	Cambriana::Editor::CustomizeSeedRow(DetailBuilder, SeedPropertyName, OwnerClass);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -170,7 +170,6 @@ namespace
 	{
 		if (const cambriana_summary* Summary = cambriana_result_summary(Result))
 		{
-			Report.bHasSummary = true;
 			Cambriana::ApplyResultFlags(Summary->flags, Report);
 			Report.ProductionLength = Summary->production_length;
 			Report.GenerationsRun = Summary->generations_run;
