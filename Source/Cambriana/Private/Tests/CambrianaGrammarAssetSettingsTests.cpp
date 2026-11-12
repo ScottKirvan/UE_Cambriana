@@ -225,7 +225,8 @@ bool FCambrianaGrammarAssetSizeForLsysTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("No errors"), Report.bHasErrors);
 	TestTrue(TEXT("Fit mode is used"), Report.SizeMode == ECambrianaSizeMode::Fit);
 	TestNearlyEqual(TEXT("The asset's fit size is used"), Report.SizeValue, 75.0, 1e-9);
-	TestNearlyEqual(TEXT("The actor shows the size used"), Actor->SizeValue, 75.0, 1e-9);
+	TestTrue(TEXT("The actor keeps its own size mode"), Actor->SizeMode == ECambrianaSizeMode::Fit);
+	TestNearlyEqual(TEXT("The actor keeps its own size value"), Actor->SizeValue, 200.0, 1e-9);
 	const FVector3d Size = MeshOf(Actor).GetBounds().Diagonal();
 	TestNearlyEqual(TEXT("The largest dimension is the asset's fit size"), FMath::Max3(Size.X, Size.Y, Size.Z), 75.0, 1e-3);
 	return true;
@@ -352,13 +353,13 @@ bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
 	Actor->SizeMode = ECambrianaSizeMode::Step;
 	Actor->SizeValue = 7.0;
 	Actor->Sides = 5;
-	Actor->bClosedForm = true;
+	Actor->bClosedForm = false;
 	Actor->MinThickness = 2.0;
 	UCambrianaGrammar* Grammar = MakeGrammar(Text);
 	Grammar->SizeMode = ECambrianaSizeMode::Step;
 	Grammar->SizeValue = 10.0;
 	Grammar->Sides = 3;
-	Grammar->bClosedForm = false;
+	Grammar->bClosedForm = true;
 	Grammar->MinThickness = 20.0;
 	Actor->SetGrammar(Grammar);
 
@@ -367,13 +368,13 @@ bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
 		TestTrue(When + TEXT(": the actor keeps its size mode"), Actor->SizeMode == ECambrianaSizeMode::Step);
 		TestEqual(When + TEXT(": the actor keeps its size value"), Actor->SizeValue, 7.0);
 		TestEqual(When + TEXT(": the actor keeps its sides"), Actor->Sides, 5);
-		TestTrue(When + TEXT(": the actor keeps its closed form"), Actor->bClosedForm);
+		TestFalse(When + TEXT(": the actor keeps its closed form"), Actor->bClosedForm);
 		TestEqual(When + TEXT(": the actor keeps its min thickness"), Actor->MinThickness, 2.0);
 	};
 	ExpectActorValuesKept(TEXT("Built from the asset"));
 	const FCambrianaBuildSettings& Used = Actor->GetLastBuildInput().Settings;
 	TestEqual(TEXT("The build used the asset's sides"), Used.Sides, 3);
-	TestFalse(TEXT("The build used the asset's closed form"), Used.bClosedForm);
+	TestTrue(TEXT("The build used the asset's closed form"), Used.bClosedForm);
 	TestEqual(TEXT("The build used the asset's min thickness"), Used.MinThickness, 20.0);
 	TestEqual(TEXT("The build used the asset's size value"), Used.SizeValue, 10.0);
 
