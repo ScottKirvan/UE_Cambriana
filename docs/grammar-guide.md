@@ -256,7 +256,7 @@ grow {
 
 ## Settings
 
-Settings are a keyword and a number. A calculation isn't allowed here. Any setting can be left out. If `seed` and `size`/`step` are left out, they will come from the Unreal asset or actor.
+Settings are a keyword and a number, or a word for `surface`. A calculation isn't allowed here. Any setting can be left out. If `seed`, `size`/`step`, `sides`, `surface` or `minthickness` are left out, they will come from the Unreal asset or actor.
 
 ```text
 generations 3.5
@@ -269,6 +269,17 @@ axiom F
 ```
 
 `size` scales the whole form so its largest dimension is that many centimetres. `step` sets the length of one bone instead. Use one or the other. See the [settings reference](#settings-reference).
+
+Three settings shape the mesh around the bones. `surface tubes` wraps each bone in a tube, and `sides` sets how many sides the tube has. `surface blocks` gives each bone a box instead, and `sides` makes no difference. `minthickness` keeps every bone at least that many centimetres thick, so thin twigs don't vanish.
+
+```text
+sides         6
+surface       tubes
+minthickness  0.5cm
+axiom F [ + F ] F
+```
+
+In Unreal, a value you state for `size`/`step`, `sides`, `surface` or `minthickness` wins over the grammar asset's and the actor's, unless the actor's override for that setting is on.
 
 ## Parameters
 
@@ -541,6 +552,15 @@ axiom F
 
 > **Error** line 1, column 6: invalid number.
 
+A `surface` word that isn't `tubes` or `blocks`.
+
+```text
+surface round
+axiom F
+```
+
+> **Error** line 1, column 9: invalid number.
+
 Both `size` and `step`.
 
 ```text
@@ -664,6 +684,9 @@ These names and single letters can't be used for your own words in `draw` rules,
 | `step` | Above 0, optional `cm` directly after | From Unreal |
 | `seed` | Whole number, 0 to 4294967295 | From Unreal |
 | `bonebudget` | Whole number, 0 or more; the build uses the lower of this and its own limit | The build's limit |
+| `sides` | Whole number, 3 or more | From Unreal |
+| `surface` | `tubes` or `blocks` | From Unreal |
+| `minthickness` | 0 or more, optional `cm` directly after | From Unreal |
 
 ### Parameter tiers
 
