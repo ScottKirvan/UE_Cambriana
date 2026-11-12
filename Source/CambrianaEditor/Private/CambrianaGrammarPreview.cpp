@@ -34,6 +34,7 @@ void FCambrianaGrammarPreview::Update(const UCambrianaGrammar& Grammar)
 	MeshComponent->SetMesh(MoveTemp(Result.Mesh));
 	Cambriana::ApplyPreviewMaterials(*MeshComponent, Result.SlotMaterialIds, BaseMaterial, Palette, MeshComponent);
 	++BuildCount;
+	RebuiltDelegate.Broadcast();
 }
 
 UWorld* FCambrianaGrammarPreview::GetWorld() const

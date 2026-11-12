@@ -25,6 +25,15 @@ void SCambrianaGrammarViewport::Construct(const FArguments& InArgs, const TShare
 {
 	Preview = InPreview;
 	SEditorViewport::Construct(SEditorViewport::FArguments());
+	PreviewRebuiltHandle = Preview->OnRebuilt().AddSP(this, &SCambrianaGrammarViewport::HandlePreviewRebuilt);
+}
+
+SCambrianaGrammarViewport::~SCambrianaGrammarViewport()
+{
+	if (Preview)
+	{
+		Preview->OnRebuilt().Remove(PreviewRebuiltHandle);
+	}
 }
 
 TSharedRef<FEditorViewportClient> SCambrianaGrammarViewport::MakeEditorViewportClient()
@@ -35,4 +44,10 @@ TSharedRef<FEditorViewportClient> SCambrianaGrammarViewport::MakeEditorViewportC
 	ViewportClient->SetViewRotation(FRotator(-20.0, -45.0, 0.0));
 	ViewportClient->SetViewLocationForOrbiting(bHasBounds ? Bounds.Origin : FVector::ZeroVector, static_cast<float>(bHasBounds ? Bounds.SphereRadius * 3.0 : 500.0));
 	return ViewportClient;
+}
+
+void SCambrianaGrammarViewport::HandlePreviewRebuilt()
+{
+	// The viewport is not realtime, so without this it draws the new mesh only on the next input.
+	Client->Invalidate();
 }
