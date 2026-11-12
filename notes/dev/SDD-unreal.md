@@ -87,10 +87,21 @@ Standalone asset editor, opened from the grammar asset.
   editing object, so the asset editor subsystem records only the asset.
 - `[Proposed — unconfirmed]` The copy between asset and working copy covers every property
   the grammar class declares except its import data, which stays with the asset. Save copies
-  only when the working copy differs from the asset, as one change event outside the undo
-  history (the Material editor's copy-back also runs without a transaction), so live actors
-  rebuild once, and not at all for a save without edits. Save As copies the working copy into
-  the asset first, then runs the standard Save As, as in the Material editor.
+  the working copy's values into the asset outside the undo history (the Material editor's
+  copy-back also runs without a transaction) and without a change event, then saves the
+  package (`FEditorFileUtils::PromptForCheckoutAndSave`). When the save completes, one change
+  event follows if the values changed, so live actors rebuild once, and not at all for a save
+  without edits. When it does not complete (checkout or save cancelled or failed), the asset
+  takes back its previous values and its package its previous dirty state; actors see no
+  change and the editor keeps its edits.
+- `[Proposed — unconfirmed]` Save As asks for the new asset in the Content Browser's save
+  asset dialog and writes the working copy, not the asset, to a new asset there, then saves
+  it, closes this editor and opens one on the new asset. The original asset, its package's
+  dirty state and its actors are untouched whether Save As completes or is cancelled; the
+  Material editor instead applies its edits to the original first. Choosing the asset's own
+  path is a Save. When the new asset's save does not complete, the editor stays open with its
+  edits and the new asset stays in memory, unsaved, as with the engine's Save As. Tests answer
+  the dialog through the toolkit's `SetSaveAsPrompt`.
 - `[Proposed — unconfirmed]` The editor has unsaved edits while the working copy differs from
   the asset or a Rules edit is still waiting for the typing pause; undoing back to the saved
   state clears them. The editor tab's label shows `*` while it has unsaved edits or the
@@ -105,8 +116,9 @@ Standalone asset editor, opened from the grammar asset.
   takes the asset's values and the preview follows; with unsaved edits the working copy keeps
   them.
 - `[Proposed — unconfirmed]` The close prompt is a Yes/No/Cancel message dialog naming the
-  asset's path, as the Material editor's: Yes copies the working copy into the asset and
-  saves it, then closes; No discards the edits and closes; Cancel keeps the editor open.
+  asset's path, as the Material editor's: Yes saves as Save does, then closes, or, when the
+  save does not complete, keeps the editor open with its edits as Cancel does; No discards
+  the edits and closes; Cancel keeps the editor open.
   Closing because the asset was force-deleted does not ask. In unattended runs the dialog
   answers Cancel, so the editor stays open; tests answer through the toolkit's
   `SetUnsavedEditsPrompt`.
