@@ -1,4 +1,4 @@
-version=0.1.1
+version=0.2.0
 api_version=1
-commit=2388abe368eaf60eb9248fcba63a3ee3d022ecaf
+commit=c752e6db37c253bd3d516b9f95ea4ae0af34d268
 compiler=MSVC 19.44.35229.0
