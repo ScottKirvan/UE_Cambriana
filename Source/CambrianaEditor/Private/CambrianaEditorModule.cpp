@@ -1,5 +1,6 @@
 #include "CambrianaEditorCategory.h"
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarCustomization.h"
 #include "CambrianaLiveActor.h"
 #include "CambrianaSeedCustomization.h"
 #include "IPlacementModeModule.h"
@@ -14,8 +15,11 @@ public:
 	virtual void StartupModule() override
 	{
 		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		RegisterSeedCustomization(PropertyEditor, UCambrianaGrammar::StaticClass(), GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed));
-		RegisterSeedCustomization(PropertyEditor, ACambrianaLiveActor::StaticClass(), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Seed));
+		RegisterCustomization(PropertyEditor, UCambrianaGrammar::StaticClass(),
+			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaGrammarCustomization::MakeInstance));
+		RegisterCustomization(PropertyEditor, ACambrianaLiveActor::StaticClass(),
+			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaSeedCustomization::MakeInstance,
+				GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Seed), ACambrianaLiveActor::StaticClass()));
 		// Placement mode needs the editor, which isn't up yet while plugin modules start.
 		FCoreDelegates::GetOnPostEngineInit().AddStatic(&FCambrianaEditorModule::RegisterPlacementCategory);
 	}
@@ -50,10 +54,9 @@ private:
 		Placement.RegisterPlaceableItem(Category, MakeShared<FPlaceableItem>(static_cast<UActorFactory*>(nullptr),FAssetData(ACambrianaLiveActor::StaticClass())));
 	}
 
-	void RegisterSeedCustomization(FPropertyEditorModule& PropertyEditor, UClass* Class, FName SeedPropertyName)
+	void RegisterCustomization(FPropertyEditorModule& PropertyEditor, UClass* Class, FOnGetDetailCustomizationInstance MakeInstance)
 	{
-		PropertyEditor.RegisterCustomClassLayout(Class->GetFName(),
-			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaSeedCustomization::MakeInstance, SeedPropertyName, Class));
+		PropertyEditor.RegisterCustomClassLayout(Class->GetFName(), MoveTemp(MakeInstance));
 		CustomizedClasses.Add(Class->GetFName());
 	}
 
