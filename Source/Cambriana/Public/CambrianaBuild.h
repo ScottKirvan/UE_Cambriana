@@ -114,6 +114,8 @@ struct FCambrianaDiagnostic
 	TOptional<uint64> ProductionPosition;
 
 	CAMBRIANA_API FString Describe() const;
+	/** Describe() without the severity: "line 3, column 3: syntax error" or "production position 1: unmatched ']'". */
+	CAMBRIANA_API FString DescribePositionAndProblem() const;
 };
 
 /** What a build reported besides its mesh. */
