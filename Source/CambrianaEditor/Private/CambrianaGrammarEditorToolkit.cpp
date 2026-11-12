@@ -22,6 +22,8 @@
 
 #define LOCTEXT_NAMESPACE "CambrianaGrammarEditor"
 
+DEFINE_LOG_CATEGORY_STATIC(LogCambrianaGrammarEditor, Log, All);
+
 namespace
 {
 	// Slate text boxes join lines with the platform's line terminator, "\r\n" on Windows.
@@ -49,7 +51,7 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 		Config.DefaultPath = FPackageName::GetLongPackagePath(Edited.GetPackage()->GetName());
 		Config.DefaultAssetName = Edited.GetName();
 		Config.AssetClassNames.Add(UCambrianaGrammar::StaticClass()->GetClassPathName());
-		Config.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+		Config.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::Disallow;
 		Config.DialogTitleOverride = LOCTEXT("SaveAsTitle", "Save Grammar As");
 		const FString ObjectPath = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser")).Get().CreateModalSaveAssetDialog(Config);
 		return ObjectPath.IsEmpty() ? FString() : FPackageName::ObjectPathToPackageName(ObjectPath);
@@ -196,6 +198,15 @@ void FCambrianaGrammarEditorToolkit::SaveAssetAs_Execute()
 	if (!FFileHelper::IsFilenameValidForSaving(NewPackageName, InvalidName))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, InvalidName);
+		return;
+	}
+	// Saving over an asset would replace an object that editors and actors may still reference.
+	if (FindPackage(nullptr, *NewPackageName) || FPackageName::DoesPackageExist(NewPackageName))
+	{
+		const FText Exists = FText::Format(LOCTEXT("SaveAsExists", "{0} already exists. Save As does not replace an asset; choose a new name."),
+			FText::FromString(NewPackageName));
+		UE_LOG(LogCambrianaGrammarEditor, Warning, TEXT("%s"), *Exists.ToString());
+		FMessageDialog::Open(EAppMsgType::Ok, Exists);
 		return;
 	}
 	UCambrianaGrammar* NewGrammar = Cambriana::Editor::DuplicateAsAsset(*WorkingCopy, NewPackageName);
