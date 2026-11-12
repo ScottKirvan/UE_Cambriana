@@ -2,6 +2,7 @@
 
 #include "CambrianaEditorCategory.h"
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarEditorToolkit.h"
 
 #define LOCTEXT_NAMESPACE "CambrianaEditor"
 
@@ -24,6 +25,15 @@ TConstArrayView<FAssetCategoryPath> UAssetDefinition_CambrianaGrammar::GetAssetC
 {
 	static const FAssetCategoryPath Categories[] = { FAssetCategoryPath(Cambriana::Editor::BojuStudiosCategoryText()) };
 	return Categories;
+}
+
+EAssetCommandResult UAssetDefinition_CambrianaGrammar::OpenAssets(const FAssetOpenArgs& OpenArgs) const
+{
+	for (UCambrianaGrammar* Grammar : OpenArgs.LoadObjects<UCambrianaGrammar>())
+	{
+		MakeShared<FCambrianaGrammarEditorToolkit>()->InitGrammarEditor(OpenArgs.GetToolkitMode(), OpenArgs.ToolkitHost, Grammar);
+	}
+	return EAssetCommandResult::Handled;
 }
 
 #undef LOCTEXT_NAMESPACE

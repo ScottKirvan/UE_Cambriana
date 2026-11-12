@@ -71,7 +71,7 @@ Layout `[Proposed — unconfirmed]`:
 | `Source/Cambriana/Public/CambrianaLiveActor.h` | Live actor; rebuilds in `OnConstruction` only when its build input differs from the last build (so moves do not rebuild), and whenever its grammar asset changes `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Public/CambrianaSeed.h` | Seed generation from the OS random source `[Proposed — unconfirmed]` |
 | `Source/CambrianaEditor/` | Editor module |
-| `Source/CambrianaEditor/Private/` | Grammar factory (new assets hold the default grammar as `.lsys` text) and asset definition, live actor factory (drag and drop), seed field with new-seed button `[Proposed — unconfirmed]` |
+| `Source/CambrianaEditor/Private/` | Grammar factory (new assets hold the default grammar as `.lsys` text) and asset definition, live actor factory (drag and drop), seed field with new-seed button `[Proposed — unconfirmed]`; grammar editor toolkit `CambrianaGrammarEditorToolkit` (Rules text tab, committed as one undoable edit when the text loses focus; Details tab without the grammar text) `[Proposed — unconfirmed]` |
 | `Source/*/Private/Tests/` | Automation tests, named `Cambriana.*` |
 | `Source/Cambriana/Private/Tests/Fixtures/` | Byte-exact legacy `.ls` fixtures (`sk.ls`, `TREE11.LS`), kept out of line-ending conversion by `.gitattributes` `[Proposed — unconfirmed]` |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
