@@ -149,7 +149,7 @@ bool FCambrianaImportLsysStoresTextUnchangedTest::RunTest(const FString& Paramet
 	}
 	const FString FileText = LoadFile(Path);
 	TestFalse(TEXT("The fixture has text"), FileText.IsEmpty());
-	TestEqual(TEXT("The asset holds the file's text"), Grammar->GrammarText, FileText);
+	TestEqualSensitive(TEXT("The asset holds the file's text"), Grammar->GrammarText, FileText);
 	return true;
 }
 
@@ -239,11 +239,11 @@ bool FCambrianaReimportLsysReplacesTextTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("The asset holds the first text"), Grammar->GrammarText, FString(FirstLsysText));
+	TestEqualSensitive(TEXT("The asset holds the first text"), Grammar->GrammarText, FString(FirstLsysText));
 
 	WriteTemporaryFile(TEXT("reimport.lsys"), SecondLsysText);
 	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
-	TestEqual(TEXT("The asset holds the changed file's text"), Grammar->GrammarText, FString(SecondLsysText));
+	TestEqualSensitive(TEXT("The asset holds the changed file's text"), Grammar->GrammarText, FString(SecondLsysText));
 	IFileManager::Get().Delete(*Path);
 	return true;
 }
@@ -306,7 +306,7 @@ bool FCambrianaReimportRejectedLegacyTest::RunTest(const FString& Parameters)
 	AddExpectedMessagePlain(TEXT("reimport-rejected.ls: error at line 5, column 4: not convertible"), ELogVerbosity::Error);
 	AddExpectedMessagePlain(TEXT("reimport-rejected.ls: error at line 5, column 6: not convertible"), ELogVerbosity::Error);
 	TestFalse(TEXT("The reimport fails"), Reimport(Grammar));
-	TestEqual(TEXT("The asset's text is unchanged"), Grammar->GrammarText, TextBefore);
+	TestEqualSensitive(TEXT("The asset's text is unchanged"), Grammar->GrammarText, TextBefore);
 	TestEqual(TEXT("The asset's seed is unchanged"), Grammar->Seed, SeedBefore);
 	IFileManager::Get().Delete(*Path);
 	return true;
@@ -382,13 +382,13 @@ bool FCambrianaReimportRebuildsLiveActorTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("The actor was built from the first text"), Actor->GetLastBuildInput().GrammarText, FString(FirstLsysText));
+	TestEqualSensitive(TEXT("The actor was built from the first text"), Actor->GetLastBuildInput().GrammarText, FString(FirstLsysText));
 	const int32 BuildsBefore = Actor->GetBuildCount();
 
 	WriteTemporaryFile(TEXT("reimport-actor.lsys"), SecondLsysText);
 	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
-	TestTrue(TEXT("The actor rebuilt"), Actor->GetBuildCount() > BuildsBefore);
-	TestEqual(TEXT("The actor was built from the changed text"), Actor->GetLastBuildInput().GrammarText, FString(SecondLsysText));
+	TestEqual(TEXT("The actor rebuilt once"), Actor->GetBuildCount(), BuildsBefore + 1);
+	TestEqualSensitive(TEXT("The actor was built from the changed text"), Actor->GetLastBuildInput().GrammarText, FString(SecondLsysText));
 	Actor->GetWorld()->EditorDestroyActor(Actor, false);
 	IFileManager::Get().Delete(*Path);
 	return true;
@@ -435,7 +435,7 @@ bool FCambrianaReimportActionTest::RunTest(const FString& Parameters)
 	WriteTemporaryFile(TEXT("reimport-action.lsys"), SecondLsysText);
 	TArray<UObject*> Selected = { Grammar };
 	FReimportManager::Instance()->ValidateAllSourceFileAndReimport(Selected, false, INDEX_NONE, false, true);
-	TestEqual(TEXT("The Reimport action reads the changed source file"), Grammar->GrammarText, FString(SecondLsysText));
+	TestEqualSensitive(TEXT("The Reimport action reads the changed source file"), Grammar->GrammarText, FString(SecondLsysText));
 	IFileManager::Get().Delete(*Path);
 	return true;
 }
@@ -511,7 +511,7 @@ bool FCambrianaReimportRebuildsGrammarEditorPreviewTest::RunTest(const FString& 
 	WriteTemporaryFile(TEXT("reimport-preview.lsys"), SecondLsysText);
 	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
 	TestEqual(TEXT("The reimport rebuilt the preview once"), Preview.GetBuildCount(), BuildsBefore + 1);
-	TestEqual(TEXT("The preview built the reimported text"), Preview.GetLastBuildInput().GrammarText, FString(SecondLsysText));
+	TestEqualSensitive(TEXT("The preview built the reimported text"), Preview.GetLastBuildInput().GrammarText, FString(SecondLsysText));
 	AssetEditors->CloseAllEditorsForAsset(Grammar);
 	IFileManager::Get().Delete(*Path);
 	return true;
@@ -577,7 +577,7 @@ bool FCambrianaReimportKeepsSettingsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The imported asset's settings are the text's"), ImportedSettings, FString(TEXT("size Fit 50, sides 3, surface blocks, min thickness 5")));
 	WriteTemporaryFile(TEXT("reimport-settings.lsys"), RestatingLsysText);
 	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
-	TestEqual(TEXT("The reimport replaced the text"), Grammar->GrammarText, FString(RestatingLsysText));
+	TestEqualSensitive(TEXT("The reimport replaced the text"), Grammar->GrammarText, FString(RestatingLsysText));
 	TestEqual(TEXT("The reimport leaves the asset's settings"), DescribeSizeAndSurfacer(*Grammar), ImportedSettings);
 	IFileManager::Get().Delete(*Path);
 	return true;

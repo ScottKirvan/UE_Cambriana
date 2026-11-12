@@ -80,7 +80,7 @@ bool FCambrianaGrammarSaveRestoreTest::RunTest(const FString& Parameters)
 	const UCambrianaGrammar* Loaded = LoadedPackage ? FindObject<UCambrianaGrammar>(LoadedPackage, *FPackageName::GetShortName(SaveTestPackageName)) : nullptr;
 	if (TestNotNull(TEXT("The grammar asset loads again"), Loaded))
 	{
-		TestEqual(TEXT("Grammar text"), Loaded->GrammarText, EditedText);
+		TestEqualSensitive(TEXT("Grammar text"), Loaded->GrammarText, EditedText);
 		TestEqual(TEXT("Seed"), Loaded->Seed, EditedSeed);
 		if (TestNotNull(TEXT("The loaded asset has import data"), Loaded->AssetImportData.Get()))
 		{
@@ -191,9 +191,9 @@ bool FCambrianaGrammarParametersSaveRestoreTest::RunTest(const FString& Paramete
 	const UCambrianaGrammar* Loaded = LoadedPackage ? FindObject<UCambrianaGrammar>(LoadedPackage, *ShortName) : nullptr;
 	if (TestNotNull(TEXT("The grammar asset loads again"), Loaded) && TestEqual(TEXT("Two stored values"), Loaded->ParameterValues.Num(), 2))
 	{
-		TestEqual(TEXT("First stored name"), Loaded->ParameterValues[0].Name, FString(TEXT("count")));
+		TestEqualSensitive(TEXT("First stored name"), Loaded->ParameterValues[0].Name, FString(TEXT("count")));
 		TestEqual(TEXT("First stored value"), Loaded->ParameterValues[0].Value, 5.0);
-		TestEqual(TEXT("Second stored name"), Loaded->ParameterValues[1].Name, FString(TEXT("girth")));
+		TestEqualSensitive(TEXT("Second stored name"), Loaded->ParameterValues[1].Name, FString(TEXT("girth")));
 		TestEqual(TEXT("Second stored value"), Loaded->ParameterValues[1].Value, 0.25);
 		// 5 segments in one chain at 8 sides: (5 + 1) * 8 vertices (SDD-surfacing.md, Tubes).
 		TestEqual(TEXT("The reloaded asset builds with its stored count"), Cambriana::BuildMesh(ACambrianaLiveActor::MakeBuildInputFor(*Loaded)).Mesh.VertexCount(), 48);
