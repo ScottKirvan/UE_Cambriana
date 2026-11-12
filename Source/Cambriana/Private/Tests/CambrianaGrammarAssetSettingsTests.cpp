@@ -337,7 +337,7 @@ bool FCambrianaGrammarAssetSurfacerOverridesTest::RunTest(const FString& Paramet
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetShownSurfacerTest,
-	"Cambriana.GrammarAsset.Settings.ActorShowsTheAssetsSurfacerSettingsAndOverridesTurnedOnChangeNothing",
+	"Cambriana.GrammarAsset.Settings.ActorKeepsItsValuesWhileItsOverridesAreOffAndBuildsWithThemWhenOn",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
@@ -349,6 +349,11 @@ bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
+	Actor->SizeMode = ECambrianaSizeMode::Step;
+	Actor->SizeValue = 7.0;
+	Actor->Sides = 5;
+	Actor->bClosedForm = true;
+	Actor->MinThickness = 2.0;
 	UCambrianaGrammar* Grammar = MakeGrammar(Text);
 	Grammar->SizeMode = ECambrianaSizeMode::Step;
 	Grammar->SizeValue = 10.0;
@@ -357,9 +362,20 @@ bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
 	Grammar->MinThickness = 20.0;
 	Actor->SetGrammar(Grammar);
 
-	TestEqual(TEXT("Shown sides are the asset's"), Actor->Sides, 3);
-	TestFalse(TEXT("Shown closed form is the asset's"), Actor->bClosedForm);
-	TestEqual(TEXT("Shown min thickness is the asset's"), Actor->MinThickness, 20.0);
+	const auto ExpectActorValuesKept = [this, Actor](const FString& When)
+	{
+		TestTrue(When + TEXT(": the actor keeps its size mode"), Actor->SizeMode == ECambrianaSizeMode::Step);
+		TestEqual(When + TEXT(": the actor keeps its size value"), Actor->SizeValue, 7.0);
+		TestEqual(When + TEXT(": the actor keeps its sides"), Actor->Sides, 5);
+		TestTrue(When + TEXT(": the actor keeps its closed form"), Actor->bClosedForm);
+		TestEqual(When + TEXT(": the actor keeps its min thickness"), Actor->MinThickness, 2.0);
+	};
+	ExpectActorValuesKept(TEXT("Built from the asset"));
+	const FCambrianaBuildSettings& Used = Actor->GetLastBuildInput().Settings;
+	TestEqual(TEXT("The build used the asset's sides"), Used.Sides, 3);
+	TestFalse(TEXT("The build used the asset's closed form"), Used.bClosedForm);
+	TestEqual(TEXT("The build used the asset's min thickness"), Used.MinThickness, 20.0);
+	TestEqual(TEXT("The build used the asset's size value"), Used.SizeValue, 10.0);
 
 	const TArray<FVector3d> Baseline = PositionsOf(Actor);
 	TestTrue(TEXT("Built geometry"), Baseline.Num() > 0);
@@ -378,9 +394,12 @@ bool FCambrianaGrammarAssetShownSurfacerTest::RunTest(const FString& Parameters)
 	{
 		Actor->*Override.Flag = true;
 		Actor->Rebuild();
-		TestTrue(FString::Printf(TEXT("Turning the %s override on leaves the vertex positions unchanged"), Override.Name), PositionsOf(Actor) == Baseline);
+		TestFalse(FString::Printf(TEXT("Turning the %s override on builds with the actor's value, which changes the vertex positions"), Override.Name),
+			PositionsOf(Actor) == Baseline);
 		Actor->*Override.Flag = false;
 		Actor->Rebuild();
+		ExpectActorValuesKept(FString::Printf(TEXT("After turning the %s override off"), Override.Name));
+		TestTrue(FString::Printf(TEXT("Turning the %s override off builds with the asset's value again"), Override.Name), PositionsOf(Actor) == Baseline);
 	}
 	return true;
 }
