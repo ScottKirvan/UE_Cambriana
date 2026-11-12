@@ -119,13 +119,21 @@ Standalone asset editor, opened from the grammar asset.
   edit elsewhere, undo of an asset edit) and the editor has no unsaved edits, the working copy
   takes the asset's values and the preview follows; with unsaved edits the working copy keeps
   them.
-- `[Proposed — unconfirmed]` The close prompt is a Yes/No/Cancel message dialog naming the
-  asset's path, as the Material editor's: Yes saves as Save does, then closes, or, when the
-  save does not complete, keeps the editor open with its edits as Cancel does; No discards
-  the edits and closes; Cancel keeps the editor open.
+- `[Proposed — unconfirmed]` The close prompt is a message dialog naming the asset's path, as
+  the Material editor's. Closing the editor's tab (its close button, or the editor shutting
+  down, which asks each tab first) can be stopped, so it asks Yes/No/Cancel: Yes saves as
+  Save does, then closes, or, when the save does not complete, keeps the editor open with its
+  edits as Cancel does; No discards the edits and closes; Cancel keeps the editor open. Every
+  other close comes through the asset editor subsystem (unloading, reloading or deleting the
+  asset's package, consolidating assets, closing every editor at shutdown) and cannot be
+  stopped: `FAssetEditorToolkit::CloseWindow` reports the close as done whatever the editor
+  answers, and the caller carries on. It asks Yes/No, as the engine's save prompt does when it
+  cannot be declined (`FEditorFileUtils::SaveDirtyPackages`): Yes saves and closes, and asks
+  again when the save does not complete; No discards the edits and closes. Edits discarded at a
+  prompt are not asked about again by a later close until the working copy changes again.
   Closing because the asset was force-deleted does not ask. In unattended runs the dialog
-  answers Cancel, so the editor stays open; tests answer through the toolkit's
-  `SetUnsavedEditsPrompt`.
+  answers Cancel when it offers Cancel, otherwise No; tests answer through the toolkit's
+  `SetUnsavedEditsPrompt`, which is given the buttons the dialog offers.
 - `[Proposed — unconfirmed]` A Rules edit reaches the working copy as one undoable change,
   rebuilding the preview once, when typing pauses for 0.5 s, when the text loses focus,
   before a save, before the close prompt and before the editor's own undo or redo (the

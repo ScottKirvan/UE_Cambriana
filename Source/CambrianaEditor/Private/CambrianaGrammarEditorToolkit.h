@@ -41,8 +41,11 @@ public:
 	virtual void SaveAsset_Execute() override;
 	virtual void SaveAssetAs_Execute() override;
 
-	/** Asked when the editor closes with unsaved edits: Yes saves them, No discards them, Cancel keeps the editor open. */
-	using FUnsavedEditsPrompt = TFunction<EAppReturnType::Type(const FText& Message)>;
+	/**
+	 * Asked when the editor closes with unsaved edits: Yes saves them, No discards them, Cancel keeps the editor open. Buttons is
+	 * YesNoCancel when the close can be stopped and YesNo when it cannot.
+	 */
+	using FUnsavedEditsPrompt = TFunction<EAppReturnType::Type(EAppMsgType::Type Buttons, const FText& Message)>;
 
 	/** The grammar the Rules, Details and Viewport panels edit and show; a save copies it into the asset. */
 	UCambrianaGrammar* GetWorkingCopy() const { return WorkingCopy.Get(); }
@@ -78,6 +81,8 @@ private:
 	bool HandleRulesApplyTimer(float DeltaTime);
 	bool HandleIsDetailsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const;
 	void ApplyPendingRulesEdit();
+	/** Asks about unsaved edits on close; returns whether the editor may close. */
+	bool AskAboutUnsavedEdits(bool bCanCancel);
 	void UndoAfterPendingRulesEdit();
 	void RedoAfterPendingRulesEdit();
 	/** Saves the working copy into the asset; when the save does not complete the asset is left as it was. */
@@ -95,6 +100,8 @@ private:
 	FDelegateHandle GrammarChangedHandle;
 	FTSTicker::FDelegateHandle RulesApplyTimer;
 	bool bRulesEditPending = false;
+	/** The unsaved edits were discarded at a close prompt; cleared by the next edit. */
+	bool bUnsavedEditsDiscarded = false;
 	FUnsavedEditsPrompt UnsavedEditsPrompt;
 	FSaveAsPrompt SaveAsPrompt;
 	bool bClosingForSaveAs = false;

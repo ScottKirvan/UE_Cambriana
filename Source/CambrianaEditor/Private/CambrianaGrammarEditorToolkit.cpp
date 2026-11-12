@@ -47,7 +47,7 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	UCambrianaGrammar* Grammar)
 {
 	WorkingCopy.Reset(Cambriana::Editor::DuplicateWorkingCopy(*Grammar));
-	UnsavedEditsPrompt = [](const FText& Message) { return FMessageDialog::Open(EAppMsgType::YesNoCancel, Message); };
+	UnsavedEditsPrompt = [](EAppMsgType::Type Buttons, const FText& Message) { return FMessageDialog::Open(Buttons, Message); };
 	SaveAsPrompt = [](const UCambrianaGrammar& Edited)
 	{
 		FSaveAssetDialogConfig Config;
@@ -160,26 +160,43 @@ FText FCambrianaGrammarEditorToolkit::GetTabSuffix() const
 bool FCambrianaGrammarEditorToolkit::OnRequestClose(EAssetEditorCloseReason InCloseReason)
 {
 	ApplyPendingRulesEdit();
-	const UCambrianaGrammar* Grammar = GetGrammar();
-	if (Grammar && !bClosingForSaveAs && InCloseReason != EAssetEditorCloseReason::AssetForceDeleted && HasUnsavedEdits())
+	if (GetGrammar() && !bClosingForSaveAs && !bUnsavedEditsDiscarded && InCloseReason != EAssetEditorCloseReason::AssetForceDeleted && HasUnsavedEdits()
+		// Only the host tab honours a refusal: FAssetEditorToolkit::CloseWindow reports every other close as done, and its caller
+		// (package unload, delete, consolidation, editor shutdown) carries on.
+		&& !AskAboutUnsavedEdits(InCloseReason == EAssetEditorCloseReason::AssetEditorHostClosed))
 	{
-		const FText Message = FText::Format(LOCTEXT("UnsavedEditsPrompt", "Save your changes to {0}?\n(Selecting 'No' discards them.)"),
-			FText::FromString(Grammar->GetPathName()));
-		switch (UnsavedEditsPrompt(Message))
+		return false;
+	}
+	return FAssetEditorToolkit::OnRequestClose(InCloseReason);
+}
+
+bool FCambrianaGrammarEditorToolkit::AskAboutUnsavedEdits(bool bCanCancel)
+{
+	const FText Message = FText::Format(LOCTEXT("UnsavedEditsPrompt", "Save your changes to {0}?\n(Selecting 'No' discards them.)"),
+		FText::FromString(GetGrammar()->GetPathName()));
+	for (;;)
+	{
+		const EAppReturnType::Type Answer = UnsavedEditsPrompt(bCanCancel ? EAppMsgType::YesNoCancel : EAppMsgType::YesNo, Message);
+		if (Answer == EAppReturnType::Yes)
 		{
-		case EAppReturnType::Yes:
-			if (!SaveWorkingCopy())
+			if (SaveWorkingCopy())
+			{
+				return true;
+			}
+			if (bCanCancel)
 			{
 				return false;
 			}
-			break;
-		case EAppReturnType::No:
-			break;
-		default:
-			return false;
+			// The editor closes either way, so the question stands until the edits are saved or discarded.
+			continue;
 		}
+		if (Answer == EAppReturnType::No || !bCanCancel)
+		{
+			bUnsavedEditsDiscarded = true;
+			return true;
+		}
+		return false;
 	}
-	return FAssetEditorToolkit::OnRequestClose(InCloseReason);
 }
 
 void FCambrianaGrammarEditorToolkit::SaveAsset_Execute()
@@ -340,6 +357,7 @@ void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGramma
 	{
 		return;
 	}
+	bUnsavedEditsDiscarded = false;
 	UpdatePreview(*ChangedGrammar);
 	// During the typing pause only an undo or redo from outside the editor changes the working copy; the typed text still applies after the pause.
 	if (bRulesEditPending)

@@ -68,11 +68,17 @@ bool FCambrianaClosePathSaveFailsTest::RunTest(const FString& Parameters)
 	}
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { return ++Asked == 1 ? EAppReturnType::Yes : EAppReturnType::No; });
+	TArray<EAppMsgType::Type> Offered;
+	Toolkit->SetUnsavedEditsPrompt([&Asked, &Offered](EAppMsgType::Type Buttons, const FText&)
+	{
+		Offered.Add(Buttons);
+		return ++Asked == 1 ? EAppReturnType::Yes : EAppReturnType::No;
+	});
 
 	// Unattended, the engine's save prompt cancels the save.
 	CloseAsking(Grammar);
 	TestEqual(TEXT("A save that does not complete asks again"), Asked, 2);
+	TestTrue(TEXT("Each question offers save or discard only"), Offered.Num() == 2 && Offered[0] == EAppMsgType::YesNo && Offered[1] == EAppMsgType::YesNo);
 	if (!TestNull(TEXT("Discarding at the second question closes the editor"), FindGrammarEditor(Grammar)))
 	{
 		CloseGrammarEditor(Grammar);
@@ -98,7 +104,7 @@ bool FCambrianaClosePathAskedOnceTest::RunTest(const FString& Parameters)
 	}
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::No; });
+	Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::No; });
 
 	// Shutting the editor down asks each tab whether it can close, then closes every asset editor.
 	TestTrue(TEXT("Discarding lets the editor close"), Toolkit->OnRequestClose(EAssetEditorCloseReason::AssetEditorHostClosed));

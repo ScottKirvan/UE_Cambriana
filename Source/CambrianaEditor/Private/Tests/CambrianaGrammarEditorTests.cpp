@@ -274,7 +274,7 @@ bool FCambrianaGrammarEditorTypingClosedTest::RunTest(const FString& Parameters)
 	}
 	TypeOverRules(*Rules);
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::No; });
+	Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::No; });
 	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing asks once about the typed edit"), Asked, 1);
 	TestNull(TEXT("Discarding closes the editor"), Cambriana::Editor::Tests::FindGrammarEditor(Grammar));
