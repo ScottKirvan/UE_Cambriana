@@ -17,36 +17,12 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+using Cambriana::Editor::Tests::CreateGrammarWithFactory;
+using Cambriana::Editor::Tests::FindPropertyHandle;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
 
 namespace
 {
-	UCambrianaGrammar* CreateGrammarWithFactory()
-	{
-		UCambrianaGrammarFactory* Factory = NewObject<UCambrianaGrammarFactory>();
-		return Cast<UCambrianaGrammar>(Factory->FactoryCreateNew(UCambrianaGrammar::StaticClass(), GetTransientPackage(),
-			MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional, nullptr, nullptr));
-	}
-
-	TSharedPtr<IPropertyHandle> FindPropertyHandle(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
-	{
-		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
-		{
-			const TSharedPtr<IPropertyHandle> Handle = Node->CreatePropertyHandle();
-			if (Handle && Handle->GetProperty() && Handle->GetProperty()->GetFName() == PropertyName)
-			{
-				return Handle;
-			}
-			TArray<TSharedRef<IDetailTreeNode>> Children;
-			Node->GetChildren(Children, true);
-			if (TSharedPtr<IPropertyHandle> Found = FindPropertyHandle(Children, PropertyName))
-			{
-				return Found;
-			}
-		}
-		return nullptr;
-	}
-
 	void EditProperty(UObject* Object, FName PropertyName, TFunctionRef<void()> Change)
 	{
 		FProperty* Property = Object->GetClass()->FindPropertyByName(PropertyName);
