@@ -200,7 +200,7 @@ Standalone asset editor, opened from the grammar asset.
   asset's stored parameter values. Inline text builds with the text's values.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
   size override, size mode and value; a grammar asset reference or inline grammar text.
-  Inline `.ls` text is converted.
+  Inline `.ls` text is not converted; it builds as legacy text (below).
 - **Decided:** min thickness, closed form and sides each have an override toggle, off by
   default, like size. Each size and surfacer setting is taken from the first of: the actor,
   when its override is on; the grammar text, when it states the setting; the grammar asset;
