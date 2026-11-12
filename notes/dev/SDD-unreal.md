@@ -69,18 +69,60 @@ Standalone asset editor, opened from the grammar asset.
 | Outputs | Baked assets; Bake, Regenerate, Detach |
 
 - The editor layout reserves space for a variant grid (AR-01).
-- `[Proposed — unconfirmed]` A Rules edit marks the grammar asset dirty at once and reaches
-  the asset, as one undoable change that rebuilds live actors once, when typing pauses for
-  0.5 s, when the text loses focus, before the asset is saved and when the editor closes.
-- `[Proposed — unconfirmed]` Rules text reaches the asset with `\n` line breaks on every
-  platform.
+- **Decided:** the grammar asset editor is a non-destructive playground: it edits a working
+  copy of the grammar. The Rules, Details and Viewport panels all use the working copy.
+- **Decided:** Save copies the working copy into the asset and saves it. Placed actors
+  referencing the asset rebuild then, and only then.
+- **Decided:** edits are undoable inside the editor; the asset and the scene show nothing
+  until the save.
+- **Decided:** closing the editor with unsaved edits asks whether to save them or discard
+  them.
+- **Decided:** no Apply button; Save only.
+- **Decided:** the Rules typing pause rebuilds the preview; the edit reaches the working copy,
+  not the asset.
+- `[Proposed — unconfirmed]` The working copy is a transient duplicate of the asset
+  (`StaticDuplicateObject` into the transient package, without `RF_Standalone` or
+  `RF_Public`, with `RF_Transactional`), as the Material editor holds its preview material.
+  Unlike the Material editor, the editor holds it itself rather than registering it as an
+  editing object, so the asset editor subsystem records only the asset.
+- `[Proposed — unconfirmed]` The copy between asset and working copy covers every property
+  the grammar class declares except its import data, which stays with the asset. Save copies
+  only when the working copy differs from the asset, as one change event outside the undo
+  history (the Material editor's copy-back also runs without a transaction), so live actors
+  rebuild once, and not at all for a save without edits. Save As copies the working copy into
+  the asset first, then runs the standard Save As, as in the Material editor.
+- `[Proposed — unconfirmed]` The editor has unsaved edits while the working copy differs from
+  the asset or a Rules edit is still waiting for the typing pause; undoing back to the saved
+  state clears them. The editor tab's label shows `*` while it has unsaved edits or the
+  asset's package is dirty. Edits do not mark the asset's package dirty. (The Material editor
+  shows unapplied edits only through its Apply button, which this editor does not have.)
+- `[Proposed — unconfirmed]` A save of the asset from outside the editor (Content Browser,
+  Save All, any package save) saves the asset as it is and leaves the working copy and its
+  unsaved edits alone, as with the Material editor. Save All skips the asset unless its
+  package is dirty for another reason.
+- `[Proposed — unconfirmed]` When the asset changes from outside the editor (reimport, an
+  edit elsewhere, undo of an asset edit) and the editor has no unsaved edits, the working copy
+  takes the asset's values and the preview follows; with unsaved edits the working copy keeps
+  them.
+- `[Proposed — unconfirmed]` The close prompt is a Yes/No/Cancel message dialog naming the
+  asset's path, as the Material editor's: Yes copies the working copy into the asset and
+  saves it, then closes; No discards the edits and closes; Cancel keeps the editor open.
+  Closing because the asset was force-deleted does not ask. In unattended runs the dialog
+  answers Cancel, so the editor stays open; tests answer through the toolkit's
+  `SetUnsavedEditsPrompt`.
+- `[Proposed — unconfirmed]` A Rules edit reaches the working copy as one undoable change,
+  rebuilding the preview once, when typing pauses for 0.5 s, when the text loses focus,
+  before a save and before the close prompt.
+- `[Proposed — unconfirmed]` Rules text reaches the working copy with `\n` line breaks on
+  every platform.
 - **Decided:** the Outputs panel is an empty tab until bake exists.
 - `[Proposed — unconfirmed]` The Viewport shows an advanced preview scene holding one dynamic
   mesh, built through `Cambriana::BuildMesh` from the build input of a live actor referencing
-  the asset with every override off and the asset's seed, in the live actor's preview
-  palette. It rebuilds when the asset changes (Rules or Details edit, undo, redo, reimport)
-  and its build input differs from the last build's. The scene, mesh and materials are
-  transient; nothing of the preview is saved in the asset.
+  the working copy with every override off and the working copy's seed, in the live actor's
+  preview palette. It rebuilds when the working copy changes (Rules or Details edit, undo,
+  redo, a reimport the working copy follows) and its build input differs from the last
+  build's. The scene, mesh and materials are transient; nothing of the preview is saved in
+  the asset.
 - `[Proposed — unconfirmed]` The Rules tab shows, under the text, the preview build's
   diagnostics as a message log listing (`IMessageLogListing`): one row per diagnostic, in report order,
   with the severity's icon and `line L, column C: <problem>`, or `production position P:
@@ -100,9 +142,9 @@ Standalone asset editor, opened from the grammar asset.
   ones), each holding its parameters in file order as a number field. A field shows the value
   the build uses: the stored value, else the text's value computed with earlier parameters'
   stored values. Committing a field stores the value; the row's reset-to-default arrow, shown
-  only for a stored value, removes it. Each is one undoable change that rebuilds the preview
-  and live actors referencing the asset. The categories are rebuilt when the text's
-  parameter names or tiers change.
+  only for a stored value, removes it. Each is one undoable change to the working copy that
+  rebuilds the preview. The categories are rebuilt when the text's parameter names or tiers
+  change.
 - `[Proposed — unconfirmed]` Parameter values reach the core through the generation seam:
   `FCambrianaBuildInput` carries the asset's stored values, and `Cambriana::BuildMesh` builds
   `.lsys` text from its parsed model with them applied (`cambriana_grammar_set_parameter`,
