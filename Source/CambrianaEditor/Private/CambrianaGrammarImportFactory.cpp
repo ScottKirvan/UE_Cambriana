@@ -86,6 +86,7 @@ UObject* UCambrianaGrammarImportFactory::FactoryCreateFile(UClass* InClass, UObj
 	{
 		Grammar = NewObject<UCambrianaGrammar>(InParent, InClass, InName, Flags);
 		Grammar->GrammarText = MoveTemp(Source->GrammarText);
+		Grammar->StartSettingsFromGrammarText();
 		Grammar->Seed = Source->Seed.Get(Cambriana::GenerateSeed());
 		Grammar->AssetImportData->Update(Filename);
 	}

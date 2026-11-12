@@ -280,6 +280,25 @@ namespace
 		Report.MinThickness = Stated.GetSetting(CAMBRIANA_SETTING_MIN_THICKNESS, Settings.bOverrideGrammarMinThickness).Get(Settings.MinThickness);
 	}
 
+	/** A legacy build with no production budget parses the header and stops before rewriting. */
+	void ReadLegacyHeader(const FTCHARToUTF8& Text, FCambrianaStatedSettings& Out)
+	{
+		cambriana_build_settings Settings;
+		cambriana_build_settings_init(&Settings, sizeof(Settings));
+		Settings.production_budget = 0;
+		Settings.work_budget = 0;
+		cambriana_result* RawResult = nullptr;
+		cambriana_build_legacy(Text.Get(), static_cast<size_t>(Text.Length()), &Settings, nullptr, &RawResult);
+		const FCoreResult Result(RawResult);
+		const cambriana_summary* Summary = Result.Get() ? cambriana_result_summary(Result.Get()) : nullptr;
+		if (Summary && (Summary->flags & CAMBRIANA_RESULT_HAS_ERRORS) == 0)
+		{
+			Out.Recursion = Summary->recursion;
+			Out.BasicAngle = Summary->basic_angle;
+			Out.Thickness = Summary->thickness;
+		}
+	}
+
 	struct FChannelScale
 	{
 		double MaxGeneration = 0.0;
@@ -583,7 +602,43 @@ namespace Cambriana
 
 	FCambrianaStatedSettings ReadStatedSettings(const FString& GrammarText)
 	{
-		return {};
+		FCambrianaStatedSettings Out;
+		if (GrammarText.IsEmpty() || !FCambrianaModule::IsCoreAvailable())
+		{
+			return Out;
+		}
+		const ECambrianaGrammarFormat Format = DetectGrammarFormat(GrammarText);
+		const FTCHARToUTF8 Text(*GrammarText);
+		if (Format == ECambrianaGrammarFormat::Legacy)
+		{
+			ReadLegacyHeader(Text, Out);
+			return Out;
+		}
+
+		const FGrammarModel Stated(Text, Format);
+		Out.Recursion = Stated.GetSetting(CAMBRIANA_SETTING_GENERATIONS, false);
+		Out.BasicAngle = Stated.GetSetting(CAMBRIANA_SETTING_ANGLE, false);
+		Out.Thickness = Stated.GetSetting(CAMBRIANA_SETTING_THICKNESS, false);
+		if (const TOptional<double> Size = Stated.GetSetting(CAMBRIANA_SETTING_SIZE, false))
+		{
+			Out.SizeMode = ECambrianaSizeMode::Fit;
+			Out.SizeValue = Size;
+		}
+		else if (const TOptional<double> Step = Stated.GetSetting(CAMBRIANA_SETTING_STEP, false))
+		{
+			Out.SizeMode = ECambrianaSizeMode::Step;
+			Out.SizeValue = Step;
+		}
+		if (const TOptional<double> Sides = Stated.GetSetting(CAMBRIANA_SETTING_SIDES, false))
+		{
+			Out.Sides = FMath::RoundToInt32(*Sides);
+		}
+		if (const TOptional<double> Surface = Stated.GetSetting(CAMBRIANA_SETTING_SURFACE, false))
+		{
+			Out.bClosedForm = *Surface != 0.0;
+		}
+		Out.MinThickness = Stated.GetSetting(CAMBRIANA_SETTING_MIN_THICKNESS, false);
+		return Out;
 	}
 
 	int32 PreviewPaletteIndex(int64 MaterialId)
