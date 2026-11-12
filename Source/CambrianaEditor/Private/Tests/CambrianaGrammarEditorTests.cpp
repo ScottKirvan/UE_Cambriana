@@ -10,6 +10,7 @@
 #include "Components/DynamicMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Containers/Ticker.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "Framework/Docking/TabManager.h"
 #include "HAL/FileManager.h"
 #include "IMessageLogListing.h"
@@ -880,6 +881,79 @@ bool FCambrianaGrammarEditorHidesImportDataTest::RunTest(const FString& Paramete
 	TestFalse(TEXT("The grammar editor's Details hides the working copy's import data"),
 		Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData)));
 	TestTrue(TEXT("The grammar editor's Details still shows the size"), Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, SizeValue)));
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+namespace
+{
+	const TCHAR* const FirstRulesEdit = TEXT("generations 1\naxiom A\n\ngrow {\n    A -> F A\n}\n");
+
+	bool RunToolkitCommand(FCambrianaGrammarEditorToolkit& Toolkit, const TSharedPtr<FUICommandInfo>& Command)
+	{
+		return Toolkit.GetToolkitCommands()->TryExecuteAction(Command.ToSharedRef());
+	}
+
+	// Slate text boxes join lines with "\r\n" on Windows.
+	FString RulesBoxText(const FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		return Toolkit.GetRulesText().ToString().Replace(TEXT("\r\n"), TEXT("\n"), ESearchCase::CaseSensitive);
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorUndoPendingRulesTest,
+	"Cambriana.Editor.GrammarEditor.UndoDuringTheTypingPauseUndoesThePendingRulesEditAsOneStep",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarEditorUndoPendingRulesTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<SMultiLineEditableTextBox> Rules = Toolkit ? RulesTextBoxOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows Rules"), Rules.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	Toolkit->CommitRulesText(FText::FromString(FirstRulesEdit));
+	TypeOverRules(*Rules);
+
+	RunToolkitCommand(*Toolkit, FGenericCommands::Get().Undo);
+	TestEqualSensitive(TEXT("Undo removes the typed edit from the working copy"), Toolkit->GetWorkingCopy()->GrammarText, FString(FirstRulesEdit));
+	TestEqualSensitive(TEXT("Rules shows the text from before the typing"), RulesBoxText(*Toolkit), FString(FirstRulesEdit));
+
+	RunToolkitCommand(*Toolkit, FGenericCommands::Get().Redo);
+	TestEqualSensitive(TEXT("Redo brings the typed edit back"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
+
+	RunToolkitCommand(*Toolkit, FGenericCommands::Get().Undo);
+	RunToolkitCommand(*Toolkit, FGenericCommands::Get().Undo);
+	TestEqualSensitive(TEXT("A second undo removes the earlier Rules edit"), Toolkit->GetWorkingCopy()->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorOutsideUndoKeepsTypingTest,
+	"Cambriana.Editor.GrammarEditor.AnUndoFromOutsideTheEditorDuringTheTypingPauseKeepsTheTypedText",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarEditorOutsideUndoKeepsTypingTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<SMultiLineEditableTextBox> Rules = Toolkit ? RulesTextBoxOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows Rules"), Rules.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	Toolkit->CommitRulesText(FText::FromString(FirstRulesEdit));
+	TypeOverRules(*Rules);
+
+	TestTrue(TEXT("The earlier Rules edit can be undone"), GEditor->UndoTransaction());
+	TestEqualSensitive(TEXT("Rules keeps the typed text"), RulesBoxText(*Toolkit), FString(TypedGrammarText));
+	TestTrue(TEXT("The typed text is still unsaved"), Toolkit->HasUnsavedEdits());
+	PauseTyping(FCambrianaGrammarEditorToolkit::RulesApplyDelaySeconds + 0.1f);
+	TestEqualSensitive(TEXT("After the pause the typed text reaches the working copy"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 	CloseGrammarEditor(Grammar);
 	return true;
 }
