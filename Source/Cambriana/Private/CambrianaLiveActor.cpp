@@ -82,52 +82,12 @@ void ACambrianaLiveActor::Rebuild()
 	LastBuildInput = MakeBuildInput();
 	FCambrianaBuildResult Result = Cambriana::BuildMesh(LastBuildInput);
 	LastBuildReport = MoveTemp(Result.Report);
-	ShowSettingsUsed();
 	if (UDynamicMeshComponent* MeshComponent = GetDynamicMeshComponent())
 	{
 		MeshComponent->SetMesh(MoveTemp(Result.Mesh));
 		Cambriana::ApplyPreviewMaterials(*MeshComponent, Result.SlotMaterialIds, PreviewBaseMaterial, PreviewMaterials, this);
 	}
 	++BuildCount;
-}
-
-void ACambrianaLiveActor::ShowSettingsUsed()
-{
-	if (!LastBuildReport.bHasSummary)
-	{
-		return;
-	}
-	// A setting whose override is off shows the value the build used, so turning the override on changes nothing.
-	if (!bOverrideRecursion)
-	{
-		Recursion = LastBuildReport.Recursion;
-	}
-	if (!bOverrideBasicAngle)
-	{
-		BasicAngle = LastBuildReport.BasicAngle;
-	}
-	if (!bOverrideThickness)
-	{
-		Thickness = LastBuildReport.Thickness;
-	}
-	if (!bOverrideSize)
-	{
-		SizeMode = LastBuildReport.SizeMode;
-		SizeValue = LastBuildReport.SizeValue;
-	}
-	if (!bOverrideMinThickness)
-	{
-		MinThickness = LastBuildReport.MinThickness;
-	}
-	if (!bOverrideClosedForm)
-	{
-		bClosedForm = LastBuildReport.bClosedForm;
-	}
-	if (!bOverrideSides)
-	{
-		Sides = LastBuildReport.Sides;
-	}
-	LastBuildInput = MakeBuildInput();
 }
 
 void ACambrianaLiveActor::RebuildActorsUsing(const UCambrianaGrammar* ChangedGrammar)

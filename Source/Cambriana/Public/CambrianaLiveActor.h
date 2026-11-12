@@ -103,7 +103,6 @@ public:
 private:
 	void RebuildIfInputChanged();
 	FCambrianaBuildInput MakeBuildInputWith(const UCambrianaGrammar* InGrammar, uint32 InSeed) const;
-	void ShowSettingsUsed();
 
 	UPROPERTY()
 	TObjectPtr<UMaterialInterface> PreviewBaseMaterial;
