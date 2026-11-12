@@ -8,6 +8,7 @@
 #include "Components/DynamicMeshComponent.h"
 #include "Editor.h"
 #include "HAL/FileManager.h"
+#include "Misc/App.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
 #include "Subsystems/AssetEditorSubsystem.h"
@@ -452,6 +453,182 @@ bool FCambrianaWorkingCopyFollowsGrammarTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The preview still shows the edited 2 segments at 3 sides"), PreviewVertexCount(*Toolkit), TubeVertices(2, 3));
 	TestTrue(TEXT("The edits are still unsaved"), Toolkit->HasUnsavedEdits());
 	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+namespace
+{
+	/** A placed actor and an open editor holding edits in every panel, for a grammar in a package of its own. */
+	struct FEditedGrammar
+	{
+		UCambrianaGrammar* Grammar = nullptr;
+		ACambrianaLiveActor* Actor = nullptr;
+		FCambrianaGrammarEditorToolkit* Toolkit = nullptr;
+		int32 ActorBuildsAfterEdits = 0;
+
+		explicit FEditedGrammar(const TCHAR* PackageName)
+		{
+			Grammar = CreateGrammarInPackage(PackageName);
+			Actor = PlaceInCurrentLevel(Grammar);
+			Toolkit = OpenGrammarEditor(Grammar);
+			if (Toolkit)
+			{
+				Grammar->GetPackage()->SetDirtyFlag(false);
+				EditInEveryPanel(*Toolkit);
+			}
+			ActorBuildsAfterEdits = Actor ? Actor->GetBuildCount() : 0;
+		}
+
+		~FEditedGrammar()
+		{
+			CloseGrammarEditor(Grammar);
+			DestroyActor(Actor);
+			UnloadPackage(Grammar->GetPackage());
+		}
+
+		bool IsValid(FAutomationTestBase& Test) const
+		{
+			return Test.TestNotNull(TEXT("A live actor was placed"), Actor) && Test.TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit);
+		}
+
+		void TestGrammarAndActorUnchanged(FAutomationTestBase& Test) const
+		{
+			Test.TestEqual(TEXT("The grammar keeps its text"), Grammar->GrammarText, DefaultText());
+			Test.TestEqual(TEXT("The grammar stores no parameter value"), Grammar->ParameterValues.Num(), 0);
+			Test.TestEqual(TEXT("The grammar keeps its 8 sides"), Grammar->Sides, 8);
+			Test.TestFalse(TEXT("The grammar's package stays clean"), Grammar->GetPackage()->IsDirty());
+			Test.TestEqual(TEXT("The actor did not rebuild"), Actor->GetBuildCount(), ActorBuildsAfterEdits);
+		}
+
+		void TestEditorKeepsTheEdits(FAutomationTestBase& Test) const
+		{
+			if (!Test.TestTrue(TEXT("The editor stays open"), FindGrammarEditor(Grammar) == Toolkit))
+			{
+				return;
+			}
+			Test.TestEqual(TEXT("The working copy keeps the edited text"), Toolkit->GetWorkingCopy()->GrammarText, FString(CountGrammarText));
+			Test.TestEqual(TEXT("The working copy keeps its 3 sides"), Toolkit->GetWorkingCopy()->Sides, 3);
+			Test.TestTrue(TEXT("The edits are still unsaved"), Toolkit->HasUnsavedEdits());
+		}
+	};
+
+	/** With -unattended the engine's save prompt (FEditorFileUtils::PromptForCheckoutAndSave) cancels, so a save does not complete. */
+	bool SaveCancelsInThisRun(FAutomationTestBase& Test)
+	{
+		if (!FApp::IsUnattended())
+		{
+			Test.AddWarning(TEXT("Needs -unattended, where the engine cancels the save; skipped"));
+			return false;
+		}
+		return true;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveCancelledTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.ASaveThatDoesNotCompleteLeavesTheGrammarItsPackageAndItsActorsAndKeepsTheEdits",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveCancelledTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopySaveCancelled");
+	IFileManager::Get().Delete(*PackageFilename(PackageName));
+	const FEditedGrammar Edited(PackageName);
+	if (!Edited.IsValid(*this) || !SaveCancelsInThisRun(*this))
+	{
+		return true;
+	}
+	Edited.Toolkit->SaveAsset_Execute();
+	Edited.TestGrammarAndActorUnchanged(*this);
+	TestFalse(TEXT("Nothing is written"), IFileManager::Get().FileExists(*PackageFilename(PackageName)));
+	Edited.TestEditorKeepsTheEdits(*this);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyCloseSaveCancelledTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.ClosingAndSavingWhenTheSaveDoesNotCompleteKeepsTheEditorOpenAndLeavesTheGrammar",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopyCloseSaveCancelledTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopyCloseSaveCancelled");
+	IFileManager::Get().Delete(*PackageFilename(PackageName));
+	const FEditedGrammar Edited(PackageName);
+	if (!Edited.IsValid(*this) || !SaveCancelsInThisRun(*this))
+	{
+		return true;
+	}
+	int32 Asked = 0;
+	Edited.Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::Yes; });
+	CloseAsking(Edited.Grammar);
+	TestEqual(TEXT("Closing asks once"), Asked, 1);
+	Edited.TestGrammarAndActorUnchanged(*this);
+	Edited.TestEditorKeepsTheEdits(*this);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveAsTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.SaveAsWritesTheEditsToTheNewAssetOnlyAndOpensIt",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveAsTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* CopyPackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopySavedAs");
+	const FString CopyFilename = PackageFilename(CopyPackageName);
+	IFileManager::Get().Delete(*CopyFilename);
+	const FEditedGrammar Edited(TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsOriginal"));
+	if (!Edited.IsValid(*this))
+	{
+		return true;
+	}
+	int32 Asked = 0;
+	Edited.Toolkit->SetSaveAsPrompt([&Asked, CopyPackageName](const UCambrianaGrammar&) { ++Asked; return FString(CopyPackageName); });
+
+	RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
+	TestEqual(TEXT("Save As asks for the new asset once"), Asked, 1);
+	Edited.TestGrammarAndActorUnchanged(*this);
+	TestNull(TEXT("The editor no longer edits the original"), FindGrammarEditor(Edited.Grammar));
+
+	UPackage* CopyPackage = FindPackage(nullptr, CopyPackageName);
+	UCambrianaGrammar* Copy = CopyPackage ? FindObject<UCambrianaGrammar>(CopyPackage, *FPackageName::GetShortName(CopyPackageName)) : nullptr;
+	if (TestNotNull(TEXT("The new asset exists"), Copy))
+	{
+		TestEqual(TEXT("The new asset holds the edited text"), Copy->GrammarText, FString(CountGrammarText));
+		const FCambrianaParameterValue* Stored = FindStoredValue(*Copy, TEXT("count"));
+		TestTrue(TEXT("The new asset stores count = 5"), Stored && Stored->Value == 5.0);
+		TestEqual(TEXT("The new asset holds 3 sides"), Copy->Sides, 3);
+		TestTrue(TEXT("The new asset is a standalone public asset"), Copy->HasAllFlags(RF_Public | RF_Standalone) && !Copy->HasAnyFlags(RF_Transient));
+		TestTrue(TEXT("The new asset is on disk"), IFileManager::Get().FileExists(*CopyFilename));
+		TestFalse(TEXT("The new asset's package is clean"), CopyPackage->IsDirty());
+		const FCambrianaGrammarEditorToolkit* CopyEditor = FindGrammarEditor(Copy);
+		if (TestNotNull(TEXT("The editor opens on the new asset"), CopyEditor))
+		{
+			TestFalse(TEXT("The new asset's editor has nothing unsaved"), CopyEditor->HasUnsavedEdits());
+		}
+		CloseGrammarEditor(Copy);
+		UnloadPackage(CopyPackage);
+	}
+	DeleteSavedPackage(CopyFilename);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveAsCancelledTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.CancellingSaveAsLeavesTheGrammarAndItsActorsAndKeepsTheEdits",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveAsCancelledTest::RunTest(const FString& Parameters)
+{
+	const FEditedGrammar Edited(TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsCancelled"));
+	if (!Edited.IsValid(*this))
+	{
+		return true;
+	}
+	int32 Asked = 0;
+	Edited.Toolkit->SetSaveAsPrompt([&Asked](const UCambrianaGrammar&) { ++Asked; return FString(); });
+
+	RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
+	TestEqual(TEXT("Save As asks for the new asset once"), Asked, 1);
+	Edited.TestGrammarAndActorUnchanged(*this);
+	Edited.TestEditorKeepsTheEdits(*this);
 	return true;
 }
 

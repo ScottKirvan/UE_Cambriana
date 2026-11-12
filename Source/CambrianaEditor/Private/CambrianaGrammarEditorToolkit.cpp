@@ -177,6 +177,11 @@ void FCambrianaGrammarEditorToolkit::SetUnsavedEditsPrompt(FUnsavedEditsPrompt P
 	UnsavedEditsPrompt = MoveTemp(Prompt);
 }
 
+void FCambrianaGrammarEditorToolkit::SetSaveAsPrompt(FSaveAsPrompt Prompt)
+{
+	SaveAsPrompt = MoveTemp(Prompt);
+}
+
 FText FCambrianaGrammarEditorToolkit::GetRulesText() const
 {
 	return RulesTextBox->GetText();
