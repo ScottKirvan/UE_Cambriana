@@ -60,7 +60,8 @@ public:
 	const FCambrianaGrammarPreview& GetPreview() const { return *Preview; }
 	/** The preview build's diagnostics, shown under the Rules text. */
 	const IMessageLogListing& GetRulesDiagnostics() const { return *RulesDiagnostics; }
-	bool IsDetailsPropertyVisible(FName PropertyName) const;
+	/** Whether Details shows the property, given the properties it is nested in, innermost first. */
+	bool IsDetailsPropertyVisible(FName PropertyName, TConstArrayView<FName> ParentPropertyNames = {}) const;
 
 	FOnTextCommitted MakeRulesCommittedDelegate();
 	FIsPropertyVisible MakeDetailsPropertyVisibleDelegate();

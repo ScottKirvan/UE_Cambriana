@@ -86,7 +86,9 @@ Standalone asset editor, opened from the grammar asset.
   Unlike the Material editor, the editor holds it itself rather than registering it as an
   editing object, so the asset editor subsystem records only the asset.
 - `[Proposed — unconfirmed]` The copy between asset and working copy covers every property
-  the grammar class declares except its import data, which stays with the asset. Save copies
+  the grammar class declares except its import data, which stays with the asset; the editor's
+  Details does not show the working copy's import data (the asset's own Details shows the
+  asset's). Save copies
   the working copy's values into the asset outside the undo history (the Material editor's
   copy-back also runs without a transaction) and without a change event, then saves the
   package (`FEditorFileUtils::PromptForCheckoutAndSave`). When the save completes, one change
