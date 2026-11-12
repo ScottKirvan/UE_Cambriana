@@ -56,7 +56,7 @@ A polygon, `repeat` or `mirror` still open at the end of the file is code 9, at 
 
 ### Keywords and names
 
-Statement keywords are recognised only at the start of a statement and aren't reserved elsewhere: `lsystem credit param pose shape structure macro axiom grow draw generations angle thickness size step seed bonebudget`.
+Statement keywords are recognised only at the start of a statement and aren't reserved elsewhere: `lsystem credit param pose shape structure macro axiom grow draw generations angle thickness size step seed bonebudget sides surface minthickness`.
 
 `query` is a statement keyword too, and is also reserved.
 
@@ -95,9 +95,11 @@ file         = { statement } ;
 statement    = lsystem | credit | setting | parameter | macro | query | axiom | block ;
 lsystem      = "lsystem" , word ;
 credit       = "credit" , string ;
-setting      = setting-name , setting-value ;
-setting-name = "generations" | "angle" | "thickness" | "size" | "step" | "seed" | "bonebudget" ;
+setting      = setting-name , setting-value | "surface" , surface-value ;
+setting-name = "generations" | "angle" | "thickness" | "size" | "step" | "seed" | "bonebudget" | "sides"
+             | "minthickness" ;
 setting-value = [ "-" ] , number , [ unit ] ;
+surface-value = "tubes" | "blocks" ;
 unit         = "%" | "cm" ;
 parameter    = [ tier ] , "param" , word , "=" , expression ;
 tier         = "pose" | "shape" | "structure" ;
@@ -192,7 +194,7 @@ An expression may read:
 | Axiom | No | All | Yes | Yes |
 | Rule condition, weight, arguments | Yes | All | Yes | Yes |
 
-Rule parameters hide parameters of the same name. Readable settings give their value after build overrides. `size`, `step` and `bonebudget` can't be read, so they're available as parameter names. An unstated setting reads its default.
+Rule parameters hide parameters of the same name. Readable settings give their value after build overrides. `size`, `step`, `bonebudget`, `sides`, `surface` and `minthickness` can't be read, so they're available as parameter names. An unstated setting reads its default.
 
 **Non-finite values.** Only the final value of an expression is checked, so `if(1, 50, 1 / 0)` is 50 with no warning. A final value that isn't finite, in a condition, weight, argument, `attr` value, parameter's value or repeat count, becomes 0 and gives code 23, once per expression, at the start of the expression. So a repeat count that isn't finite gives no copies.
 
@@ -246,7 +248,7 @@ Other body items:
 
 ## Settings
 
-A setting's value is a literal, not an expression. Stating one twice is code 13. Stating both `size` and `step` is code 22. Out of range is code 2.
+A setting's value is a literal, not an expression. Stating one twice is code 13. Stating both `size` and `step` is code 22. Out of range, or a `surface` word other than `tubes` or `blocks`, is code 2.
 
 | Setting | Range | Unit | Default | Build override |
 |---|---|---|---|---|
@@ -257,8 +259,15 @@ A setting's value is a literal, not an expression. Stating one twice is code 13.
 | `step` | > 0 | `cm` optional | From the build | Yes |
 | `seed` | Whole, 0 to 4294967295 | | From the build | Yes |
 | `bonebudget` | Whole, ≥ 0 | | No limit of its own | The lower of it and the build's bone budget applies |
+| `sides` | Whole, 3 to 4294967295 | | From the build | Yes |
+| `surface` | `tubes` or `blocks` | | From the build | Yes |
+| `minthickness` | ≥ 0 | `cm` optional | From the build | Yes |
 
 `size` chooses the step length so the largest dimension of the bounding box of the full-growth surface equals the value. `step` sets it directly. With neither, the build's own size mode and value apply, with a default of fit to 200 cm.
+
+A stated setting with a build override applies unless the build overrides it.
+
+`surface tubes` gives each bone a tube with `sides` sides. `surface blocks` gives each bone a box, and `sides` has no effect. `minthickness` is the least thickness of a bone, twice its radius. With any of these unstated, the build's own value applies, with defaults of 8 sides, tubes and 0 cm.
 
 `lsystem` and `credit` have no effect on a build, and may be stated more than once.
 
@@ -391,7 +400,7 @@ The stack has no limit. A `[` left open at the end is not reported.
 
 ### Bones
 
-Each `F` or `Z` adds a bone from the turtle's position to the new position, with radius `0.5 × length × thickness`, or 0 if that is negative, the caller's minimum thickness also applying, and parent the current bone. It becomes the current bone. `f`, `z`, `g` move without changing the current bone, but break the chain.
+Each `F` or `Z` adds a bone from the turtle's position to the new position, with radius `0.5 × length × thickness`, or 0 if that is negative, with `minthickness` also applying, and parent the current bone. It becomes the current bone. `f`, `z`, `g` move without changing the current bone, but break the chain.
 
 While merging, if a current bone exists and the chain isn't broken, a segment instead extends the current bone to the new end, recalculating its frame and radius. This applies to the bone current at the time, including the parent bone right after a `[`. A later `]` still returns the turtle to where it was, which can leave a bone extending past its child's start.
 
@@ -439,7 +448,7 @@ A diagnostic has a severity, a numeric code, a line and a column. It has no mess
 | Code | Label | Severity | Meaning | Position |
 |---|---|---|---|---|
 | 1 | Missing end marker | | Legacy `.ls` files only; not produced for `.lsys` | |
-| 2 | Invalid number | Error | Number malformed, too large, or out of range for its setting | The number |
+| 2 | Invalid number | Error | Number malformed, too large, or out of range for its setting, or a `surface` word other than `tubes` or `blocks` | The number or word |
 | 3 | Missing setting | | Legacy `.ls` files only; not produced for `.lsys` | |
 | 4 | Missing axiom | Error | No axiom in the file, or an axiom with an empty body | 1:1, or the statement |
 | 5 | Malformed rule | | Legacy `.ls` files only; not produced for `.lsys` | |
@@ -480,7 +489,7 @@ Canonical form:
 - `{` on the `grow` or `draw` line, `}` on its own line
 - Argument lists with `, `, binary operators with spaces around them, parentheses only where needed
 - Numbers in the shortest form that reads back as the same double
-- Units always written: `thickness 20` becomes `thickness 20%`, `size 100` becomes `size 100cm`
+- Units always written: `thickness 20` becomes `thickness 20%`, `size 100` becomes `size 100cm`, `minthickness 1` becomes `minthickness 1cm`
 - In either style, inside `repeat` or `mirror`, polygons are written `polygon` and `endpolygon`, and a rule on `endpolygon` spells its name
 - In either style, a polygon start with no `}` after it in the same body is written `polygon`
 - A comment on a line by itself stays before the statement or rule after it, and a same-line comment stays on that line. A comment on a continuation line, or on the line of a block's `{`, moves before the next statement, rule or closing `}`. Trailing blanks in a comment are removed
