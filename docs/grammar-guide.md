@@ -321,6 +321,41 @@ Shape parameters are checked too, because they mustn't change the skeleton. Usin
 
 A parameter's value can be a calculation that reads earlier parameters and settings, but not `rand`. Parameters can't be named after settings Cambriana lets you read (`generations`, `angle`, `thickness`, `seed`), commands (including the single letters `F f Z z g t c`), or reserved words.
 
+### A plain `param`
+
+A `param` with no tier is for values worked out from other values. It's treated like `structure`, with one exception: if its value reads a `shape` parameter, it becomes shape-restricted itself, so it can't be used anywhere a `shape` parameter can't. Its value can't read a `pose` parameter at all.
+
+### Which parameter can read which
+
+A parameter's value can only read parameters whose changes it can afford:
+
+| This parameter's value | may read `pose` | may read `shape` | may read `structure` or plain |
+|---|---|---|---|
+| `pose` | Yes | Yes | Yes |
+| `shape` or plain | No | Yes | Yes |
+| `structure` | No | No | Yes |
+
+So a count of segments, which changes the skeleton, can never depend on a `shape` or `pose` value.
+
+### Worked example
+
+```text
+pose param bend = 10
+shape param girth = 1.5
+structure param count = 3
+param twice = count * 2
+
+axiom repeat count { F }
+```
+
+- `bend` is a pose value: it may only appear in rotations, such as `+(bend)`, so it can later be animated on a finished skeleton.
+- `girth` is a shape value: it may change thickness or lengths, such as `!(girth)`, but never how many segments there are.
+- `count` is a structure value: it may change anything, including the number of segments.
+- `twice` has no tier. Its value reads only `count`, so it's treated like `structure`. Had it read `girth`, it would be shape-restricted, and `repeat twice` would be an error.
+- `repeat count { F }` is pasted out before growing, as `F F F`: a chain of three segments. A repeat count changes the skeleton, so it must be a `structure` or plain value; `repeat girth { F }` is an error.
+
+`bend`, `girth` and `twice` are declared but unused here, so changing them changes nothing.
+
 ## Expressions
 
 Anywhere a number goes in an argument, condition, weight or repeat count, you can write a calculation. Expressions can read parameters, the word's values, and the settings `generations`, `angle`, `thickness` and `seed`. Trigonometry uses degrees. A true result is 1 and false is 0, and any non-zero number counts as true.
@@ -348,7 +383,7 @@ macro Fork = [ + F ] [ - F ]
 axiom F Fork F Fork
 ```
 
-**Repeat** copies its contents. The count is rounded down, and can't use `rand` or a word's values.
+**Repeat** copies its contents. The count is rounded down, below 1 gives no copies, and it can't use `rand`, a word's values, or a `pose` or `shape` parameter.
 
 ```text
 angle 60
