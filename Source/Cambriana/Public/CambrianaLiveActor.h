@@ -60,36 +60,38 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideThickness", ClampMin = "0"))
 	double Thickness = 50.0;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
+	// No EditCondition from here on: these values can apply with their override off, so the Details customization shows each
+	// override inline and greys a value only while the build does not use it (UsesOwnValue).
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	bool bOverrideMinThickness = false;
 
 	/** The min thickness applies over .lsys text's minthickness and a grammar asset's min thickness. Without either it always applies. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideMinThickness", ClampMin = "0", Units = "Centimeters"))
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "0", Units = "Centimeters"))
 	double MinThickness = 0.0;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	bool bOverrideClosedForm = false;
 
 	/** The closed form applies over .lsys text's surface and a grammar asset's closed form. Without either it always applies. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideClosedForm"))
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	bool bClosedForm = true;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	bool bOverrideSides = false;
 
 	/** The sides apply over .lsys text's sides and a grammar asset's sides. Without either they always apply. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideSides", ClampMin = "3"))
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "3"))
 	int32 Sides = 8;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	bool bOverrideSize = false;
 
 	/** The size mode and value apply over a grammar asset's size and over .lsys text's size or step. Without an asset, .ls text always uses them. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideSize"))
+	UPROPERTY(EditAnywhere, Category = "Cambriana")
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 
 	/** Target size in Fit mode, step length in Step mode. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideSize", HideEditConditionToggle, ClampMin = "0.01", Units = "Centimeters"))
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "0.01", Units = "Centimeters"))
 	double SizeValue = 200.0;
 
 	void SetGrammar(UCambrianaGrammar* NewGrammar);
@@ -105,6 +107,9 @@ public:
 
 	bool IsAtStartingValue(FName PropertyName) const;
 	void ResetToStartingValue(FName PropertyName);
+
+	/** Whether the build uses the actor's own value of an overridable setting: its override is on, or neither the grammar text nor a grammar asset gives the setting. */
+	bool UsesOwnValue(FName PropertyName) const;
 
 	FCambrianaBuildInput MakeBuildInput() const;
 

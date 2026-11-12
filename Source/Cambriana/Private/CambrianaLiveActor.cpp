@@ -1,6 +1,7 @@
 #include "CambrianaLiveActor.h"
 
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarFormat.h"
 #include "CambrianaPreviewMaterials.h"
 #include "CambrianaSeed.h"
 #include "Components/DynamicMeshComponent.h"
@@ -109,6 +110,41 @@ void ACambrianaLiveActor::ResetToStartingValue(FName PropertyName)
 			Value = Starting;
 		}
 	});
+}
+
+bool ACambrianaLiveActor::UsesOwnValue(FName PropertyName) const
+{
+	const FCambrianaStatedSettings& Stated = GetStatedSettings();
+	const bool bInline = Grammar == nullptr;
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Recursion))
+	{
+		return bOverrideRecursion;
+	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, BasicAngle))
+	{
+		return bOverrideBasicAngle;
+	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Thickness))
+	{
+		return bOverrideThickness;
+	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, MinThickness))
+	{
+		return bOverrideMinThickness || (bInline && !Stated.MinThickness.IsSet());
+	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bClosedForm))
+	{
+		return bOverrideClosedForm || (bInline && !Stated.bClosedForm.IsSet());
+	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Sides))
+	{
+		return bOverrideSides || (bInline && !Stated.Sides.IsSet());
+	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeMode) || PropertyName == GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeValue))
+	{
+		return bOverrideSize || (bInline && Cambriana::DetectGrammarFormat(InlineGrammar) == ECambrianaGrammarFormat::Legacy);
+	}
+	return false;
 }
 
 FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const

@@ -3,9 +3,13 @@
 #include "CambrianaLiveActor.h"
 #include "CambrianaSeedCustomization.h"
 #include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
 #include "IDetailPropertyRow.h"
 #include "PropertyHandle.h"
 #include "ScopedTransaction.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SBoxPanel.h"
 
 #define LOCTEXT_NAMESPACE "CambrianaEditor"
 
@@ -26,11 +30,93 @@ namespace Cambriana::Editor
 				}
 			}
 		}
+
+		FName PropertyNameOf(const IPropertyHandle& Handle)
+		{
+			return Handle.GetProperty() ? Handle.GetProperty()->GetFName() : NAME_None;
+		}
+
+		/** A setting whose value can apply with its override off, so its override is drawn on its row rather than as an edit condition. */
+		struct FInlineOverride
+		{
+			FName Value;
+			FName Override;
+			bool bShowsCheckBox;
+		};
+
+		const FInlineOverride InlineOverrides[] = {
+			{ GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, MinThickness), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bOverrideMinThickness), true },
+			{ GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bClosedForm), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bOverrideClosedForm), true },
+			{ GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Sides), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bOverrideSides), true },
+			{ GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeMode), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bOverrideSize), true },
+			{ GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeValue), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bOverrideSize), false },
+		};
+
+		TSharedRef<SWidget> MakeOverrideCheckBox(const TSharedRef<IPropertyHandle>& Override)
+		{
+			return SNew(SCheckBox)
+				.ToolTipText(Override->GetToolTipText())
+				.IsChecked_Lambda([Override]
+				{
+					bool bOn = false;
+					switch (Override->GetValue(bOn))
+					{
+					case FPropertyAccess::MultipleValues: return ECheckBoxState::Undetermined;
+					case FPropertyAccess::Success: return bOn ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					default: return ECheckBoxState::Unchecked;
+					}
+				})
+				.OnCheckStateChanged_Lambda([Override](ECheckBoxState State) { Override->SetValue(State == ECheckBoxState::Checked); });
+		}
+
+		void ShowOverrideInline(IDetailLayoutBuilder& DetailBuilder, IDetailPropertyRow& Row, const TSharedRef<IPropertyHandle>& Value, const FInlineOverride& Setting)
+		{
+			const TSharedRef<IPropertyHandle> Override = DetailBuilder.GetProperty(Setting.Override, ACambrianaLiveActor::StaticClass());
+			DetailBuilder.HideProperty(Override);
+
+			TSharedPtr<SWidget> NameWidget;
+			TSharedPtr<SWidget> ValueWidget;
+			FDetailWidgetRow Defaults;
+			Row.GetDefaultWidgets(NameWidget, ValueWidget, Defaults);
+			const TAttribute<bool> Applies = TAttribute<bool>::CreateLambda([Value] { return UsesOwnValue(*Value); });
+
+			Row.CustomWidget()
+				.NameContent()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.Padding(0.0f, 0.0f, Setting.bShowsCheckBox ? 4.0f : 0.0f, 0.0f)
+					[
+						Setting.bShowsCheckBox ? MakeOverrideCheckBox(Override) : SNullWidget::NullWidget
+					]
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox).IsEnabled(Applies)[NameWidget.ToSharedRef()]
+					]
+				]
+				.ValueContent()
+				.MinDesiredWidth(Defaults.ValueWidget.MinWidth)
+				.MaxDesiredWidth(Defaults.ValueWidget.MaxWidth)
+				[
+					SNew(SBox).IsEnabled(Applies)[ValueWidget.ToSharedRef()]
+				];
+		}
+	}
+
+	bool UsesOwnValue(const IPropertyHandle& SettingHandle)
+	{
+		const FName Name = PropertyNameOf(SettingHandle);
+		bool bUses = false;
+		ForEachLiveActor(SettingHandle, [&](const ACambrianaLiveActor& Actor) { bUses |= Actor.UsesOwnValue(Name); });
+		return bUses;
 	}
 
 	bool DiffersFromStartingValue(const IPropertyHandle& SettingHandle)
 	{
-		const FName Name = SettingHandle.GetProperty() ? SettingHandle.GetProperty()->GetFName() : NAME_None;
+		const FName Name = PropertyNameOf(SettingHandle);
 		bool bDiffers = false;
 		ForEachLiveActor(SettingHandle, [&](const ACambrianaLiveActor& Actor) { bDiffers |= !Actor.IsAtStartingValue(Name); });
 		return bDiffers;
@@ -38,7 +124,7 @@ namespace Cambriana::Editor
 
 	void ResetToStartingValues(IPropertyHandle& SettingHandle)
 	{
-		const FName Name = SettingHandle.GetProperty() ? SettingHandle.GetProperty()->GetFName() : NAME_None;
+		const FName Name = PropertyNameOf(SettingHandle);
 		const FScopedTransaction Transaction(LOCTEXT("ResetToStartingValue", "Reset to Default"));
 		SettingHandle.NotifyPreChange();
 		ForEachLiveActor(SettingHandle, [&](ACambrianaLiveActor& Actor) { Actor.ResetToStartingValue(Name); });
@@ -57,11 +143,20 @@ void FCambrianaLiveActorCustomization::CustomizeDetails(IDetailLayoutBuilder& De
 	for (const FName Name : ACambrianaLiveActor::GetStartingValueProperties())
 	{
 		const TSharedRef<IPropertyHandle> Handle = DetailBuilder.GetProperty(Name, ACambrianaLiveActor::StaticClass());
-		if (IDetailPropertyRow* Row = DetailBuilder.EditDefaultProperty(Handle))
+		IDetailPropertyRow* Row = DetailBuilder.EditDefaultProperty(Handle);
+		if (!Row)
 		{
-			Row->OverrideResetToDefault(FResetToDefaultOverride::Create(
-				TAttribute<bool>::CreateLambda([Handle] { return Cambriana::Editor::DiffersFromStartingValue(*Handle); }),
-				FSimpleDelegate::CreateLambda([Handle] { Cambriana::Editor::ResetToStartingValues(*Handle); })));
+			continue;
+		}
+		Row->OverrideResetToDefault(FResetToDefaultOverride::Create(
+			TAttribute<bool>::CreateLambda([Handle] { return Cambriana::Editor::DiffersFromStartingValue(*Handle); }),
+			FSimpleDelegate::CreateLambda([Handle] { Cambriana::Editor::ResetToStartingValues(*Handle); })));
+		for (const Cambriana::Editor::FInlineOverride& Setting : Cambriana::Editor::InlineOverrides)
+		{
+			if (Setting.Value == Name)
+			{
+				Cambriana::Editor::ShowOverrideInline(DetailBuilder, *Row, Handle, Setting);
+			}
 		}
 	}
 }

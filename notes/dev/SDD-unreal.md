@@ -209,6 +209,14 @@ Standalone asset editor, opened from the grammar asset.
   asset step, so size without a `size` or `step` statement resets to the core's default size.
   The arrow shows only when the actor's value differs from that value. A reset is undoable
   like any property edit and leaves the override checkbox as it is.
+- `[Proposed — unconfirmed]` In Details each setting that has an override is editable while
+  the build uses the actor's value of it, and greyed otherwise: with its override on, or, with
+  it off, when nothing ahead of the actor gives the setting (without a grammar asset: min
+  thickness, closed form and sides the text does not state, and the size of `.ls` text). Each
+  override's checkbox stays inline, left of its value, and editable; size mode's checkbox
+  also controls size value. Recursion, basic angle and thickness keep their override as an
+  edit condition; the size and surfacer overrides are drawn by the live actor's Details
+  customization.
 - `[Proposed — unconfirmed]` The size mode and size value reset separately, each from its own
   row. With several actors selected, the arrow shows when any of them differs from its own
   value, and a reset sets each to its own value in one transaction. The default is the live
