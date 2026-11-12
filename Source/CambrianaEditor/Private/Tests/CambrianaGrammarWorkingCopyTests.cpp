@@ -9,6 +9,7 @@
 #include "Editor.h"
 #include "HAL/FileManager.h"
 #include "Misc/App.h"
+#include "Misc/FileHelper.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
 #include "Subsystems/AssetEditorSubsystem.h"
@@ -629,6 +630,94 @@ bool FCambrianaWorkingCopySaveAsCancelledTest::RunTest(const FString& Parameters
 	TestEqual(TEXT("Save As asks for the new asset once"), Asked, 1);
 	Edited.TestGrammarAndActorUnchanged(*this);
 	Edited.TestEditorKeepsTheEdits(*this);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveAsLoadedAssetTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.SaveAsOntoALoadedAssetLeavesThatAssetAndItsActorsTellsTheUserAndKeepsTheEdits",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveAsLoadedAssetTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* ExistingPackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsExisting");
+	UCambrianaGrammar* Existing = CreateGrammarInPackage(ExistingPackageName);
+	Existing->GrammarText = TypedGrammarText;
+	Existing->GetPackage()->SetDirtyFlag(false);
+	ACambrianaLiveActor* ExistingActor = PlaceInCurrentLevel(Existing);
+	const FEditedGrammar Edited(TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsOntoExisting"));
+	if (!Edited.IsValid(*this) || !TestNotNull(TEXT("A live actor was placed for the existing asset"), ExistingActor))
+	{
+		DestroyActor(ExistingActor);
+		UnloadPackage(Existing->GetPackage());
+		return false;
+	}
+	const int32 ExistingBuilds = ExistingActor->GetBuildCount();
+	Edited.Toolkit->SetSaveAsPrompt([ExistingPackageName](const UCambrianaGrammar&) { return FString(ExistingPackageName); });
+	AddExpectedMessagePlain(TEXT("already exists"), ELogVerbosity::Warning);
+
+	RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
+	UPackage* ExistingPackage = FindPackage(nullptr, ExistingPackageName);
+	TestTrue(TEXT("The existing asset is still the object in its package"),
+		ExistingPackage && FindObject<UCambrianaGrammar>(ExistingPackage, *FPackageName::GetShortName(ExistingPackageName)) == Existing);
+	TestEqual(TEXT("The existing asset keeps its text"), Existing->GrammarText, FString(TypedGrammarText));
+	TestEqual(TEXT("The existing asset keeps its 8 sides"), Existing->Sides, 8);
+	TestFalse(TEXT("The existing asset's package stays clean"), Existing->GetPackage()->IsDirty());
+	TestEqual(TEXT("The existing asset's actor did not rebuild"), ExistingActor->GetBuildCount(), ExistingBuilds);
+	TestFalse(TEXT("Nothing is written for the existing asset"), IFileManager::Get().FileExists(*PackageFilename(ExistingPackageName)));
+	Edited.TestGrammarAndActorUnchanged(*this);
+	Edited.TestEditorKeepsTheEdits(*this);
+
+	DestroyActor(ExistingActor);
+	UnloadPackage(Existing->GetPackage());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveAsAssetOnDiskTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.SaveAsOntoAnAssetOnDiskLeavesItsFileTellsTheUserAndKeepsTheEdits",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveAsAssetOnDiskTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* ExistingPackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsOnDisk");
+	const FString ExistingFilename = PackageFilename(ExistingPackageName);
+	{
+		UCambrianaGrammar* Existing = CreateGrammarInPackage(ExistingPackageName);
+		Existing->GrammarText = TypedGrammarText;
+		FSavePackageArgs SaveArgs;
+		SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+		SaveArgs.Error = GWarn;
+		const bool bSaved = UPackage::SavePackage(Existing->GetPackage(), Existing, *ExistingFilename, SaveArgs);
+		UnloadPackage(Existing->GetPackage());
+		if (!TestTrue(TEXT("The existing asset is on disk"), bSaved))
+		{
+			DeleteSavedPackage(ExistingFilename);
+			return false;
+		}
+	}
+	TArray<uint8> BytesBefore;
+	FFileHelper::LoadFileToArray(BytesBefore, *ExistingFilename);
+	const FEditedGrammar Edited(TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsOntoDisk"));
+	if (!Edited.IsValid(*this))
+	{
+		DeleteSavedPackage(ExistingFilename);
+		return false;
+	}
+	Edited.Toolkit->SetSaveAsPrompt([ExistingPackageName](const UCambrianaGrammar&) { return FString(ExistingPackageName); });
+	AddExpectedMessagePlain(TEXT("already exists"), ELogVerbosity::Warning);
+
+	RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
+	TArray<uint8> BytesAfter;
+	FFileHelper::LoadFileToArray(BytesAfter, *ExistingFilename);
+	TestTrue(TEXT("The existing asset's file is unchanged"), BytesAfter.Num() > 0 && BytesAfter == BytesBefore);
+	TestNull(TEXT("No package is made at the existing asset's path"), FindPackage(nullptr, ExistingPackageName));
+	Edited.TestGrammarAndActorUnchanged(*this);
+	Edited.TestEditorKeepsTheEdits(*this);
+
+	if (UPackage* Made = FindPackage(nullptr, ExistingPackageName))
+	{
+		UnloadPackage(Made);
+	}
+	DeleteSavedPackage(ExistingFilename);
 	return true;
 }
 
