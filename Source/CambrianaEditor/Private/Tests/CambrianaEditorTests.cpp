@@ -229,4 +229,39 @@ bool FCambrianaNewSeedButtonTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaPlacedActorSettingsFromGrammarTest,
+	"Cambriana.Editor.PlacedLiveActorStartsSettingsFromTheTextThenTheAsset",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaPlacedActorSettingsFromGrammarTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	if (!TestNotNull(TEXT("Grammar created"), Grammar))
+	{
+		return false;
+	}
+	Grammar->GrammarText = TEXT("generations 3\nangle 40\nsides 3\naxiom A\n\ngrow {\n    A -> F A\n}\n");
+	Grammar->SizeMode = ECambrianaSizeMode::Step;
+	Grammar->SizeValue = 10.0;
+	Grammar->Sides = 5;
+	Grammar->bClosedForm = false;
+	Grammar->MinThickness = 20.0;
+
+	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Grammar);
+	if (!TestNotNull(TEXT("A live actor was placed"), Actor))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Recursion is the text's"), Actor->Recursion, 3.0);
+	TestEqual(TEXT("Basic angle is the text's"), Actor->BasicAngle, 40.0);
+	TestEqual(TEXT("Thickness is the default"), Actor->Thickness, 50.0);
+	TestTrue(TEXT("Size mode is the asset's"), Actor->SizeMode == ECambrianaSizeMode::Step);
+	TestEqual(TEXT("Size value is the asset's"), Actor->SizeValue, 10.0);
+	TestEqual(TEXT("Sides are the text's"), Actor->Sides, 3);
+	TestFalse(TEXT("Closed form is the asset's"), Actor->bClosedForm);
+	TestEqual(TEXT("Min thickness is the asset's"), Actor->MinThickness, 20.0);
+	Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	return true;
+}
+
 #endif
