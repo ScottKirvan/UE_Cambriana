@@ -1,4 +1,5 @@
 #include "CambrianaGrammar.h"
+#include "CambrianaLiveActor.h"
 #include "EditorFramework/AssetImportData.h"
 #include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
@@ -139,6 +140,67 @@ bool FCambrianaGrammarSettingsSaveRestoreTest::RunTest(const FString& Parameters
 		TestFalse(TEXT("Closed form"), Loaded->bClosedForm);
 		TestEqual(TEXT("Sides"), Loaded->Sides, 3);
 		TestEqual(TEXT("Min thickness"), Loaded->MinThickness, 1.5);
+	}
+
+	if (LoadedPackage)
+	{
+		Unload(LoadedPackage);
+	}
+	IFileManager::Get().Delete(*PackageFilename);
+	IFileManager::Get().DeleteDirectory(*FPaths::GetPath(PackageFilename));
+	TestFalse(TEXT("The test package file is deleted"), IFileManager::Get().FileExists(*PackageFilename));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarParametersSaveRestoreTest,
+	"Cambriana.Editor.Save.GrammarParameterValuesSurviveSavingAndReloading",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarParametersSaveRestoreTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/SavedGrammarParameters");
+	const FString ShortName = FPackageName::GetShortName(PackageName);
+	const FString PackageFilename = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension()));
+	IFileManager::Get().Delete(*PackageFilename);
+
+	UPackage* Package = CreatePackage(PackageName);
+	UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(Package, *ShortName, RF_Public | RF_Standalone);
+	Grammar->GrammarText = TEXT("structure param count = 3
+shape param girth = 1.5
+
+axiom repeat count { F }
+");
+	FCambrianaParameterValue Count;
+	Count.Name = TEXT("count");
+	Count.Value = 5.0;
+	FCambrianaParameterValue Girth;
+	Girth.Name = TEXT("girth");
+	Girth.Value = 0.25;
+	Grammar->ParameterValues = { Count, Girth };
+
+	FSavePackageArgs SaveArgs;
+	SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+	SaveArgs.Error = GWarn;
+	if (!TestTrue(TEXT("The package saves to disk"), UPackage::SavePackage(Package, Grammar, *PackageFilename, SaveArgs)))
+	{
+		Unload(Package);
+		return false;
+	}
+	TestTrue(TEXT("The package unloads"), Unload(Package));
+	Grammar = nullptr;
+	Package = nullptr;
+	TestNull(TEXT("No grammar asset is loaded at the asset's path"), FindObject<UCambrianaGrammar>(nullptr, *FString::Printf(TEXT("%s.%s"), PackageName, *ShortName)));
+
+	UPackage* LoadedPackage = LoadPackage(nullptr, PackageName, LOAD_None);
+	const UCambrianaGrammar* Loaded = LoadedPackage ? FindObject<UCambrianaGrammar>(LoadedPackage, *ShortName) : nullptr;
+	if (TestNotNull(TEXT("The grammar asset loads again"), Loaded) && TestEqual(TEXT("Two stored values"), Loaded->ParameterValues.Num(), 2))
+	{
+		TestEqual(TEXT("First stored name"), Loaded->ParameterValues[0].Name, FString(TEXT("count")));
+		TestEqual(TEXT("First stored value"), Loaded->ParameterValues[0].Value, 5.0);
+		TestEqual(TEXT("Second stored name"), Loaded->ParameterValues[1].Name, FString(TEXT("girth")));
+		TestEqual(TEXT("Second stored value"), Loaded->ParameterValues[1].Value, 0.25);
+		// 5 segments in one chain at 8 sides: (5 + 1) * 8 vertices (SDD-surfacing.md, Tubes).
+		TestEqual(TEXT("The reloaded asset builds with its stored count"), Cambriana::BuildMesh(ACambrianaLiveActor::MakeBuildInputFor(*Loaded)).Mesh.VertexCount(), 48);
 	}
 
 	if (LoadedPackage)

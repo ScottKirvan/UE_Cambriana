@@ -27,52 +27,15 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+using Cambriana::Editor::Tests::CloseGrammarEditor;
+using Cambriana::Editor::Tests::CreateGrammarWithFactory;
+using Cambriana::Editor::Tests::FindWidgetOfType;
+using Cambriana::Editor::Tests::OpenGrammarEditor;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
+using Cambriana::Editor::Tests::TubeVertices;
 
 namespace
 {
-	UCambrianaGrammar* CreateGrammarWithFactory()
-	{
-		UCambrianaGrammarFactory* Factory = NewObject<UCambrianaGrammarFactory>();
-		return Cast<UCambrianaGrammar>(Factory->FactoryCreateNew(UCambrianaGrammar::StaticClass(), GetTransientPackage(),
-			MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional, nullptr, nullptr));
-	}
-
-	FCambrianaGrammarEditorToolkit* OpenGrammarEditor(UCambrianaGrammar* Grammar)
-	{
-		UAssetEditorSubsystem* AssetEditors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
-		if (!AssetEditors->OpenEditorForAsset(Grammar))
-		{
-			return nullptr;
-		}
-		IAssetEditorInstance* Editor = AssetEditors->FindEditorForAsset(Grammar, false);
-		return Editor && Editor->GetEditorName() == FCambrianaGrammarEditorToolkit::ToolkitName
-			? static_cast<FCambrianaGrammarEditorToolkit*>(Editor)
-			: nullptr;
-	}
-
-	void CloseGrammarEditor(UCambrianaGrammar* Grammar)
-	{
-		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
-	}
-
-	TSharedPtr<SWidget> FindWidgetOfType(const TSharedRef<SWidget>& Root, FName Type)
-	{
-		if (Root->GetType() == Type)
-		{
-			return Root;
-		}
-		FChildren* Children = Root->GetChildren();
-		for (int32 Index = 0; Children && Index < Children->Num(); ++Index)
-		{
-			if (TSharedPtr<SWidget> Found = FindWidgetOfType(Children->GetChildAt(Index), Type))
-			{
-				return Found;
-			}
-		}
-		return nullptr;
-	}
-
 	TSharedPtr<SWidget> RulesTabWidgetOfType(FCambrianaGrammarEditorToolkit& Toolkit, FName Type)
 	{
 		const TSharedPtr<SDockTab> Tab = Toolkit.GetTabManager()->FindExistingLiveTab(FTabId(FCambrianaGrammarEditorToolkit::RulesTabId));
@@ -392,12 +355,6 @@ bool FCambrianaGrammarEditorDelegatesTest::RunTest(const FString& Parameters)
 
 namespace
 {
-	// Each tube ring has one vertex per side, and an unbranched chain of N segments has N + 1 rings (SDD-surfacing.md, Tubes).
-	constexpr int32 TubeVertices(int32 Segments, int32 Sides)
-	{
-		return (Segments + 1) * Sides;
-	}
-
 	void EditGrammarSides(UCambrianaGrammar* Grammar, int32 Sides)
 	{
 		const FScopedTransaction Transaction(FText::FromString(TEXT("Edit Sides")));

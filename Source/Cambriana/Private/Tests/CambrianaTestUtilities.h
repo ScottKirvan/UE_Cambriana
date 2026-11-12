@@ -20,6 +20,12 @@ namespace Cambriana::Tests
 		return Text;
 	}
 
+	// Each tube ring has one vertex per side, and an unbranched chain of N segments has N + 1 rings (SDD-surfacing.md, Tubes).
+	constexpr int32 TubeVertices(int32 Segments, int32 Sides)
+	{
+		return (Segments + 1) * Sides;
+	}
+
 	inline FString SimpleGrammar(int32 Recursion)
 	{
 		return FString::Printf(TEXT("%d\n25\n50\nA\nA=F^'A\n@\n"), Recursion);
