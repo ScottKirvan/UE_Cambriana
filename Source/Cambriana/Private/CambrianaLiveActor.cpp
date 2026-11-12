@@ -45,6 +45,10 @@ FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInputWith(const UCambrianaGra
 	FCambrianaBuildInput Input;
 	Input.GrammarText = InGrammar ? InGrammar->GrammarText : InlineGrammar;
 	Input.Seed = InSeed;
+	if (InGrammar)
+	{
+		Input.ParameterValues = InGrammar->ParameterValues;
+	}
 
 	FCambrianaBuildSettings& Settings = Input.Settings;
 	if (bOverrideRecursion)

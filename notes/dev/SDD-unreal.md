@@ -87,6 +87,27 @@ Standalone asset editor, opened from the grammar asset.
   <problem>` for a diagnostic without a line. The listing is replaced after every preview
   build, so diagnostics go away when the text is fixed. It comes from the preview's build
   report; nothing else parses or builds for it. Its rows are not mirrored to the Output Log.
+- `[Proposed — unconfirmed]` The asset stores a value per parameter, by case-sensitive name.
+  A parameter without a stored value is unchanged and uses the text's value; one with a stored
+  value uses it, whatever the text's value. Text edits and reimports leave stored values
+  alone: a parameter the text adds is unchanged; a changed text value moves only unchanged
+  parameters; a stored value whose name the text no longer declares (removed or renamed) is
+  kept, unused and not shown, and applies again if the name is declared again. Legacy `.ls`
+  text has no parameters, and stored values do not affect its build.
+- `[Proposed — unconfirmed]` Details is a details customization of the grammar asset: the
+  seed row (number field and new-seed button) and, for `.lsys` text, one category per tier
+  (Pose Parameters, Shape Parameters, Structure Parameters, and Parameters for untiered
+  ones), each holding its parameters in file order as a number field. A field shows the value
+  the build uses: the stored value, else the text's value computed with earlier parameters'
+  stored values. Committing a field stores the value; the row's reset-to-default arrow, shown
+  only for a stored value, removes it. Each is one undoable change that rebuilds the preview
+  and live actors referencing the asset. The categories are rebuilt when the text's
+  parameter names or tiers change.
+- `[Proposed — unconfirmed]` Parameter values reach the core through the generation seam:
+  `FCambrianaBuildInput` carries the asset's stored values, and `Cambriana::BuildMesh` builds
+  `.lsys` text from its parsed model with them applied (`cambriana_grammar_set_parameter`,
+  `cambriana_build_grammar_model`). The parameter list is read by `Cambriana::ReadParameters`
+  in the same file.
 - `[Proposed — unconfirmed]` Each preview rebuild asks the Viewport to redraw, so the new
   mesh shows without user input.
 - `[Proposed — unconfirmed]` After each rebuild the preview scene's floor moves to the
@@ -105,6 +126,8 @@ Standalone asset editor, opened from the grammar asset.
   sides, min thickness). A live actor that references the asset builds with the asset's
   settings, and the actor's own override toggles still win over them, as they win over a
   grammar file's settings.
+- `[Proposed — unconfirmed]` A live actor that references a grammar asset builds with the
+  asset's stored parameter values. Inline text builds with the text's values.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
   size override, size mode and value; a grammar asset reference or inline grammar text.
   Inline `.ls` text is converted.
@@ -112,8 +135,8 @@ Standalone asset editor, opened from the grammar asset.
   default, like size. Each size and surfacer setting is taken from the first of: the actor,
   when its override is on; the grammar text, when it states the setting; the grammar asset;
   the default. Without a grammar asset, the actor's own value takes the asset's place.
-- The interim grammar asset holds only grammar text, a seed, size and surfacer settings
-  and, when imported, its source file path. Its settings default to the live actor's. A new one holds the default grammar as `.lsys` text; one holding legacy `.ls`
+- The interim grammar asset holds only grammar text, a seed, parameter values, size and
+  surfacer settings and, when imported, its source file path. Its settings default to the live actor's. A new one holds the default grammar as `.lsys` text; one holding legacy `.ls`
   text is read directly by the core. M2 adds import, conversion and the grammar editor, and
   moves stored text to the Cambriana grammar format.
 - The format of inline text and grammar asset text is detected from the text, with no
