@@ -1,20 +1,17 @@
 #include "CambrianaLiveActor.h"
 
 #include "CambrianaGrammar.h"
+#include "CambrianaPreviewMaterials.h"
 #include "CambrianaSeed.h"
 #include "Components/DynamicMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 #include "UObject/UObjectIterator.h"
 
-namespace
-{
-	const FName PreviewColorParameter(TEXT("Color"));
-}
-
 ACambrianaLiveActor::ACambrianaLiveActor()
 {
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BaseMaterial(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BaseMaterial(Cambriana::PreviewBaseMaterialPath);
 	PreviewBaseMaterial = BaseMaterial.Object;
 }
 
@@ -35,9 +32,14 @@ void ACambrianaLiveActor::PlaceFromGrammar(UCambrianaGrammar* Source)
 
 FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 {
+	return MakeBuildInputWith(Grammar, Seed);
+}
+
+FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInputWith(const UCambrianaGrammar* InGrammar, uint32 InSeed) const
+{
 	FCambrianaBuildInput Input;
-	Input.GrammarText = Grammar ? Grammar->GrammarText : InlineGrammar;
-	Input.Seed = Seed;
+	Input.GrammarText = InGrammar ? InGrammar->GrammarText : InlineGrammar;
+	Input.Seed = InSeed;
 
 	FCambrianaBuildSettings& Settings = Input.Settings;
 	if (bOverrideRecursion)
@@ -52,15 +54,15 @@ FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 	{
 		Settings.Thickness = Thickness;
 	}
-	Settings.MinThickness = Grammar && !bOverrideMinThickness ? Grammar->MinThickness : MinThickness;
-	Settings.bClosedForm = Grammar && !bOverrideClosedForm ? Grammar->bClosedForm : bClosedForm;
-	Settings.Sides = Grammar && !bOverrideSides ? Grammar->Sides : Sides;
+	Settings.MinThickness = InGrammar && !bOverrideMinThickness ? InGrammar->MinThickness : MinThickness;
+	Settings.bClosedForm = InGrammar && !bOverrideClosedForm ? InGrammar->bClosedForm : bClosedForm;
+	Settings.Sides = InGrammar && !bOverrideSides ? InGrammar->Sides : Sides;
 	Settings.bOverrideGrammarMinThickness = bOverrideMinThickness;
 	Settings.bOverrideGrammarSurface = bOverrideClosedForm;
 	Settings.bOverrideGrammarSides = bOverrideSides;
-	const bool bAssetSize = Grammar && !bOverrideSize;
-	Settings.SizeMode = bAssetSize ? Grammar->SizeMode : SizeMode;
-	Settings.SizeValue = bAssetSize ? Grammar->SizeValue : SizeValue;
+	const bool bAssetSize = InGrammar && !bOverrideSize;
+	Settings.SizeMode = bAssetSize ? InGrammar->SizeMode : SizeMode;
+	Settings.SizeValue = bAssetSize ? InGrammar->SizeValue : SizeValue;
 	Settings.bOverrideGrammarSize = bOverrideSize;
 	Settings.bSizeForGrammarWithoutSize = bAssetSize;
 	return Input;
@@ -75,7 +77,7 @@ void ACambrianaLiveActor::Rebuild()
 	if (UDynamicMeshComponent* MeshComponent = GetDynamicMeshComponent())
 	{
 		MeshComponent->SetMesh(MoveTemp(Result.Mesh));
-		ApplyPreviewMaterials(Result.SlotMaterialIds);
+		Cambriana::ApplyPreviewMaterials(*MeshComponent, Result.SlotMaterialIds, PreviewBaseMaterial, PreviewMaterials, this);
 	}
 	++BuildCount;
 }
@@ -117,24 +119,6 @@ void ACambrianaLiveActor::ShowSettingsUsed()
 		Sides = LastBuildReport.Sides;
 	}
 	LastBuildInput = MakeBuildInput();
-}
-
-void ACambrianaLiveActor::ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds)
-{
-	PreviewMaterials.SetNum(Cambriana::PreviewPaletteSize);
-	TArray<UMaterialInterface*> MaterialSet;
-	MaterialSet.Reserve(SlotMaterialIds.Num());
-	for (const int64 MaterialId : SlotMaterialIds)
-	{
-		TObjectPtr<UMaterialInstanceDynamic>& Material = PreviewMaterials[Cambriana::PreviewPaletteIndex(MaterialId)];
-		if (!Material && PreviewBaseMaterial)
-		{
-			Material = UMaterialInstanceDynamic::Create(PreviewBaseMaterial, this);
-			Material->SetVectorParameterValue(PreviewColorParameter, Cambriana::PreviewPaletteColor(MaterialId));
-		}
-		MaterialSet.Add(Material);
-	}
-	GetDynamicMeshComponent()->ConfigureMaterialSet(MaterialSet);
 }
 
 void ACambrianaLiveActor::RebuildActorsUsing(const UCambrianaGrammar* ChangedGrammar)

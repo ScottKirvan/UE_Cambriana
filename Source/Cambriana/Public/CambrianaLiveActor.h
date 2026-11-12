@@ -99,8 +99,8 @@ public:
 
 private:
 	void RebuildIfInputChanged();
+	FCambrianaBuildInput MakeBuildInputWith(const UCambrianaGrammar* InGrammar, uint32 InSeed) const;
 	void ShowSettingsUsed();
-	void ApplyPreviewMaterials(TConstArrayView<int64> SlotMaterialIds);
 
 	UPROPERTY()
 	TObjectPtr<UMaterialInterface> PreviewBaseMaterial;
