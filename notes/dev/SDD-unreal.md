@@ -83,6 +83,14 @@ Standalone asset editor, opened from the grammar asset.
   transient; nothing of the preview is saved in the asset.
 - `[Proposed — unconfirmed]` Each preview rebuild asks the Viewport to redraw, so the new
   mesh shows without user input.
+- `[Proposed — unconfirmed]` After each rebuild the preview scene's floor moves to the
+  height of the mesh's lowest vertex, as the Static Mesh editor sets its floor offset from
+  the mesh bounds; the mesh stays at the origin. An empty preview puts the floor at the
+  origin. Placed live actors are unaffected.
+- `[Proposed — unconfirmed]` The Viewport camera starts at pitch −20°, yaw −45° and frames
+  the mesh's bounds when the editor opens (`FEditorViewportClient::FocusViewportOnBox`).
+  Frame Selected (F) frames them again, animated as in the Static Mesh editor. The camera
+  does not move on its own after edits.
 
 ## Live actor
 
