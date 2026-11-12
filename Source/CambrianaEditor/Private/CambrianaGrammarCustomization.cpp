@@ -216,8 +216,9 @@ void FCambrianaGrammarCustomization::HandleGrammarChanged(const UCambrianaGramma
 	TArray<FCambrianaParameter> Read = Cambriana::ReadParameters(ChangedGrammar->GrammarText, ChangedGrammar->ParameterValues);
 	const bool bRowsChanged = !SameRows(Read, Parameters);
 	Parameters = MoveTemp(Read);
-	// Refreshing replaces this customization, so nothing may use it afterwards.
-	if (const TSharedPtr<IDetailLayoutBuilder> Builder = bRowsChanged ? LayoutBuilder.Pin() : nullptr)
+	// Refreshing replaces this customization, so nothing may use it afterwards. The refresh
+	// checks that the details view holds the only reference to the layout, so none is kept here.
+	if (IDetailLayoutBuilder* Builder = bRowsChanged ? LayoutBuilder.Pin().Get() : nullptr)
 	{
 		Builder->ForceRefreshDetails();
 	}
