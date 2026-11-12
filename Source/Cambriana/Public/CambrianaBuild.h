@@ -183,8 +183,6 @@ struct FCambrianaBuildReport
 	int32 Sides = 0;
 	bool bClosedForm = true;
 	double MinThickness = 0.0;
-	/** The settings above were reported by a core build. */
-	bool bHasSummary = false;
 };
 
 /** The settings grammar text states; each is unset when the text does not state it. */

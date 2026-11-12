@@ -1,10 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IDetailCustomization.h"
 
 class IDetailLayoutBuilder;
 class IPropertyHandle;
+class UClass;
 
 namespace Cambriana::Editor
 {
@@ -14,18 +14,3 @@ namespace Cambriana::Editor
 	/** Shows OwnerClass's seed property as an editable number field with a new-seed button. */
 	void CustomizeSeedRow(IDetailLayoutBuilder& DetailBuilder, FName SeedPropertyName, UClass* OwnerClass);
 }
-
-/** Shows a seed property as an editable number field with a new-seed button. */
-class FCambrianaSeedCustomization : public IDetailCustomization
-{
-public:
-	static TSharedRef<IDetailCustomization> MakeInstance(FName SeedPropertyName, UClass* OwnerClass);
-
-	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
-
-private:
-	FCambrianaSeedCustomization(FName InSeedPropertyName, UClass* InOwnerClass);
-
-	FName SeedPropertyName;
-	UClass* OwnerClass;
-};

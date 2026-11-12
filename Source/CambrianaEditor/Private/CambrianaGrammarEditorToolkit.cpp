@@ -426,7 +426,6 @@ bool FCambrianaGrammarEditorToolkit::SaveWorkingCopy()
 	}
 	// The asset takes the edits for the save without a change event, so its actors rebuild only once it is saved.
 	UPackage* Package = Grammar->GetPackage();
-	const bool bWasDirty = Package->IsDirty();
 	UCambrianaGrammar* BeforeSave = NewObject<UCambrianaGrammar>(GetTransientPackage());
 	const TStrongObjectPtr<UCambrianaGrammar> KeepBeforeSave(BeforeSave);
 	Cambriana::Editor::CopyGrammarValues(*Grammar, *BeforeSave);
@@ -434,7 +433,6 @@ bool FCambrianaGrammarEditorToolkit::SaveWorkingCopy()
 	if (FEditorFileUtils::PromptForCheckoutAndSave({ Package }, false, false) != FEditorFileUtils::PR_Success)
 	{
 		Cambriana::Editor::CopyGrammarValues(*BeforeSave, *Grammar);
-		Package->SetDirtyFlag(bWasDirty);
 		return false;
 	}
 	if (bChanged)
