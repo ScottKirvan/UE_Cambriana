@@ -55,6 +55,9 @@ FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 	Settings.MinThickness = Grammar && !bOverrideMinThickness ? Grammar->MinThickness : MinThickness;
 	Settings.bClosedForm = Grammar && !bOverrideClosedForm ? Grammar->bClosedForm : bClosedForm;
 	Settings.Sides = Grammar && !bOverrideSides ? Grammar->Sides : Sides;
+	Settings.bOverrideGrammarMinThickness = bOverrideMinThickness;
+	Settings.bOverrideGrammarSurface = bOverrideClosedForm;
+	Settings.bOverrideGrammarSides = bOverrideSides;
 	const bool bAssetSize = Grammar && !bOverrideSize;
 	Settings.SizeMode = bAssetSize ? Grammar->SizeMode : SizeMode;
 	Settings.SizeValue = bAssetSize ? Grammar->SizeValue : SizeValue;
@@ -101,18 +104,17 @@ void ACambrianaLiveActor::ShowSettingsUsed()
 		SizeMode = LastBuildReport.SizeMode;
 		SizeValue = LastBuildReport.SizeValue;
 	}
-	const FCambrianaBuildSettings& Used = LastBuildInput.Settings;
 	if (!bOverrideMinThickness)
 	{
-		MinThickness = Used.MinThickness;
+		MinThickness = LastBuildReport.MinThickness;
 	}
 	if (!bOverrideClosedForm)
 	{
-		bClosedForm = Used.bClosedForm;
+		bClosedForm = LastBuildReport.bClosedForm;
 	}
 	if (!bOverrideSides)
 	{
-		Sides = Used.Sides;
+		Sides = LastBuildReport.Sides;
 	}
 	LastBuildInput = MakeBuildInput();
 }

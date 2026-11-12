@@ -27,6 +27,10 @@ struct FCambrianaBuildSettings
 	bool bOverrideGrammarSize = false;
 	/** Cambriana grammar text stating neither size nor step uses SizeMode and SizeValue instead of the core's default. */
 	bool bSizeForGrammarWithoutSize = false;
+	/** Cambriana grammar text uses Sides, bClosedForm and MinThickness over its own sides, surface and minthickness only when set. */
+	bool bOverrideGrammarSides = false;
+	bool bOverrideGrammarSurface = false;
+	bool bOverrideGrammarMinThickness = false;
 	TOptional<uint64> ProductionBudget;
 	TOptional<uint64> BoneBudget;
 	TOptional<uint64> WorkBudget;
@@ -112,6 +116,10 @@ struct FCambrianaBuildReport
 	/** The size mode and value the build used; in Step mode the value is StepLength. */
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 	double SizeValue = 0.0;
+	/** The surfacer settings the build used. */
+	int32 Sides = 0;
+	bool bClosedForm = true;
+	double MinThickness = 0.0;
 	/** The settings above were reported by a core build. */
 	bool bHasSummary = false;
 };

@@ -132,9 +132,18 @@ namespace
 		if (Format == ECambrianaGrammarFormat::Cambriana)
 		{
 			Core.overrides |= CAMBRIANA_OVERRIDE_SEED;
-			if (Settings.bOverrideGrammarSize)
+			const TPair<bool, uint64_t> Overrides[] = {
+				{ Settings.bOverrideGrammarSize, CAMBRIANA_OVERRIDE_SIZE },
+				{ Settings.bOverrideGrammarSides, CAMBRIANA_OVERRIDE_SIDES },
+				{ Settings.bOverrideGrammarSurface, CAMBRIANA_OVERRIDE_SURFACE },
+				{ Settings.bOverrideGrammarMinThickness, CAMBRIANA_OVERRIDE_MIN_THICKNESS },
+			};
+			for (const TPair<bool, uint64_t>& Override : Overrides)
 			{
-				Core.overrides |= CAMBRIANA_OVERRIDE_SIZE;
+				if (Override.Key)
+				{
+					Core.overrides |= Override.Value;
+				}
 			}
 		}
 		if (Format == ECambrianaGrammarFormat::Legacy || Settings.bOverrideGrammarSize || Settings.bSizeForGrammarWithoutSize)
@@ -177,35 +186,55 @@ namespace
 		}
 	}
 
-	TOptional<double> StatedGrammarSetting(const FTCHARToUTF8& Text, int32 Setting)
+	class FStatedSettings
 	{
-		cambriana_grammar* Grammar = nullptr;
-		cambriana_grammar_parse(Text.Get(), static_cast<size_t>(Text.Length()), &Grammar);
-		double Value = 0.0;
-		const bool bStated = Grammar && cambriana_grammar_get_setting(Grammar, Setting, &Value) == CAMBRIANA_OK;
-		cambriana_grammar_destroy(Grammar);
-		return bStated ? TOptional<double>(Value) : TOptional<double>();
-	}
+	public:
+		FStatedSettings(const FTCHARToUTF8& Text, ECambrianaGrammarFormat Format)
+		{
+			if (Format == ECambrianaGrammarFormat::Cambriana)
+			{
+				cambriana_grammar_parse(Text.Get(), static_cast<size_t>(Text.Length()), &Grammar);
+			}
+		}
+		~FStatedSettings() { cambriana_grammar_destroy(Grammar); }
+		FStatedSettings(const FStatedSettings&) = delete;
+		FStatedSettings& operator=(const FStatedSettings&) = delete;
 
-	void ReadSizeUsed(const FTCHARToUTF8& Text, ECambrianaGrammarFormat Format, const FCambrianaBuildSettings& Settings,
+		/** The value the grammar states for Setting, unless the caller overrides it. */
+		TOptional<double> Get(int32 Setting, bool bOverridden) const
+		{
+			double Value = 0.0;
+			const bool bStated = !bOverridden && Grammar && cambriana_grammar_get_setting(Grammar, Setting, &Value) == CAMBRIANA_OK;
+			return bStated ? TOptional<double>(Value) : TOptional<double>();
+		}
+
+	private:
+		cambriana_grammar* Grammar = nullptr;
+	};
+
+	void ReadSettingsUsed(const FTCHARToUTF8& Text, ECambrianaGrammarFormat Format, const FCambrianaBuildSettings& Settings,
 		const cambriana_build_settings& Core, FCambrianaBuildReport& Report)
 	{
+		const FStatedSettings Stated(Text, Format);
 		int32 Mode = Core.size_mode;
 		double FitSize = Core.fit_size;
-		if (Format == ECambrianaGrammarFormat::Cambriana && !Settings.bOverrideGrammarSize)
+		if (const TOptional<double> Size = Stated.Get(CAMBRIANA_SETTING_SIZE, Settings.bOverrideGrammarSize))
 		{
-			if (const TOptional<double> Size = StatedGrammarSetting(Text, CAMBRIANA_SETTING_SIZE))
-			{
-				Mode = CAMBRIANA_SIZE_FIT;
-				FitSize = *Size;
-			}
-			else if (StatedGrammarSetting(Text, CAMBRIANA_SETTING_STEP))
-			{
-				Mode = CAMBRIANA_SIZE_STEP;
-			}
+			Mode = CAMBRIANA_SIZE_FIT;
+			FitSize = *Size;
+		}
+		else if (Stated.Get(CAMBRIANA_SETTING_STEP, Settings.bOverrideGrammarSize))
+		{
+			Mode = CAMBRIANA_SIZE_STEP;
 		}
 		Report.SizeMode = Mode == CAMBRIANA_SIZE_FIT ? ECambrianaSizeMode::Fit : ECambrianaSizeMode::Step;
 		Report.SizeValue = Mode == CAMBRIANA_SIZE_FIT ? FitSize : Report.StepLength;
+
+		const TOptional<double> Sides = Stated.Get(CAMBRIANA_SETTING_SIDES, Settings.bOverrideGrammarSides);
+		Report.Sides = Sides ? FMath::RoundToInt32(*Sides) : Settings.Sides;
+		const TOptional<double> Surface = Stated.Get(CAMBRIANA_SETTING_SURFACE, Settings.bOverrideGrammarSurface);
+		Report.bClosedForm = Surface ? *Surface != 0.0 : Settings.bClosedForm;
+		Report.MinThickness = Stated.Get(CAMBRIANA_SETTING_MIN_THICKNESS, Settings.bOverrideGrammarMinThickness).Get(Settings.MinThickness);
 	}
 
 	struct FChannelScale
@@ -470,7 +499,7 @@ namespace Cambriana
 		}
 
 		ReadReport(Result.Get(), Out.Report);
-		ReadSizeUsed(Text, Format, Input.Settings, Settings, Out.Report);
+		ReadSettingsUsed(Text, Format, Input.Settings, Settings, Out.Report);
 		LogBuildReport(Out.Report);
 		if (!Out.Report.bHasErrors)
 		{
