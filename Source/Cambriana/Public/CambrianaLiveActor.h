@@ -47,36 +47,36 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideThickness", ClampMin = "0"))
 	double Thickness = 50.0;
 
-	/** The min thickness applies over .lsys text's minthickness and a grammar asset's min thickness. Without either it always applies. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
 	bool bOverrideMinThickness = false;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "0", Units = "Centimeters"))
+	/** The min thickness applies over .lsys text's minthickness and a grammar asset's min thickness. Without either it always applies. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideMinThickness", ClampMin = "0", Units = "Centimeters"))
 	double MinThickness = 0.0;
 
-	/** The closed form applies over .lsys text's surface and a grammar asset's closed form. Without either it always applies. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
 	bool bOverrideClosedForm = false;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	/** The closed form applies over .lsys text's surface and a grammar asset's closed form. Without either it always applies. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideClosedForm"))
 	bool bClosedForm = true;
 
-	/** The sides apply over .lsys text's sides and a grammar asset's sides. Without either they always apply. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
 	bool bOverrideSides = false;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "3"))
+	/** The sides apply over .lsys text's sides and a grammar asset's sides. Without either they always apply. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideSides", ClampMin = "3"))
 	int32 Sides = 8;
 
-	/** The size mode and value apply over a grammar asset's size and over .lsys text's size or step. Without an asset, .ls text always uses them. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (InlineEditConditionToggle))
 	bool bOverrideSize = false;
 
-	UPROPERTY(EditAnywhere, Category = "Cambriana")
+	/** The size mode and value apply over a grammar asset's size and over .lsys text's size or step. Without an asset, .ls text always uses them. */
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideSize"))
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 
 	/** Target size in Fit mode, step length in Step mode. */
-	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (ClampMin = "0.01", Units = "Centimeters"))
+	UPROPERTY(EditAnywhere, Category = "Cambriana", meta = (EditCondition = "bOverrideSize", HideEditConditionToggle, ClampMin = "0.01", Units = "Centimeters"))
 	double SizeValue = 200.0;
 
 	void SetGrammar(UCambrianaGrammar* NewGrammar);
