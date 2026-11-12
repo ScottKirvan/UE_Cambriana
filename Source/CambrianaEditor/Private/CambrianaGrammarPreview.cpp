@@ -5,6 +5,7 @@
 #include "CambrianaLiveActor.h"
 #include "CambrianaPreviewMaterials.h"
 #include "Components/DynamicMeshComponent.h"
+#include "DynamicMesh/DynamicMesh3.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 
@@ -33,8 +34,15 @@ void FCambrianaGrammarPreview::Update(const UCambrianaGrammar& Grammar)
 	LastBuildReport = MoveTemp(Result.Report);
 	MeshComponent->SetMesh(MoveTemp(Result.Mesh));
 	Cambriana::ApplyPreviewMaterials(*MeshComponent, Result.SlotMaterialIds, BaseMaterial, Palette, MeshComponent);
+	RestFloorUnderMesh();
 	++BuildCount;
 	RebuiltDelegate.Broadcast();
+}
+
+void FCambrianaGrammarPreview::RestFloorUnderMesh()
+{
+	const UE::Geometry::FAxisAlignedBox3d Bounds = MeshComponent->GetMesh()->GetBounds();
+	Scene->SetFloorOffset(Bounds.IsEmpty() ? 0.0f : static_cast<float>(-Bounds.Min.Z));
 }
 
 UWorld* FCambrianaGrammarPreview::GetWorld() const
