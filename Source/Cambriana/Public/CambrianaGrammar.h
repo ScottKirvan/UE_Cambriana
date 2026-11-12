@@ -47,6 +47,9 @@ public:
 	TObjectPtr<UAssetImportData> AssetImportData;
 #endif
 
+	/** Sets each size and surfacer setting to the grammar text's, or the default where the text states none. */
+	void StartSettingsFromGrammarText();
+
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnGrammarChanged, const UCambrianaGrammar*);
 
 	/** Broadcast after any grammar asset changes. */

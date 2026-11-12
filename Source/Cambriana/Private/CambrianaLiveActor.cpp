@@ -26,6 +26,16 @@ void ACambrianaLiveActor::PlaceFromGrammar(UCambrianaGrammar* Source)
 	if (Source)
 	{
 		Seed = Source->Seed;
+		const ACambrianaLiveActor* Default = GetDefault<ACambrianaLiveActor>();
+		const FCambrianaStatedSettings Stated = Cambriana::ReadStatedSettings(Source->GrammarText);
+		Recursion = Stated.Recursion.Get(Default->Recursion);
+		BasicAngle = Stated.BasicAngle.Get(Default->BasicAngle);
+		Thickness = Stated.Thickness.Get(Default->Thickness);
+		SizeMode = Stated.SizeMode.Get(Source->SizeMode);
+		SizeValue = Stated.SizeValue.Get(Source->SizeValue);
+		Sides = Stated.Sides.Get(Source->Sides);
+		bClosedForm = Stated.bClosedForm.Get(Source->bClosedForm);
+		MinThickness = Stated.MinThickness.Get(Source->MinThickness);
 	}
 	SetGrammar(Source);
 }

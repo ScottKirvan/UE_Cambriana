@@ -25,6 +25,7 @@ UObject* UCambrianaGrammarFactory::FactoryCreateNew(UClass* InClass, UObject* In
 {
 	UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(InParent, InClass, InName, Flags);
 	Grammar->GrammarText = DefaultGrammarText;
+	Grammar->StartSettingsFromGrammarText();
 	Grammar->Seed = Cambriana::GenerateSeed();
 	return Grammar;
 }
