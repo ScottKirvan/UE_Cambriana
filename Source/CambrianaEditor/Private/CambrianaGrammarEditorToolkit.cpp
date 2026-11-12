@@ -5,7 +5,9 @@
 #include "CambrianaGrammarPreview.h"
 #include "CambrianaGrammarWorkingCopy.h"
 #include "ContentBrowserModule.h"
+#include "Editor.h"
 #include "FileHelpers.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "IContentBrowserSingleton.h"
 #include "IDetailsView.h"
 #include "IMessageLogListing.h"
@@ -80,6 +82,10 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	UpdatePreview(*WorkingCopy);
 
 	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
+
+	// As the Material and Blueprint editors do, the editor's own undo and redo first finish what is in progress.
+	ToolkitCommands->MapAction(FGenericCommands::Get().Undo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::UndoAfterPendingRulesEdit));
+	ToolkitCommands->MapAction(FGenericCommands::Get().Redo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::RedoAfterPendingRulesEdit));
 
 	const TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout(TEXT("Standalone_CambrianaGrammarEditor_Layout_v2"))
 		->AddArea(FTabManager::NewPrimaryArea()->SetOrientation(Orient_Horizontal)
@@ -335,26 +341,22 @@ void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGramma
 		return;
 	}
 	UpdatePreview(*ChangedGrammar);
-	// A change that left the grammar text alone keeps a Rules edit still waiting to be applied.
-	if (bRulesEditPending && ChangedGrammar->GrammarText.Equals(RulesTextBeforeEdit, ESearchCase::CaseSensitive))
+	// During the typing pause only an undo or redo from outside the editor changes the working copy; the typed text still applies after the pause.
+	if (bRulesEditPending)
 	{
 		return;
 	}
 	if (!ToGrammarText(RulesTextBox->GetText().ToString()).Equals(ToGrammarText(ChangedGrammar->GrammarText), ESearchCase::CaseSensitive))
 	{
 		RulesTextBox->SetText(FText::FromString(ChangedGrammar->GrammarText));
+		// Setting the text reports it as typed, though it already matches the working copy.
+		CancelPendingRulesEdit();
 	}
-	// Setting the text reports it as typed, though it already matches the working copy.
-	CancelPendingRulesEdit();
 }
 
 void FCambrianaGrammarEditorToolkit::HandleRulesTextChanged(const FText& NewText)
 {
-	if (!bRulesEditPending)
-	{
-		bRulesEditPending = true;
-		RulesTextBeforeEdit = WorkingCopy->GrammarText;
-	}
+	bRulesEditPending = true;
 	FTSTicker::RemoveTicker(RulesApplyTimer);
 	RulesApplyTimer = FTSTicker::GetCoreTicker().AddTicker(
 		FTickerDelegate::CreateSP(this, &FCambrianaGrammarEditorToolkit::HandleRulesApplyTimer), RulesApplyDelaySeconds);
@@ -430,7 +432,18 @@ void FCambrianaGrammarEditorToolkit::CancelPendingRulesEdit()
 	FTSTicker::RemoveTicker(RulesApplyTimer);
 	RulesApplyTimer.Reset();
 	bRulesEditPending = false;
-	RulesTextBeforeEdit.Reset();
+}
+
+void FCambrianaGrammarEditorToolkit::UndoAfterPendingRulesEdit()
+{
+	ApplyPendingRulesEdit();
+	GEditor->UndoTransaction();
+}
+
+void FCambrianaGrammarEditorToolkit::RedoAfterPendingRulesEdit()
+{
+	ApplyPendingRulesEdit();
+	GEditor->RedoTransaction();
 }
 
 void FCambrianaGrammarEditorToolkit::UpdatePreview(const UCambrianaGrammar& Grammar)
