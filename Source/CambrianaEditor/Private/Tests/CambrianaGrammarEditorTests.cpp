@@ -13,11 +13,13 @@
 #include "Framework/Docking/TabManager.h"
 #include "HAL/FileManager.h"
 #include "IMessageLogListing.h"
+#include "IPropertyRowGenerator.h"
 #include "Logging/TokenizedMessage.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "PackageTools.h"
+#include "PropertyEditorModule.h"
 #include "SEditorViewport.h"
 #include "ScopedTransaction.h"
 #include "Subsystems/AssetEditorSubsystem.h"
@@ -849,6 +851,35 @@ bool FCambrianaGrammarViewportEditKeepsCameraTest::RunTest(const FString& Parame
 	TestEqual(TEXT("The camera stays where it was"), Client->GetViewLocation(), Location);
 	TestEqual(TEXT("The camera still looks at the same point"), Client->GetLookAtLocation(), LookAt);
 	TestEqual(TEXT("The camera keeps its rotation"), Client->GetViewRotation(), Rotation);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorHidesImportDataTest,
+	"Cambriana.Editor.GrammarEditor.DetailsHidesTheImportDataASaveLeavesWithTheAsset",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarEditorHidesImportDataTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
+	const TSharedRef<IPropertyRowGenerator> AssetRows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
+	AssetRows->SetObjects({ Grammar });
+	// Details shows the import data's source file (UAssetImportData::SourceData) in its own File Path category.
+	TestTrue(TEXT("The asset's own Details shows its import data"), AssetRows->GetRootTreeNodes().ContainsByPredicate([](const TSharedRef<IDetailTreeNode>& Node)
+	{
+		return Node->GetNodeName() == TEXT("File Path");
+	}));
+
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	TestFalse(TEXT("The grammar editor's Details hides the working copy's import data"),
+		Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData)));
+	TestTrue(TEXT("The grammar editor's Details still shows the size"), Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, SizeValue)));
 	CloseGrammarEditor(Grammar);
 	return true;
 }
