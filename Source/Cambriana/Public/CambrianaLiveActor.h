@@ -86,6 +86,9 @@ public:
 
 	FCambrianaBuildInput MakeBuildInput() const;
 
+	/** The build input of a live actor referencing Grammar with every override off and Grammar's seed. */
+	static FCambrianaBuildInput MakeBuildInputFor(const UCambrianaGrammar& Grammar);
+
 	void Rebuild();
 
 	int32 GetBuildCount() const { return BuildCount; }

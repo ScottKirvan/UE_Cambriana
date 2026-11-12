@@ -1,9 +1,11 @@
 #include "CambrianaGrammarEditorToolkit.h"
 
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarPreview.h"
 #include "IDetailsView.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
+#include "SCambrianaGrammarViewport.h"
 #include "ScopedTransaction.h"
 #include "UObject/ObjectSaveContext.h"
 #include "UObject/UObjectGlobals.h"
@@ -24,7 +26,9 @@ namespace
 const FName FCambrianaGrammarEditorToolkit::ToolkitName(TEXT("CambrianaGrammarEditor"));
 const FName FCambrianaGrammarEditorToolkit::AppIdentifier(TEXT("CambrianaGrammarEditorApp"));
 const FName FCambrianaGrammarEditorToolkit::RulesTabId(TEXT("CambrianaGrammarEditor_Rules"));
+const FName FCambrianaGrammarEditorToolkit::ViewportTabId(TEXT("CambrianaGrammarEditor_Viewport"));
 const FName FCambrianaGrammarEditorToolkit::DetailsTabId(TEXT("CambrianaGrammarEditor_Details"));
+const FName FCambrianaGrammarEditorToolkit::OutputsTabId(TEXT("CambrianaGrammarEditor_Outputs"));
 
 void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost,
 	UCambrianaGrammar* Grammar)
@@ -40,13 +44,19 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	DetailsView->SetIsPropertyVisibleDelegate(MakeDetailsPropertyVisibleDelegate());
 	DetailsView->SetObject(Grammar);
 
+	Preview = MakeShared<FCambrianaGrammarPreview>();
+	Preview->Update(*Grammar);
+
 	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
 	ObjectPreSaveHandle = FCoreUObjectDelegates::OnObjectPreSave.AddSP(this, &FCambrianaGrammarEditorToolkit::HandleObjectPreSave);
 
-	const TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout(TEXT("Standalone_CambrianaGrammarEditor_Layout_v1"))
+	const TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout(TEXT("Standalone_CambrianaGrammarEditor_Layout_v2"))
 		->AddArea(FTabManager::NewPrimaryArea()->SetOrientation(Orient_Horizontal)
-			->Split(FTabManager::NewStack()->SetSizeCoefficient(0.6f)->AddTab(RulesTabId, ETabState::OpenedTab))
-			->Split(FTabManager::NewStack()->SetSizeCoefficient(0.4f)->AddTab(DetailsTabId, ETabState::OpenedTab)));
+			->Split(FTabManager::NewStack()->SetSizeCoefficient(0.3f)->AddTab(RulesTabId, ETabState::OpenedTab))
+			->Split(FTabManager::NewStack()->SetSizeCoefficient(0.45f)->AddTab(ViewportTabId, ETabState::OpenedTab)->SetHideTabWell(true))
+			->Split(FTabManager::NewSplitter()->SetOrientation(Orient_Vertical)->SetSizeCoefficient(0.25f)
+				->Split(FTabManager::NewStack()->SetSizeCoefficient(0.7f)->AddTab(DetailsTabId, ETabState::OpenedTab))
+				->Split(FTabManager::NewStack()->SetSizeCoefficient(0.3f)->AddTab(OutputsTabId, ETabState::OpenedTab))));
 
 	InitAssetEditor(Mode, InitToolkitHost, AppIdentifier, Layout, true, true, Grammar);
 }
@@ -66,8 +76,14 @@ void FCambrianaGrammarEditorToolkit::RegisterTabSpawners(const TSharedRef<FTabMa
 	InTabManager->RegisterTabSpawner(RulesTabId, FOnSpawnTab::CreateSP(this, &FCambrianaGrammarEditorToolkit::SpawnRulesTab))
 		.SetDisplayName(LOCTEXT("RulesTab", "Rules"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+	InTabManager->RegisterTabSpawner(ViewportTabId, FOnSpawnTab::CreateSP(this, &FCambrianaGrammarEditorToolkit::SpawnViewportTab))
+		.SetDisplayName(LOCTEXT("ViewportTab", "Viewport"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 	InTabManager->RegisterTabSpawner(DetailsTabId, FOnSpawnTab::CreateSP(this, &FCambrianaGrammarEditorToolkit::SpawnDetailsTab))
 		.SetDisplayName(LOCTEXT("DetailsTab", "Details"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+	InTabManager->RegisterTabSpawner(OutputsTabId, FOnSpawnTab::CreateSP(this, &FCambrianaGrammarEditorToolkit::SpawnOutputsTab))
+		.SetDisplayName(LOCTEXT("OutputsTab", "Outputs"))
 		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 }
 
@@ -75,7 +91,9 @@ void FCambrianaGrammarEditorToolkit::UnregisterTabSpawners(const TSharedRef<FTab
 {
 	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 	InTabManager->UnregisterTabSpawner(RulesTabId);
+	InTabManager->UnregisterTabSpawner(ViewportTabId);
 	InTabManager->UnregisterTabSpawner(DetailsTabId);
+	InTabManager->UnregisterTabSpawner(OutputsTabId);
 }
 
 FName FCambrianaGrammarEditorToolkit::GetToolkitFName() const
@@ -168,9 +186,19 @@ TSharedRef<SDockTab> FCambrianaGrammarEditorToolkit::SpawnRulesTab(const FSpawnT
 	return SNew(SDockTab).Label(LOCTEXT("RulesTitle", "Rules"))[RulesTextBox.ToSharedRef()];
 }
 
+TSharedRef<SDockTab> FCambrianaGrammarEditorToolkit::SpawnViewportTab(const FSpawnTabArgs& Args)
+{
+	return SNew(SDockTab).Label(LOCTEXT("ViewportTitle", "Viewport"))[SNew(SCambrianaGrammarViewport, Preview.ToSharedRef())];
+}
+
 TSharedRef<SDockTab> FCambrianaGrammarEditorToolkit::SpawnDetailsTab(const FSpawnTabArgs& Args)
 {
 	return SNew(SDockTab).Label(LOCTEXT("DetailsTitle", "Details"))[DetailsView.ToSharedRef()];
+}
+
+TSharedRef<SDockTab> FCambrianaGrammarEditorToolkit::SpawnOutputsTab(const FSpawnTabArgs& Args)
+{
+	return SNew(SDockTab).Label(LOCTEXT("OutputsTitle", "Outputs"));
 }
 
 void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGrammar* ChangedGrammar)
@@ -179,6 +207,7 @@ void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGramma
 	{
 		return;
 	}
+	Preview->Update(*ChangedGrammar);
 	// A change that left the grammar text alone keeps a Rules edit still waiting to be applied.
 	if (bRulesEditPending && ChangedGrammar->GrammarText.Equals(RulesTextBeforeEdit, ESearchCase::CaseSensitive))
 	{

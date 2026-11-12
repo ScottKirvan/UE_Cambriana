@@ -35,6 +35,11 @@ FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInput() const
 	return MakeBuildInputWith(Grammar, Seed);
 }
 
+FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInputFor(const UCambrianaGrammar& Grammar)
+{
+	return GetDefault<ACambrianaLiveActor>()->MakeBuildInputWith(&Grammar, Grammar.Seed);
+}
+
 FCambrianaBuildInput ACambrianaLiveActor::MakeBuildInputWith(const UCambrianaGrammar* InGrammar, uint32 InSeed) const
 {
 	FCambrianaBuildInput Input;
