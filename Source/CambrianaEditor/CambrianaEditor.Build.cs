@@ -18,6 +18,7 @@ public class CambrianaEditor : ModuleRules
 			"EditorFramework",
 			"GeometryCore",
 			"GeometryFramework",
+			"InputCore",
 			"Engine",
 			"PlacementMode",
 			"Projects",

@@ -1,3 +1,4 @@
+#include "AdvancedPreviewScene.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarEditorToolkit.h"
@@ -5,7 +6,9 @@
 #include "CambrianaGrammarPreview.h"
 #include "CambrianaLiveActor.h"
 #include "Editor.h"
+#include "EditorViewportClient.h"
 #include "Components/DynamicMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Containers/Ticker.h"
 #include "Framework/Docking/TabManager.h"
 #include "HAL/FileManager.h"
@@ -13,6 +16,7 @@
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "PackageTools.h"
+#include "SEditorViewport.h"
 #include "ScopedTransaction.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 #include "UObject/Package.h"
@@ -517,6 +521,207 @@ bool FCambrianaGrammarPreviewOtherGrammarTest::RunTest(const FString& Parameters
 	TestEqual(TEXT("Another grammar's change does not rebuild the preview"), Preview.GetBuildCount(), BuildsBefore);
 	EditGrammarSides(Grammar, Grammar->Sides);
 	TestEqual(TEXT("A change to the same value does not rebuild the preview"), Preview.GetBuildCount(), BuildsBefore);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+namespace
+{
+	// Turning around before drawing sends the chain below the turtle's start point.
+	const TCHAR* const DownwardGrammarText = TEXT("axiom | F F\n");
+
+	TSharedPtr<SEditorViewport> ViewportOf(FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		const TSharedPtr<SDockTab> Tab = Toolkit.GetTabManager()->FindExistingLiveTab(FTabId(FCambrianaGrammarEditorToolkit::ViewportTabId));
+		return Tab ? StaticCastSharedRef<SEditorViewport>(Tab->GetContent()) : TSharedPtr<SEditorViewport>();
+	}
+
+	TSharedPtr<FEditorViewportClient> ViewportClientOf(FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		const TSharedPtr<SEditorViewport> Viewport = ViewportOf(Toolkit);
+		return Viewport ? Viewport->GetViewportClient() : nullptr;
+	}
+
+	FBox PreviewVertexBounds(const FCambrianaGrammarPreview& Preview)
+	{
+		FBox Bounds(ForceInit);
+		const UE::Geometry::FDynamicMesh3* Mesh = Preview.GetMeshComponent()->GetMesh();
+		for (const int32 VertexId : Mesh->VertexIndicesItr())
+		{
+			Bounds += Mesh->GetVertex(VertexId);
+		}
+		return Bounds;
+	}
+
+	double FloorZ(const FCambrianaGrammarPreview& Preview)
+	{
+		return Preview.GetScene().GetFloorMeshComponent()->GetComponentLocation().Z;
+	}
+
+	// FEditorViewportClient::FocusViewportOnBox: the camera keeps its rotation and backs away from the box centre until the
+	// box's half-diagonal, widened by the aspect ratio when the view is wider than tall, fills half the horizontal field of view.
+	void TestFramesBox(FAutomationTestBase& Test, const FEditorViewportClient& Client, const FBox& Box)
+	{
+		const FVector Centre = Box.GetCenter();
+		const FIntPoint Size = Client.Viewport->GetSizeXY();
+		const double Aspect = Size.X > 0 && Size.Y > 0 ? Client.Viewport->GetDesiredAspectRatio() : Client.AspectRatio;
+		const double Distance = Box.GetExtent().Size() * FMath::Max(Aspect, 1.0) / FMath::Tan(FMath::DegreesToRadians(Client.ViewFOV / 2.0));
+		const FVector Expected = Centre - Client.GetViewRotation().Vector() * Distance;
+		Test.TestTrue(TEXT("The camera looks at the centre of the mesh"), Client.GetLookAtLocation().Equals(Centre, 0.01));
+		Test.TestTrue(FString::Printf(TEXT("The camera frames the mesh from %s, expected %s"), *Client.GetViewLocation().ToString(), *Expected.ToString()),
+			Client.GetViewLocation().Equals(Expected, 0.01));
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewRedrawTest,
+	"Cambriana.Editor.GrammarEditor.Preview.RebuildRedrawsTheViewportWithoutInput",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarPreviewRedrawTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<FEditorViewportClient> Client = Toolkit ? ViewportClientOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows a viewport"), Client.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
+
+	Client->bNeedsRedraw = false;
+	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
+	TestEqual(TEXT("The Rules edit rebuilt the preview"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
+	TestTrue(TEXT("The rebuild asks the viewport to redraw"), Client->bNeedsRedraw);
+
+	Client->bNeedsRedraw = false;
+	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
+	TestTrue(TEXT("The rebuild after undo asks the viewport to redraw"), Client->bNeedsRedraw);
+
+	Client->bNeedsRedraw = false;
+	EditGrammarSides(Grammar, Grammar->Sides);
+	TestFalse(TEXT("A change that does not rebuild does not ask for a redraw"), Client->bNeedsRedraw);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarPreviewFloorTest,
+	"Cambriana.Editor.GrammarEditor.Preview.MeshLowestPointRestsOnTheFloorAfterEveryRebuild",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarPreviewFloorTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	Grammar->GrammarText = DownwardGrammarText;
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit) || !TestNotNull(TEXT("The preview has a mesh"), Toolkit->GetPreview().GetMeshComponent()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
+	const FBox Downward = PreviewVertexBounds(Preview);
+	TestTrue(TEXT("The downward grammar's mesh reaches below the origin"), Downward.IsValid && Downward.Min.Z < -1.0);
+	TestEqual(TEXT("The floor is at the downward mesh's lowest point"), FloorZ(Preview), Downward.Min.Z, 0.001);
+	TestTrue(TEXT("The preview mesh stays at the origin"), Preview.GetMeshComponent()->GetComponentLocation().IsZero());
+
+	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
+	const FBox Upward = PreviewVertexBounds(Preview);
+	TestTrue(TEXT("The upward grammar's lowest point is above the downward one's"), Upward.IsValid && Upward.Min.Z > Downward.Min.Z + 1.0);
+	TestEqual(TEXT("The floor follows the rebuilt mesh's lowest point"), FloorZ(Preview), Upward.Min.Z, 0.001);
+
+	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
+	TestEqual(TEXT("After undo the floor is back at the downward mesh's lowest point"), FloorZ(Preview), Downward.Min.Z, 0.001);
+
+	AddExpectedMessagePlain(TEXT("Grammar error at line"), ELogVerbosity::Error);
+	Toolkit->CommitRulesText(FText::FromString(TEXT("20\n25\n50\n")));
+	TestEqual(TEXT("An empty preview puts the floor at the origin"), FloorZ(Preview), 0.0, 0.001);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarViewportOpenFramesTest,
+	"Cambriana.Editor.GrammarEditor.Viewport.OpeningTheEditorFramesTheMesh",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarViewportOpenFramesTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	Grammar->GrammarText = DownwardGrammarText;
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<FEditorViewportClient> Client = Toolkit ? ViewportClientOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows a viewport"), Client.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	TestFramesBox(*this, *Client, PreviewVertexBounds(Toolkit->GetPreview()));
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarViewportFocusTest,
+	"Cambriana.Editor.GrammarEditor.Viewport.PressingFFramesTheMeshAgain",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarViewportFocusTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	Grammar->GrammarText = DownwardGrammarText;
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<SEditorViewport> Viewport = Toolkit ? ViewportOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows a viewport"), Viewport.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const TSharedPtr<FEditorViewportClient> Client = Viewport->GetViewportClient();
+	Client->SetViewLocation(FVector(5000.0, -3000.0, 2000.0));
+	Client->SetLookAtLocation(FVector(4000.0, -3000.0, 2000.0));
+
+	const FKeyEvent PressF(EKeys::F, FModifierKeysState(), 0, false, 0, 0);
+	TestTrue(TEXT("F runs a viewport command"), Viewport->GetCommandList()->ProcessCommandBindings(PressF));
+
+	const TWeakPtr<FEditorViewportClient> WeakClient = Client;
+	ADD_LATENT_AUTOMATION_COMMAND(FDelayedFunctionLatentCommand([this, Grammar, WeakClient, Toolkit]()
+	{
+		if (const TSharedPtr<FEditorViewportClient> FramedClient = WeakClient.Pin())
+		{
+			TestFramesBox(*this, *FramedClient, PreviewVertexBounds(Toolkit->GetPreview()));
+		}
+		else
+		{
+			AddError(TEXT("The viewport closed before the camera finished moving"));
+		}
+		CloseGrammarEditor(Grammar);
+	}, 1.0f));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarViewportEditKeepsCameraTest,
+	"Cambriana.Editor.GrammarEditor.Viewport.EditsDoNotMoveTheCamera",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarViewportEditKeepsCameraTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<FEditorViewportClient> Client = Toolkit ? ViewportClientOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows a viewport"), Client.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const FVector Location = Client->GetViewLocation();
+	const FVector LookAt = Client->GetLookAtLocation();
+	const FRotator Rotation = Client->GetViewRotation();
+	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
+
+	Toolkit->CommitRulesText(FText::FromString(DownwardGrammarText));
+	TestEqual(TEXT("The Rules edit rebuilt the preview"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
+	TestEqual(TEXT("The camera stays where it was"), Client->GetViewLocation(), Location);
+	TestEqual(TEXT("The camera still looks at the same point"), Client->GetLookAtLocation(), LookAt);
+	TestEqual(TEXT("The camera keeps its rotation"), Client->GetViewRotation(), Rotation);
 	CloseGrammarEditor(Grammar);
 	return true;
 }
