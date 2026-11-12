@@ -22,3 +22,21 @@ an entry here should also prompt a check for a missing regression or acceptance 
   `RulesTypingDirtiesTheGrammarAndReachesItAfterAPauseAsOneRebuildAndOneUndo` and
   `RulesTypingReachesTheGrammarWhenTheEditorClosesBeforeAPause` it fails if a Rules edit
   again depends on focus loss.
+
+## 2026-11-12 — Asked the author to push a branch the session should have pushed
+
+- **What happened:** a sub-agent rebased PR #27's branch, and its force push was refused by
+  the permission check. Instead of pushing it from the session, the coordinator handed the
+  author a `git push` command to run, and reported the PR as ready to test while GitHub still
+  held the old branch. The author, on another machine, tested the old code. They saw reset
+  give the class default, and spent time working out which local changes they were supposed
+  to push.
+- **What changes:**
+  - The author never pushes the session's work. When a sub-agent can't push, the
+    coordinator pushes it from the session. If a permission prompt appears, the author
+    approves it there; they are not given a command to run.
+  - A PR is reported ready to test only after a fresh `git fetch` shows the remote branch
+    head equal to the head that passed the tests. The report names that hash.
+- **Mechanical guard:** none in the test suite; this is a hand-off check, not product
+  behaviour. A small script could compare a branch's remote head with the tested head
+  before a ready-to-test report.
