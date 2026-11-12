@@ -128,7 +128,11 @@ Standalone asset editor, opened from the grammar asset.
   `SetUnsavedEditsPrompt`.
 - `[Proposed — unconfirmed]` A Rules edit reaches the working copy as one undoable change,
   rebuilding the preview once, when typing pauses for 0.5 s, when the text loses focus,
-  before a save and before the close prompt.
+  before a save, before the close prompt and before the editor's own undo or redo (the
+  toolkit maps Undo and Redo to commands that apply it first, as the Material and Blueprint
+  editors map them to their own), so an undo during the pause removes exactly the typed edit.
+  An undo or redo from outside the editor during the pause leaves the typed text in Rules; it
+  reaches the working copy when the pause ends.
 - `[Proposed — unconfirmed]` Rules text reaches the working copy with `\n` line breaks on
   every platform.
 - **Decided:** the Outputs panel is an empty tab until bake exists.

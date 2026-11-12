@@ -78,6 +78,8 @@ private:
 	bool HandleRulesApplyTimer(float DeltaTime);
 	bool HandleIsDetailsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const;
 	void ApplyPendingRulesEdit();
+	void UndoAfterPendingRulesEdit();
+	void RedoAfterPendingRulesEdit();
 	/** Saves the working copy into the asset; when the save does not complete the asset is left as it was. */
 	bool SaveWorkingCopy();
 	void CancelPendingRulesEdit();
@@ -93,7 +95,6 @@ private:
 	FDelegateHandle GrammarChangedHandle;
 	FTSTicker::FDelegateHandle RulesApplyTimer;
 	bool bRulesEditPending = false;
-	FString RulesTextBeforeEdit;
 	FUnsavedEditsPrompt UnsavedEditsPrompt;
 	FSaveAsPrompt SaveAsPrompt;
 	bool bClosingForSaveAs = false;
