@@ -72,6 +72,8 @@ Standalone asset editor, opened from the grammar asset.
 - `[Proposed — unconfirmed]` A Rules edit marks the grammar asset dirty at once and reaches
   the asset, as one undoable change that rebuilds live actors once, when typing pauses for
   0.5 s, when the text loses focus, before the asset is saved and when the editor closes.
+- `[Proposed — unconfirmed]` Rules text reaches the asset with `\n` line breaks on every
+  platform.
 
 ## Live actor
 

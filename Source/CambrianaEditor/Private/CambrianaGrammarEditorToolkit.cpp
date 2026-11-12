@@ -12,6 +12,15 @@
 
 #define LOCTEXT_NAMESPACE "CambrianaGrammarEditor"
 
+namespace
+{
+	// Slate text boxes join lines with the platform's line terminator, "\r\n" on Windows.
+	FString ToGrammarText(const FString& RulesText)
+	{
+		return RulesText.Replace(TEXT("\r\n"), TEXT("\n"), ESearchCase::CaseSensitive);
+	}
+}
+
 const FName FCambrianaGrammarEditorToolkit::ToolkitName(TEXT("CambrianaGrammarEditor"));
 const FName FCambrianaGrammarEditorToolkit::AppIdentifier(TEXT("CambrianaGrammarEditorApp"));
 const FName FCambrianaGrammarEditorToolkit::RulesTabId(TEXT("CambrianaGrammarEditor_Rules"));
@@ -116,7 +125,7 @@ void FCambrianaGrammarEditorToolkit::CommitRulesText(const FText& NewText)
 {
 	CancelPendingRulesEdit();
 	UCambrianaGrammar* Grammar = GetGrammar();
-	const FString NewGrammarText = NewText.ToString();
+	const FString NewGrammarText = ToGrammarText(NewText.ToString());
 	if (!Grammar || Grammar->GrammarText.Equals(NewGrammarText, ESearchCase::CaseSensitive))
 	{
 		return;
@@ -176,7 +185,7 @@ void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGramma
 		return;
 	}
 	CancelPendingRulesEdit();
-	if (!RulesTextBox->GetText().ToString().Equals(ChangedGrammar->GrammarText, ESearchCase::CaseSensitive))
+	if (!ToGrammarText(RulesTextBox->GetText().ToString()).Equals(ToGrammarText(ChangedGrammar->GrammarText), ESearchCase::CaseSensitive))
 	{
 		RulesTextBox->SetText(FText::FromString(ChangedGrammar->GrammarText));
 	}
