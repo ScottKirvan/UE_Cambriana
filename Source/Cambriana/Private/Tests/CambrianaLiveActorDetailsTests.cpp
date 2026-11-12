@@ -24,19 +24,22 @@ namespace
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorInlineOverrideTogglesTest,
-	"Cambriana.LiveActor.Details.EachOverrideCheckboxIsInlineLeftOfTheValuesItControls",
+	"Cambriana.LiveActor.Details.HeaderOverridesAreInlineEditConditionsAndSizeAndSurfacerOverridesAreLeftToTheCustomization",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaLiveActorInlineOverrideTogglesTest::RunTest(const FString& Parameters)
 {
+	// Recursion, basic angle and thickness apply only with their override on, so an edit condition greys them exactly when they do
+	// not apply. Size and surfacer values can apply with their override off; the Details customization shows those overrides inline
+	// and greys each value by the build rule (Cambriana.Editor.LiveActorDetails).
 	const TArray<FOverrideToggle> Toggles = {
 		{ TEXT("bOverrideRecursion"), TEXT("Recursion"), { TEXT("Recursion") } },
 		{ TEXT("bOverrideBasicAngle"), TEXT("BasicAngle"), { TEXT("BasicAngle") } },
 		{ TEXT("bOverrideThickness"), TEXT("Thickness"), { TEXT("Thickness") } },
-		{ TEXT("bOverrideMinThickness"), TEXT("MinThickness"), { TEXT("MinThickness") } },
-		{ TEXT("bOverrideClosedForm"), TEXT("bClosedForm"), { TEXT("bClosedForm") } },
-		{ TEXT("bOverrideSides"), TEXT("Sides"), { TEXT("Sides") } },
-		{ TEXT("bOverrideSize"), TEXT("SizeMode"), { TEXT("SizeMode"), TEXT("SizeValue") } },
+		{ TEXT("bOverrideMinThickness"), NAME_None, {} },
+		{ TEXT("bOverrideClosedForm"), NAME_None, {} },
+		{ TEXT("bOverrideSides"), NAME_None, {} },
+		{ TEXT("bOverrideSize"), NAME_None, {} },
 	};
 
 	const UClass* Class = ACambrianaLiveActor::StaticClass();
@@ -50,7 +53,8 @@ bool FCambrianaLiveActorInlineOverrideTogglesTest::RunTest(const FString& Parame
 		}
 		TestTrue(FString::Printf(TEXT("%s is a bool"), *Toggle), ToggleProperty->IsA<FBoolProperty>());
 		TestTrue(FString::Printf(TEXT("%s is editable"), *Toggle), ToggleProperty->HasAnyPropertyFlags(CPF_Edit));
-		TestTrue(FString::Printf(TEXT("%s has no row of its own, only an inline checkbox"), *Toggle), ToggleProperty->HasMetaData(InlineEditConditionToggle));
+		TestEqual(FString::Printf(TEXT("%s is an inline edit condition toggle with no row of its own"), *Toggle), ToggleProperty->HasMetaData(InlineEditConditionToggle),
+			!Expected.ShownOn.IsNone());
 
 		TArray<FName> Controlled;
 		TArray<FName> ShownOn;
@@ -66,7 +70,8 @@ bool FCambrianaLiveActorInlineOverrideTogglesTest::RunTest(const FString& Parame
 			}
 		}
 		TestEqual(FString::Printf(TEXT("%s's checkbox enables exactly its values"), *Toggle), Join(Controlled), Join(Expected.Controls));
-		TestEqual(FString::Printf(TEXT("%s's checkbox is shown once, to the left of %s"), *Toggle, *Expected.ShownOn.ToString()), Join(ShownOn), Expected.ShownOn.ToString());
+		TestEqual(FString::Printf(TEXT("%s's edit condition checkbox is shown on %s"), *Toggle, *Expected.ShownOn.ToString()), Join(ShownOn),
+			Expected.ShownOn.IsNone() ? FString() : Expected.ShownOn.ToString());
 	}
 	return true;
 }
