@@ -25,6 +25,7 @@ using Cambriana::Editor::Tests::OpenGrammarEditor;
 using Cambriana::Editor::Tests::PackageFilename;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
 using Cambriana::Editor::Tests::RulesTextBoxOf;
+using Cambriana::Editor::Tests::RunWithoutSavePrompt;
 using Cambriana::Editor::Tests::TubeVertices;
 using Cambriana::Editor::Tests::TypedGrammarText;
 using Cambriana::Editor::Tests::TypeOverRules;
@@ -179,7 +180,7 @@ bool FCambrianaWorkingCopySaveTest::RunTest(const FString& Parameters)
 	EditInEveryPanel(*Toolkit);
 	const int32 ActorBuildsBefore = Actor->GetBuildCount();
 
-	Toolkit->SaveAsset_Execute();
+	RunWithoutSavePrompt([Toolkit] { Toolkit->SaveAsset_Execute(); });
 	TestEqual(TEXT("The grammar holds the edited text"), Grammar->GrammarText, FString(CountGrammarText));
 	const FCambrianaParameterValue* Stored = FindStoredValue(*Grammar, TEXT("count"));
 	TestTrue(TEXT("The grammar stores count = 5"), Stored && Stored->Value == 5.0);
@@ -191,7 +192,7 @@ bool FCambrianaWorkingCopySaveTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Nothing is left unsaved"), Toolkit->HasUnsavedEdits());
 	TestTrue(TEXT("The tab shows no unsaved mark"), Toolkit->GetTabSuffix().IsEmpty());
 
-	Toolkit->SaveAsset_Execute();
+	RunWithoutSavePrompt([Toolkit] { Toolkit->SaveAsset_Execute(); });
 	TestEqual(TEXT("Saving again without edits does not rebuild the actor"), Actor->GetBuildCount(), ActorBuildsBefore + 1);
 
 	CloseGrammarEditor(Grammar);
@@ -348,7 +349,7 @@ bool FCambrianaWorkingCopyCloseSaveTest::RunTest(const FString& Parameters)
 	FString Message;
 	Toolkit->SetUnsavedEditsPrompt([&Asked, &Message](const FText& Text) { ++Asked; Message = Text.ToString(); return EAppReturnType::Yes; });
 
-	CloseAsking(Grammar);
+	RunWithoutSavePrompt([Grammar] { CloseAsking(Grammar); });
 	TestEqual(TEXT("Closing asks once"), Asked, 1);
 	TestTrue(FString::Printf(TEXT("The question names the grammar: %s"), *Message), Message.Contains(Grammar->GetPathName()));
 	TestNull(TEXT("Saving closes the editor"), FindGrammarEditor(Grammar));

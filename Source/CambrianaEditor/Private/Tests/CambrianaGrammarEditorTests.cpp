@@ -38,6 +38,7 @@ using Cambriana::Editor::Tests::PauseTyping;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
 using Cambriana::Editor::Tests::RulesTabWidgetOfType;
 using Cambriana::Editor::Tests::RulesTextBoxOf;
+using Cambriana::Editor::Tests::RunWithoutSavePrompt;
 using Cambriana::Editor::Tests::TubeVertices;
 using Cambriana::Editor::Tests::TypedGrammarText;
 using Cambriana::Editor::Tests::TypeOverRules;
@@ -227,7 +228,7 @@ bool FCambrianaGrammarEditorTypingSavedTest::RunTest(const FString& Parameters)
 	}
 
 	TypeOverRules(*Rules);
-	Toolkit->SaveAsset_Execute();
+	RunWithoutSavePrompt([Toolkit] { Toolkit->SaveAsset_Execute(); });
 	TestEqual(TEXT("The save gives the grammar the typed text"), Grammar->GrammarText, FString(TypedGrammarText));
 	TestTrue(TEXT("The package is on disk"), IFileManager::Get().FileExists(*Filename));
 	TestFalse(TEXT("The saved package is clean"), Package->IsDirty());

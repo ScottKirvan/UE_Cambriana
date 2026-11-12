@@ -77,6 +77,17 @@ namespace Cambriana::Editor::Tests
 		return FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension()));
 	}
 
+	/**
+	 * Runs an asset editor save so that it writes the package. With -unattended the engine's save prompt
+	 * (FEditorFileUtils::PromptForCheckoutAndSave) cancels; for an unattended script it saves through
+	 * UEditorLoadingAndSavingUtils::SavePackages instead.
+	 */
+	inline void RunWithoutSavePrompt(TFunctionRef<void()> Save)
+	{
+		const TGuardValue<bool> UnattendedScript(GIsRunningUnattendedScript, true);
+		Save();
+	}
+
 	/** Changes the grammar's sides as a Details edit does: one undoable property change. */
 	inline void EditGrammarSides(UCambrianaGrammar* Grammar, int32 Sides)
 	{
