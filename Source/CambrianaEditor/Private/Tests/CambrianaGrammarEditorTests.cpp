@@ -880,6 +880,8 @@ bool FCambrianaGrammarEditorHidesImportDataTest::RunTest(const FString& Paramete
 	}
 	TestFalse(TEXT("The grammar editor's Details hides the working copy's import data"),
 		Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData)));
+	TestFalse(TEXT("The grammar editor's Details hides the import data's source file"),
+		Toolkit->IsDetailsPropertyVisible(TEXT("SourceData"), { GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData) }));
 	TestTrue(TEXT("The grammar editor's Details still shows the size"), Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, SizeValue)));
 	CloseGrammarEditor(Grammar);
 	return true;
