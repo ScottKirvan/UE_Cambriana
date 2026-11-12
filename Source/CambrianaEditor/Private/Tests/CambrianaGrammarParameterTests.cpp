@@ -21,8 +21,10 @@
 using Cambriana::Editor::Tests::CloseGrammarEditor;
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
 using Cambriana::Editor::Tests::FindPropertyHandle;
+using Cambriana::Editor::Tests::FindStoredValue;
 using Cambriana::Editor::Tests::FindWidgetOfType;
 using Cambriana::Editor::Tests::OpenGrammarEditor;
+using Cambriana::Editor::Tests::PreviewVertexCount;
 using Cambriana::Editor::Tests::TubeVertices;
 
 namespace
@@ -115,16 +117,6 @@ namespace
 		return Text.IsNumeric() ? FCString::Atod(*Text) : std::numeric_limits<double>::quiet_NaN();
 	}
 
-	const FCambrianaParameterValue* FindStored(const UCambrianaGrammar& Grammar, const TCHAR* Name)
-	{
-		return Grammar.ParameterValues.FindByPredicate([Name](const FCambrianaParameterValue& Value) { return Value.Name.Equals(Name, ESearchCase::CaseSensitive); });
-	}
-
-	int32 PreviewVertices(const FCambrianaGrammarEditorToolkit& Toolkit)
-	{
-		return Toolkit.GetPreview().GetMeshComponent()->GetMesh()->VertexCount();
-	}
-
 	FCambrianaGrammarEditorToolkit* OpenWithText(UCambrianaGrammar* Grammar, const FString& Text)
 	{
 		Grammar->GrammarText = Text;
@@ -185,13 +177,13 @@ bool FCambrianaGrammarParametersEditTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
-	TestEqual(TEXT("The text's count of 3: 3 segments at 8 sides"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
+	TestEqual(TEXT("The text's count of 3: 3 segments at 8 sides"), PreviewVertexCount(*Toolkit), TubeVertices(3, 8));
 	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
 
 	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 	TestEqual(TEXT("The edit rebuilt the preview once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
-	TestEqual(TEXT("count 5: 5 segments at 8 sides"), PreviewVertices(*Toolkit), TubeVertices(5, 8));
-	const FCambrianaParameterValue* Stored = FindStored(*Toolkit->GetWorkingCopy(), TEXT("count"));
+	TestEqual(TEXT("count 5: 5 segments at 8 sides"), PreviewVertexCount(*Toolkit), TubeVertices(5, 8));
+	const FCambrianaParameterValue* Stored = FindStoredValue(*Toolkit->GetWorkingCopy(), TEXT("count"));
 	TestTrue(TEXT("The working copy stores count = 5"), Stored && Stored->Value == 5.0);
 	TestEqual(TEXT("The grammar stores no parameter value"), Grammar->ParameterValues.Num(), 0);
 	TestEqual(TEXT("Details shows count 5"), ShownValue(*Rows, TEXT("count")), 5.0);
@@ -202,8 +194,8 @@ bool FCambrianaGrammarParametersEditTest::RunTest(const FString& Parameters)
 
 	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
 	TestEqual(TEXT("Undo rebuilt the preview once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 2);
-	TestEqual(TEXT("Undo restores 3 segments"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
-	TestNull(TEXT("Undo removes the stored value"), FindStored(*Toolkit->GetWorkingCopy(), TEXT("count")));
+	TestEqual(TEXT("Undo restores 3 segments"), PreviewVertexCount(*Toolkit), TubeVertices(3, 8));
+	TestNull(TEXT("Undo removes the stored value"), FindStoredValue(*Toolkit->GetWorkingCopy(), TEXT("count")));
 	TestEqual(TEXT("Details shows the text's 3 again"), ShownValue(*Rows, TEXT("count")), 3.0);
 	CloseGrammarEditor(Grammar);
 	return true;
@@ -227,14 +219,14 @@ bool FCambrianaGrammarParametersResetTest::RunTest(const FString& Parameters)
 
 	Cambriana::Editor::ResetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"));
 	TestEqual(TEXT("The reset rebuilt the preview once"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
-	TestNull(TEXT("The working copy no longer stores count"), FindStored(*Toolkit->GetWorkingCopy(), TEXT("count")));
-	TestEqual(TEXT("The text's count of 3 applies"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
+	TestNull(TEXT("The working copy no longer stores count"), FindStoredValue(*Toolkit->GetWorkingCopy(), TEXT("count")));
+	TestEqual(TEXT("The text's count of 3 applies"), PreviewVertexCount(*Toolkit), TubeVertices(3, 8));
 
 	Cambriana::Editor::ResetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"));
 	TestEqual(TEXT("Resetting an unchanged parameter does not rebuild"), Toolkit->GetPreview().GetBuildCount(), BuildsBefore + 1);
 
 	TestTrue(TEXT("The reset can be undone"), GEditor->UndoTransaction());
-	TestEqual(TEXT("Undo restores count 5"), PreviewVertices(*Toolkit), TubeVertices(5, 8));
+	TestEqual(TEXT("Undo restores count 5"), PreviewVertexCount(*Toolkit), TubeVertices(5, 8));
 	CloseGrammarEditor(Grammar);
 	return true;
 }
@@ -275,12 +267,12 @@ bool FCambrianaGrammarParametersTextValueTest::RunTest(const FString& Parameters
 	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(4)));
-	TestEqual(TEXT("Unchanged count follows the text to 4 segments"), PreviewVertices(*Toolkit), TubeVertices(4, 8));
+	TestEqual(TEXT("Unchanged count follows the text to 4 segments"), PreviewVertexCount(*Toolkit), TubeVertices(4, 8));
 	TestEqual(TEXT("Details shows the text's new 4"), ShownValue(*Rows, TEXT("count")), 4.0);
 
 	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(2)));
-	TestEqual(TEXT("Stored count 5 wins over the text's new 2"), PreviewVertices(*Toolkit), TubeVertices(5, 8));
+	TestEqual(TEXT("Stored count 5 wins over the text's new 2"), PreviewVertexCount(*Toolkit), TubeVertices(5, 8));
 	TestEqual(TEXT("Details still shows the stored 5"), ShownValue(*Rows, TEXT("count")), 5.0);
 	const TArray<FCambrianaParameter> Read = Cambriana::ReadParameters(Toolkit->GetWorkingCopy()->GrammarText, Toolkit->GetWorkingCopy()->ParameterValues);
 	TestTrue(TEXT("Resetting would return count to the text's new 2"), Read.IsValidIndex(2) && Read[2].TextValue == 2.0);
@@ -308,17 +300,17 @@ bool FCambrianaGrammarParametersRenameTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("An added parameter is shown in its tier, in file order"),
 		ParameterRows(*Rows).FindRef(StructureCategory) == TArray<FString>{ TEXT("count"), TEXT("extra") });
 	TestEqual(TEXT("The added parameter shows the text's value"), ShownValue(*Rows, TEXT("extra")), 2.0);
-	TestNull(TEXT("The added parameter has no stored value"), FindStored(*Toolkit->GetWorkingCopy(), TEXT("extra")));
+	TestNull(TEXT("The added parameter has no stored value"), FindStoredValue(*Toolkit->GetWorkingCopy(), TEXT("extra")));
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(3, TEXT("n"))));
 	TestTrue(TEXT("The renamed parameter is shown under its new name"), ParameterRows(*Rows).FindRef(StructureCategory) == TArray<FString>{ TEXT("n") });
 	TestEqual(TEXT("The renamed parameter uses the text's value"), ShownValue(*Rows, TEXT("n")), 3.0);
-	TestEqual(TEXT("The text's 3 segments are built"), PreviewVertices(*Toolkit), TubeVertices(3, 8));
-	const FCambrianaParameterValue* Kept = FindStored(*Toolkit->GetWorkingCopy(), TEXT("count"));
+	TestEqual(TEXT("The text's 3 segments are built"), PreviewVertexCount(*Toolkit), TubeVertices(3, 8));
+	const FCambrianaParameterValue* Kept = FindStoredValue(*Toolkit->GetWorkingCopy(), TEXT("count"));
 	TestTrue(TEXT("The old name's stored value is kept"), Kept && Kept->Value == 5.0);
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(3)));
-	TestEqual(TEXT("The name declared again takes its stored 5"), PreviewVertices(*Toolkit), TubeVertices(5, 8));
+	TestEqual(TEXT("The name declared again takes its stored 5"), PreviewVertexCount(*Toolkit), TubeVertices(5, 8));
 	TestEqual(TEXT("Details shows the stored 5"), ShownValue(*Rows, TEXT("count")), 5.0);
 
 	Toolkit->CommitRulesText(FText::FromString(TEXT("axiom F F\n")));

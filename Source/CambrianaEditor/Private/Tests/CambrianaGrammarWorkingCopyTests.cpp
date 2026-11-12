@@ -18,14 +18,17 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+using Cambriana::Editor::Tests::CloseAsking;
 using Cambriana::Editor::Tests::CloseGrammarEditor;
 using Cambriana::Editor::Tests::CreateGrammarInPackage;
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
 using Cambriana::Editor::Tests::EditGrammarSides;
 using Cambriana::Editor::Tests::FindGrammarEditor;
+using Cambriana::Editor::Tests::FindStoredValue;
 using Cambriana::Editor::Tests::OpenGrammarEditor;
 using Cambriana::Editor::Tests::PackageFilename;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
+using Cambriana::Editor::Tests::PreviewVertexCount;
 using Cambriana::Editor::Tests::RulesTextBoxOf;
 using Cambriana::Editor::Tests::RunWithoutSavePrompt;
 using Cambriana::Editor::Tests::TubeVertices;
@@ -49,22 +52,6 @@ namespace
 		Toolkit.CommitRulesText(FText::FromString(CountGrammarText));
 		Cambriana::Editor::SetParameterValue(*Toolkit.GetWorkingCopy(), TEXT("count"), 5.0);
 		EditGrammarSides(Toolkit.GetWorkingCopy(), 3);
-	}
-
-	const FCambrianaParameterValue* FindStoredValue(const UCambrianaGrammar& Grammar, const TCHAR* Name)
-	{
-		return Grammar.ParameterValues.FindByPredicate([Name](const FCambrianaParameterValue& Value) { return Value.Name.Equals(Name, ESearchCase::CaseSensitive); });
-	}
-
-	int32 PreviewVertexCount(const FCambrianaGrammarEditorToolkit& Toolkit)
-	{
-		const UDynamicMeshComponent* Mesh = Toolkit.GetPreview().GetMeshComponent();
-		return Mesh ? Mesh->GetMesh()->VertexCount() : INDEX_NONE;
-	}
-
-	void CloseAsking(UCambrianaGrammar* Grammar)
-	{
-		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
 	}
 
 	void DestroyActor(ACambrianaLiveActor* Actor)
@@ -226,21 +213,33 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyUndoAfterSaveTest,
 
 bool FCambrianaWorkingCopyUndoAfterSaveTest::RunTest(const FString& Parameters)
 {
-	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopyUndoAfterSave");
+	const FString Filename = PackageFilename(PackageName);
+	IFileManager::Get().Delete(*Filename);
+	UCambrianaGrammar* Grammar = CreateGrammarInPackage(PackageName);
+	UPackage* Package = Grammar->GetPackage();
+	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Grammar);
 	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
-	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	if (!TestNotNull(TEXT("A live actor was placed"), Actor) || !TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
 		CloseGrammarEditor(Grammar);
+		DestroyActor(Actor);
+		UnloadPackage(Package);
 		return false;
 	}
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
-	Toolkit->SaveAsset_Execute();
+	RunWithoutSavePrompt([Toolkit] { Toolkit->SaveAsset_Execute(); });
 	TestEqual(TEXT("The save gives the grammar the edited text"), Grammar->GrammarText, FString(TypedGrammarText));
+	TestTrue(TEXT("The package is on disk"), IFileManager::Get().FileExists(*Filename));
+	TestFalse(TEXT("The saved package is clean"), Package->IsDirty());
 	TestFalse(TEXT("Nothing is left unsaved"), Toolkit->HasUnsavedEdits());
+	const int32 ActorBuildsAfterSave = Actor->GetBuildCount();
 
 	TestTrue(TEXT("The edit can be undone after the save"), GEditor->UndoTransaction());
 	TestEqual(TEXT("Undo restores the working copy's text"), Toolkit->GetWorkingCopy()->GrammarText, DefaultText());
 	TestEqual(TEXT("Undo leaves the saved grammar's text"), Grammar->GrammarText, FString(TypedGrammarText));
+	TestFalse(TEXT("Undo leaves the saved package clean"), Package->IsDirty());
+	TestEqual(TEXT("Undo does not rebuild the actor"), Actor->GetBuildCount(), ActorBuildsAfterSave);
 	TestTrue(TEXT("The undone edit is unsaved"), Toolkit->HasUnsavedEdits());
 	TestEqual(TEXT("The tab marks the unsaved edit"), Toolkit->GetTabSuffix().ToString(), FString(TEXT("*")));
 
@@ -248,6 +247,9 @@ bool FCambrianaWorkingCopyUndoAfterSaveTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Redo restores the working copy's edited text"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 	TestFalse(TEXT("Redoing back to the saved text leaves nothing unsaved"), Toolkit->HasUnsavedEdits());
 	CloseGrammarEditor(Grammar);
+	DestroyActor(Actor);
+	UnloadPackage(Package);
+	DeleteSavedPackage(Filename);
 	return true;
 }
 
@@ -272,7 +274,7 @@ bool FCambrianaWorkingCopyExternalSaveTest::RunTest(const FString& Parameters)
 	}
 	Package->SetDirtyFlag(false);
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
-	TestFalse(TEXT("Save All skips the grammar: the edit leaves its package clean"), Package->IsDirty());
+	TestFalse(TEXT("The edit leaves the grammar's package clean"), Package->IsDirty());
 
 	FSavePackageArgs SaveArgs;
 	SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
@@ -319,7 +321,10 @@ bool FCambrianaWorkingCopyCloseCleanTest::RunTest(const FString& Parameters)
 	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::Cancel; });
 	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing does not ask"), Asked, 0);
-	TestNull(TEXT("The editor closes"), FindGrammarEditor(Grammar));
+	if (!TestNull(TEXT("The editor closes"), FindGrammarEditor(Grammar)))
+	{
+		CloseGrammarEditor(Grammar);
+	}
 	return true;
 }
 
@@ -466,6 +471,7 @@ namespace
 		ACambrianaLiveActor* Actor = nullptr;
 		FCambrianaGrammarEditorToolkit* Toolkit = nullptr;
 		int32 ActorBuildsAfterEdits = 0;
+		bool bPackageDirty = false;
 
 		explicit FEditedGrammar(const TCHAR* PackageName)
 		{
@@ -482,9 +488,19 @@ namespace
 
 		~FEditedGrammar()
 		{
-			CloseGrammarEditor(Grammar);
 			DestroyActor(Actor);
-			UnloadPackage(Grammar->GetPackage());
+			if (Grammar)
+			{
+				CloseGrammarEditor(Grammar);
+				UnloadPackage(Grammar->GetPackage());
+			}
+		}
+
+		/** Marks the grammar's package dirty, as an unsaved change made elsewhere would. */
+		void DirtyPackage()
+		{
+			Grammar->GetPackage()->SetDirtyFlag(true);
+			bPackageDirty = true;
 		}
 
 		bool IsValid(FAutomationTestBase& Test) const
@@ -497,7 +513,7 @@ namespace
 			Test.TestEqual(TEXT("The grammar keeps its text"), Grammar->GrammarText, DefaultText());
 			Test.TestEqual(TEXT("The grammar stores no parameter value"), Grammar->ParameterValues.Num(), 0);
 			Test.TestEqual(TEXT("The grammar keeps its 8 sides"), Grammar->Sides, 8);
-			Test.TestFalse(TEXT("The grammar's package stays clean"), Grammar->GetPackage()->IsDirty());
+			Test.TestEqual(TEXT("The grammar's package keeps its dirty state"), Grammar->GetPackage()->IsDirty(), bPackageDirty);
 			Test.TestEqual(TEXT("The actor did not rebuild"), Actor->GetBuildCount(), ActorBuildsAfterEdits);
 		}
 
@@ -518,7 +534,7 @@ namespace
 	{
 		if (!FApp::IsUnattended())
 		{
-			Test.AddWarning(TEXT("Needs -unattended, where the engine cancels the save; skipped"));
+			Test.AddError(TEXT("Needs -unattended, where the engine cancels the save"));
 			return false;
 		}
 		return true;
@@ -536,7 +552,7 @@ bool FCambrianaWorkingCopySaveCancelledTest::RunTest(const FString& Parameters)
 	const FEditedGrammar Edited(PackageName);
 	if (!Edited.IsValid(*this) || !SaveCancelsInThisRun(*this))
 	{
-		return true;
+		return false;
 	}
 	Edited.Toolkit->SaveAsset_Execute();
 	Edited.TestGrammarAndActorUnchanged(*this);
@@ -556,7 +572,7 @@ bool FCambrianaWorkingCopyCloseSaveCancelledTest::RunTest(const FString& Paramet
 	const FEditedGrammar Edited(PackageName);
 	if (!Edited.IsValid(*this) || !SaveCancelsInThisRun(*this))
 	{
-		return true;
+		return false;
 	}
 	int32 Asked = 0;
 	Edited.Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::Yes; });
@@ -579,7 +595,7 @@ bool FCambrianaWorkingCopySaveAsTest::RunTest(const FString& Parameters)
 	const FEditedGrammar Edited(TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsOriginal"));
 	if (!Edited.IsValid(*this))
 	{
-		return true;
+		return false;
 	}
 	int32 Asked = 0;
 	Edited.Toolkit->SetSaveAsPrompt([&Asked, CopyPackageName](const UCambrianaGrammar&) { ++Asked; return FString(CopyPackageName); });
@@ -606,6 +622,9 @@ bool FCambrianaWorkingCopySaveAsTest::RunTest(const FString& Parameters)
 			TestFalse(TEXT("The new asset's editor has nothing unsaved"), CopyEditor->HasUnsavedEdits());
 		}
 		CloseGrammarEditor(Copy);
+	}
+	if (CopyPackage)
+	{
 		UnloadPackage(CopyPackage);
 	}
 	DeleteSavedPackage(CopyFilename);
@@ -621,7 +640,7 @@ bool FCambrianaWorkingCopySaveAsCancelledTest::RunTest(const FString& Parameters
 	const FEditedGrammar Edited(TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsCancelled"));
 	if (!Edited.IsValid(*this))
 	{
-		return true;
+		return false;
 	}
 	int32 Asked = 0;
 	Edited.Toolkit->SetSaveAsPrompt([&Asked](const UCambrianaGrammar&) { ++Asked; return FString(); });
@@ -718,6 +737,123 @@ bool FCambrianaWorkingCopySaveAsAssetOnDiskTest::RunTest(const FString& Paramete
 		UnloadPackage(Made);
 	}
 	DeleteSavedPackage(ExistingFilename);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveCancelledDirtyTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.ASaveThatDoesNotCompleteLeavesAnAlreadyDirtyPackageDirty",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveCancelledDirtyTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopySaveCancelledDirty");
+	IFileManager::Get().Delete(*PackageFilename(PackageName));
+	FEditedGrammar Edited(PackageName);
+	if (!Edited.IsValid(*this) || !SaveCancelsInThisRun(*this))
+	{
+		return false;
+	}
+	Edited.DirtyPackage();
+	Edited.Toolkit->SaveAsset_Execute();
+	Edited.TestGrammarAndActorUnchanged(*this);
+	TestFalse(TEXT("Nothing is written"), IFileManager::Get().FileExists(*PackageFilename(PackageName)));
+	Edited.TestEditorKeepsTheEdits(*this);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveAsOwnPathTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.SaveAsOntoTheGrammarsOwnPathSavesIt",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveAsOwnPathTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsOwnPath");
+	const FString Filename = PackageFilename(PackageName);
+	IFileManager::Get().Delete(*Filename);
+	{
+		const FEditedGrammar Edited(PackageName);
+		if (!Edited.IsValid(*this))
+		{
+			return false;
+		}
+		int32 Asked = 0;
+		Edited.Toolkit->SetSaveAsPrompt([&Asked, PackageName](const UCambrianaGrammar&) { ++Asked; return FString(PackageName); });
+
+		RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
+		TestEqual(TEXT("Save As asks for the asset once"), Asked, 1);
+		TestEqual(TEXT("The grammar holds the edited text"), Edited.Grammar->GrammarText, FString(CountGrammarText));
+		const FCambrianaParameterValue* Stored = FindStoredValue(*Edited.Grammar, TEXT("count"));
+		TestTrue(TEXT("The grammar stores count = 5"), Stored && Stored->Value == 5.0);
+		TestEqual(TEXT("The grammar holds 3 sides"), Edited.Grammar->Sides, 3);
+		TestEqual(TEXT("The actor rebuilt once"), Edited.Actor->GetBuildCount(), Edited.ActorBuildsAfterEdits + 1);
+		TestTrue(TEXT("The package is on disk"), IFileManager::Get().FileExists(*Filename));
+		TestFalse(TEXT("The saved package is clean"), Edited.Grammar->GetPackage()->IsDirty());
+		if (TestTrue(TEXT("The editor stays open on the grammar"), FindGrammarEditor(Edited.Grammar) == Edited.Toolkit))
+		{
+			TestFalse(TEXT("Nothing is left unsaved"), Edited.Toolkit->HasUnsavedEdits());
+		}
+	}
+	DeleteSavedPackage(Filename);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySaveAsNewSaveCancelledTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.SaveAsWhoseNewAssetSaveDoesNotCompleteKeepsTheEditorOpenWithItsEdits",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySaveAsNewSaveCancelledTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* NewPackageName = TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsNotSaved");
+	const FString NewFilename = PackageFilename(NewPackageName);
+	IFileManager::Get().Delete(*NewFilename);
+	const FEditedGrammar Edited(TEXT("/Game/CambrianaSaveTests/WorkingCopySaveAsNotSavedOriginal"));
+	if (!Edited.IsValid(*this) || !SaveCancelsInThisRun(*this))
+	{
+		return false;
+	}
+	Edited.Toolkit->SetSaveAsPrompt([NewPackageName](const UCambrianaGrammar&) { return FString(NewPackageName); });
+
+	Edited.Toolkit->SaveAssetAs_Execute();
+	Edited.TestGrammarAndActorUnchanged(*this);
+	Edited.TestEditorKeepsTheEdits(*this);
+	TestFalse(TEXT("Nothing is written for the new asset"), IFileManager::Get().FileExists(*NewFilename));
+	UPackage* NewPackage = FindPackage(nullptr, NewPackageName);
+	const UCambrianaGrammar* NewGrammar = NewPackage ? FindObject<UCambrianaGrammar>(NewPackage, *FPackageName::GetShortName(NewPackageName)) : nullptr;
+	if (TestNotNull(TEXT("The new asset stays in memory, unsaved"), NewGrammar))
+	{
+		TestEqual(TEXT("The new asset holds the edited text"), NewGrammar->GrammarText, FString(CountGrammarText));
+		TestTrue(TEXT("The new asset's package is dirty"), NewPackage->IsDirty());
+		TestNull(TEXT("No editor opens on the new asset"), FindGrammarEditor(const_cast<UCambrianaGrammar*>(NewGrammar)));
+	}
+	if (NewPackage)
+	{
+		UnloadPackage(NewPackage);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyTabMarksDirtyPackageTest,
+	"Cambriana.Editor.GrammarEditor.WorkingCopy.TheTabMarksADirtyPackageWithoutWorkingCopyEdits",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopyTabMarksDirtyPackageTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarInPackage(TEXT("/Game/CambrianaEditorTests/WorkingCopyDirtyPackage"));
+	UPackage* Package = Grammar->GetPackage();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		UnloadPackage(Package);
+		return false;
+	}
+	Package->SetDirtyFlag(true);
+	TestFalse(TEXT("The editor has no unsaved edits"), Toolkit->HasUnsavedEdits());
+	TestEqual(TEXT("The tab marks the dirty package"), Toolkit->GetTabSuffix().ToString(), FString(TEXT("*")));
+	Package->SetDirtyFlag(false);
+	TestTrue(TEXT("A clean package and no edits leave the tab unmarked"), Toolkit->GetTabSuffix().IsEmpty());
+	CloseGrammarEditor(Grammar);
+	UnloadPackage(Package);
 	return true;
 }
 
