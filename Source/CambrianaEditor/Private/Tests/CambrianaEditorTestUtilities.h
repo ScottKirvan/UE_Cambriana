@@ -5,7 +5,9 @@
 #include "CambrianaGrammarEditorToolkit.h"
 #include "CambrianaGrammarFactory.h"
 #include "CambrianaGrammarFormat.h"
+#include "CambrianaGrammarPreview.h"
 #include "CambrianaLiveActor.h"
+#include "Components/DynamicMeshComponent.h"
 #include "Containers/Ticker.h"
 #include "CoreMinimal.h"
 #include "Editor.h"
@@ -48,7 +50,7 @@ namespace Cambriana::Editor::Tests
 		return GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(Grammar) ? FindGrammarEditor(Grammar) : nullptr;
 	}
 
-	/** Closes the grammar's editor, discarding unsaved edits: unattended, the close prompt answers Cancel and the editor stays open. */
+	/** Closes the grammar's editor, answering its close prompt with No so unsaved edits are discarded; left to the unattended dialog, the prompt would answer Cancel and keep the editor open. */
 	inline void CloseGrammarEditor(UCambrianaGrammar* Grammar)
 	{
 		if (FCambrianaGrammarEditorToolkit* Toolkit = FindGrammarEditor(Grammar))
@@ -56,6 +58,24 @@ namespace Cambriana::Editor::Tests
 			Toolkit->SetUnsavedEditsPrompt([](const FText&) { return EAppReturnType::No; });
 		}
 		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
+	}
+
+	/** Closes the grammar's editors, leaving any close prompt to whatever answer the editor has been given. */
+	inline void CloseAsking(UCambrianaGrammar* Grammar)
+	{
+		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
+	}
+
+	inline const FCambrianaParameterValue* FindStoredValue(const UCambrianaGrammar& Grammar, const TCHAR* Name)
+	{
+		return Grammar.ParameterValues.FindByPredicate([Name](const FCambrianaParameterValue& Value) { return Value.Name.Equals(Name, ESearchCase::CaseSensitive); });
+	}
+
+	/** The preview mesh's vertex count; INDEX_NONE without a preview mesh. */
+	inline int32 PreviewVertexCount(const FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		const UDynamicMeshComponent* Mesh = Toolkit.GetPreview().GetMeshComponent();
+		return Mesh ? Mesh->GetMesh()->VertexCount() : INDEX_NONE;
 	}
 
 	inline UCambrianaGrammar* CreateGrammarInPackage(const TCHAR* PackageName)

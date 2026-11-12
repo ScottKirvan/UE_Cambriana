@@ -27,6 +27,7 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+using Cambriana::Editor::Tests::CloseAsking;
 using Cambriana::Editor::Tests::CloseGrammarEditor;
 using Cambriana::Editor::Tests::CreateGrammarInPackage;
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
@@ -271,7 +272,7 @@ bool FCambrianaGrammarEditorTypingClosedTest::RunTest(const FString& Parameters)
 	TypeOverRules(*Rules);
 	int32 Asked = 0;
 	Toolkit->SetUnsavedEditsPrompt([&Asked](const FText&) { ++Asked; return EAppReturnType::No; });
-	GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
+	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing asks once about the typed edit"), Asked, 1);
 	TestNull(TEXT("Discarding closes the editor"), Cambriana::Editor::Tests::FindGrammarEditor(Grammar));
 	TestEqual(TEXT("The discarded typing leaves the grammar's text"), Grammar->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
