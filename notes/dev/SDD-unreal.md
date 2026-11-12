@@ -99,7 +99,9 @@ Standalone asset editor, opened from the grammar asset.
   it, closes this editor and opens one on the new asset. The original asset, its package's
   dirty state and its actors are untouched whether Save As completes or is cancelled; the
   Material editor instead applies its edits to the original first. Choosing the asset's own
-  path is a Save. When the new asset's save does not complete, the editor stays open with its
+  path is a Save. Save As never replaces an existing asset: the dialog disallows existing
+  assets, and a path whose package is loaded or on disk shows a message, logs a warning and
+  leaves that asset, its file and the editor's edits untouched. When the new asset's save does not complete, the editor stays open with its
   edits and the new asset stays in memory, unsaved, as with the engine's Save As. Tests answer
   the dialog through the toolkit's `SetSaveAsPrompt`.
 - `[Proposed — unconfirmed]` The editor has unsaved edits while the working copy differs from
