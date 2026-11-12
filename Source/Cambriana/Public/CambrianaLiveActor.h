@@ -81,7 +81,7 @@ public:
 
 	void SetGrammar(UCambrianaGrammar* NewGrammar);
 
-	/** Placement from a grammar asset: references it and copies its seed. */
+	/** Placement from a grammar asset: references it, copies its seed, and starts each overridable setting from the text, else the asset, else the default. */
 	void PlaceFromGrammar(UCambrianaGrammar* Source);
 
 	FCambrianaBuildInput MakeBuildInput() const;

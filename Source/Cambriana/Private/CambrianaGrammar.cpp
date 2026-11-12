@@ -8,6 +8,17 @@ UCambrianaGrammar::FOnGrammarChanged& UCambrianaGrammar::OnGrammarChanged()
 	return Delegate;
 }
 
+void UCambrianaGrammar::StartSettingsFromGrammarText()
+{
+	const UCambrianaGrammar* Default = GetDefault<UCambrianaGrammar>();
+	const FCambrianaStatedSettings Stated = Cambriana::ReadStatedSettings(GrammarText);
+	SizeMode = Stated.SizeMode.Get(Default->SizeMode);
+	SizeValue = Stated.SizeValue.Get(Default->SizeValue);
+	Sides = Stated.Sides.Get(Default->Sides);
+	bClosedForm = Stated.bClosedForm.Get(Default->bClosedForm);
+	MinThickness = Stated.MinThickness.Get(Default->MinThickness);
+}
+
 void UCambrianaGrammar::PostInitProperties()
 {
 	Super::PostInitProperties();
