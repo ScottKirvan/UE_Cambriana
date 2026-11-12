@@ -196,10 +196,14 @@ typedef struct cambriana_cancel cambriana_cancel;
 typedef struct cambriana_result cambriana_result;
 
 /* For cambriana_build_grammar: the grammar's own seed and size or step apply unless these are set. A grammar
-   stating neither takes them from the settings regardless. cambriana_build_legacy ignores them. */
+   stating neither takes them from the settings regardless. cambriana_build_legacy ignores them. The same holds for
+   sides, surface (closed_form) and minthickness (min_thickness). */
 enum {
     CAMBRIANA_OVERRIDE_SEED = 8,
-    CAMBRIANA_OVERRIDE_SIZE = 16
+    CAMBRIANA_OVERRIDE_SIZE = 16,
+    CAMBRIANA_OVERRIDE_SIDES = 32,
+    CAMBRIANA_OVERRIDE_SURFACE = 64,
+    CAMBRIANA_OVERRIDE_MIN_THICKNESS = 128
 };
 
 enum {
@@ -246,7 +250,11 @@ enum {
     CAMBRIANA_SETTING_SIZE = 3,
     CAMBRIANA_SETTING_STEP = 4,
     CAMBRIANA_SETTING_SEED = 5,
-    CAMBRIANA_SETTING_BONE_BUDGET = 6
+    CAMBRIANA_SETTING_BONE_BUDGET = 6,
+    CAMBRIANA_SETTING_SIDES = 7,
+    /* 1 for surface tubes, 0 for surface blocks, as closed_form. */
+    CAMBRIANA_SETTING_SURFACE = 8,
+    CAMBRIANA_SETTING_MIN_THICKNESS = 9
 };
 
 enum {
