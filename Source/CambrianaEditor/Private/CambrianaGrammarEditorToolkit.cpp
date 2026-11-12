@@ -20,13 +20,12 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 {
 	RulesTextBox = SNew(SMultiLineEditableTextBox)
 		.Text(FText::FromString(Grammar->GrammarText))
-		.OnTextCommitted_Lambda([this](const FText& NewText, ETextCommit::Type) { CommitRulesText(NewText); });
+		.OnTextCommitted(MakeRulesCommittedDelegate());
 
 	FDetailsViewArgs DetailsArgs;
 	DetailsArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 	DetailsView = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor")).CreateDetailView(DetailsArgs);
-	DetailsView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateLambda(
-		[this](const FPropertyAndParent& PropertyAndParent) { return IsDetailsPropertyVisible(PropertyAndParent.Property.GetFName()); }));
+	DetailsView->SetIsPropertyVisibleDelegate(MakeDetailsPropertyVisibleDelegate());
 	DetailsView->SetObject(Grammar);
 
 	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddRaw(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
@@ -113,6 +112,17 @@ TArray<TWeakObjectPtr<UObject>> FCambrianaGrammarEditorToolkit::GetDetailsObject
 bool FCambrianaGrammarEditorToolkit::IsDetailsPropertyVisible(FName PropertyName) const
 {
 	return PropertyName != GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText);
+}
+
+FOnTextCommitted FCambrianaGrammarEditorToolkit::MakeRulesCommittedDelegate()
+{
+	return FOnTextCommitted::CreateLambda([this](const FText& NewText, ETextCommit::Type) { CommitRulesText(NewText); });
+}
+
+FIsPropertyVisible FCambrianaGrammarEditorToolkit::MakeDetailsPropertyVisibleDelegate()
+{
+	return FIsPropertyVisible::CreateLambda(
+		[this](const FPropertyAndParent& PropertyAndParent) { return IsDetailsPropertyVisible(PropertyAndParent.Property.GetFName()); });
 }
 
 UCambrianaGrammar* FCambrianaGrammarEditorToolkit::GetGrammar() const

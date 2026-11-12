@@ -1,10 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "IDetailsView.h"
 #include "Toolkits/AssetEditorToolkit.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 
-class IDetailsView;
-class SMultiLineEditableTextBox;
 class UCambrianaGrammar;
 
 class FCambrianaGrammarEditorToolkit : public FAssetEditorToolkit
@@ -33,6 +33,9 @@ public:
 
 	TArray<TWeakObjectPtr<UObject>> GetDetailsObjects() const;
 	bool IsDetailsPropertyVisible(FName PropertyName) const;
+
+	FOnTextCommitted MakeRulesCommittedDelegate();
+	FIsPropertyVisible MakeDetailsPropertyVisibleDelegate();
 
 private:
 	UCambrianaGrammar* GetGrammar() const;
