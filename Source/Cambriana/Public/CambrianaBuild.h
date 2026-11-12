@@ -5,6 +5,26 @@
 
 #include "CambrianaBuild.generated.h"
 
+/** A string whose == and != respect case; FString's ignore it, but grammar text is case-sensitive. */
+struct FCambrianaCaseSensitiveString : FString
+{
+	using FString::FString;
+	FCambrianaCaseSensitiveString() = default;
+	FCambrianaCaseSensitiveString(const FString& Text) : FString(Text) {}
+	FCambrianaCaseSensitiveString(FString&& Text) : FString(MoveTemp(Text)) {}
+
+	bool operator==(const FCambrianaCaseSensitiveString& Other) const
+	{
+		return Equals(Other, ESearchCase::CaseSensitive);
+	}
+};
+
+template <>
+struct TIsContiguousContainer<FCambrianaCaseSensitiveString>
+{
+	static constexpr bool Value = true;
+};
+
 UENUM()
 enum class ECambrianaSizeMode : uint8
 {
@@ -41,7 +61,7 @@ struct FCambrianaBuildSettings
 
 struct FCambrianaBuildInput
 {
-	FString GrammarText;
+	FCambrianaCaseSensitiveString GrammarText;
 	FCambrianaBuildSettings Settings;
 	uint32 Seed = 0;
 
