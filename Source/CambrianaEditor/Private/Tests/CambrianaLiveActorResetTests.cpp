@@ -229,11 +229,20 @@ bool FCambrianaLiveActorResetAtResetTimeTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Actor });
+	for (const FName Name : { RecursionName, SizeValueName, MinThicknessName })
+	{
+		const FSettingRow Row(*Rows, Name);
+		if (TestTrue(FString::Printf(TEXT("%s has a Details row"), *Name.ToString()), Row.IsValid()))
+		{
+			TestFalse(FString::Printf(TEXT("%s's arrow is hidden before the edit: the actor has its placement value"), *Name.ToString()), Row.IsArrowShown());
+		}
+	}
+
 	Grammar->GrammarText = TEXT("generations 5\nangle 40\nsides 3\naxiom A\n\ngrow {\n    A -> F A\n}\n");
 	Grammar->SizeValue = 15.0;
 	Grammar->MinThickness = 30.0;
 
-	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Actor });
 	for (const FName Name : { RecursionName, SizeValueName, MinThicknessName })
 	{
 		const FSettingRow Row(*Rows, Name);
