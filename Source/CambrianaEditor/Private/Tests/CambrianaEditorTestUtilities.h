@@ -2,17 +2,91 @@
 
 #include "AssetSelection.h"
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarEditorToolkit.h"
+#include "CambrianaGrammarFactory.h"
 #include "CambrianaGrammarFormat.h"
 #include "CambrianaLiveActor.h"
 #include "CoreMinimal.h"
+#include "Editor.h"
 #include "Elements/Actor/ActorElementData.h"
+#include "IDetailTreeNode.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/Paths.h"
+#include "PropertyHandle.h"
+#include "Subsystems/AssetEditorSubsystem.h"
+#include "Widgets/SWidget.h"
 
 #include <cambriana/cambriana.h>
 
 namespace Cambriana::Editor::Tests
 {
+	inline UCambrianaGrammar* CreateGrammarWithFactory()
+	{
+		UCambrianaGrammarFactory* Factory = NewObject<UCambrianaGrammarFactory>();
+		return Cast<UCambrianaGrammar>(Factory->FactoryCreateNew(UCambrianaGrammar::StaticClass(), GetTransientPackage(),
+			MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional, nullptr, nullptr));
+	}
+
+	inline FCambrianaGrammarEditorToolkit* OpenGrammarEditor(UCambrianaGrammar* Grammar)
+	{
+		UAssetEditorSubsystem* AssetEditors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+		if (!AssetEditors->OpenEditorForAsset(Grammar))
+		{
+			return nullptr;
+		}
+		IAssetEditorInstance* Editor = AssetEditors->FindEditorForAsset(Grammar, false);
+		return Editor && Editor->GetEditorName() == FCambrianaGrammarEditorToolkit::ToolkitName
+			? static_cast<FCambrianaGrammarEditorToolkit*>(Editor)
+			: nullptr;
+	}
+
+	inline void CloseGrammarEditor(UCambrianaGrammar* Grammar)
+	{
+		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
+	}
+
+	inline TSharedPtr<SWidget> FindWidgetOfType(const TSharedRef<SWidget>& Root, FName Type)
+	{
+		if (Root->GetType() == Type)
+		{
+			return Root;
+		}
+		FChildren* Children = Root->GetChildren();
+		for (int32 Index = 0; Children && Index < Children->Num(); ++Index)
+		{
+			if (TSharedPtr<SWidget> Found = FindWidgetOfType(Children->GetChildAt(Index), Type))
+			{
+				return Found;
+			}
+		}
+		return nullptr;
+	}
+
+	inline TSharedPtr<IPropertyHandle> FindPropertyHandle(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
+	{
+		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
+		{
+			const TSharedPtr<IPropertyHandle> Handle = Node->CreatePropertyHandle();
+			if (Handle && Handle->GetProperty() && Handle->GetProperty()->GetFName() == PropertyName)
+			{
+				return Handle;
+			}
+			TArray<TSharedRef<IDetailTreeNode>> Children;
+			Node->GetChildren(Children, true);
+			if (TSharedPtr<IPropertyHandle> Found = FindPropertyHandle(Children, PropertyName))
+			{
+				return Found;
+			}
+		}
+		return nullptr;
+	}
+
+	// Each tube ring has one vertex per side, and an unbranched chain of N segments has N + 1 rings (SDD-surfacing.md, Tubes).
+	constexpr int32 TubeVertices(int32 Segments, int32 Sides)
+	{
+		return (Segments + 1) * Sides;
+	}
+
 	inline ACambrianaLiveActor* PlaceInCurrentLevel(UCambrianaGrammar* Grammar)
 	{
 		UE::AssetPlacementUtil::FExtraPlaceAssetOptions Options;
