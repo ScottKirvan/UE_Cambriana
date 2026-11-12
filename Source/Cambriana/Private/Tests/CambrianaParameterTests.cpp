@@ -54,7 +54,7 @@ bool FCambrianaParametersReadTest::RunTest(const FString& Parameters)
 	const double Values[] = { 10.0, 1.5, 3.0, 6.0 };
 	for (int32 Index = 0; Index < 4; ++Index)
 	{
-		TestEqual(FString::Printf(TEXT("Parameter %d name"), Index), Read[Index].Name, FString(Names[Index]));
+		TestEqualSensitive(FString::Printf(TEXT("Parameter %d name"), Index), Read[Index].Name, FString(Names[Index]));
 		TestTrue(FString::Printf(TEXT("Parameter %d tier"), Index), Read[Index].Tier == Tiers[Index]);
 		TestEqual(FString::Printf(TEXT("Parameter %d value"), Index), Read[Index].Value, Values[Index]);
 		TestEqual(FString::Printf(TEXT("Parameter %d text value"), Index), Read[Index].TextValue, Values[Index]);
