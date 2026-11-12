@@ -186,6 +186,10 @@ bool FCambrianaLiveActorLsysErrorsTest::RunTest(const FString& Parameters)
 	AddExpectedMessagePlain(TEXT("Grammar error at line 3, column 3: syntax error"), ELogVerbosity::Error);
 	FCambrianaTestWorld World;
 	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), LoadFixture(TEXT("sk.lsys")), 1);
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
 	TestTrue(TEXT("Valid grammar builds geometry"), ActorMeshOf(Actor).TriangleCount() > 0);
 
 	Actor->InlineGrammar = TEXT("axiom X\ngrow {\nX > F\n}\n");
@@ -211,6 +215,10 @@ bool FCambrianaLiveActorLsysOwnSeedTest::RunTest(const FString& Parameters)
 	FCambrianaTestWorld World;
 	const FString Text = TEXT("seed 7\n") + LoadFixture(TEXT("sk.lsys"));
 	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), Text, 1);
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
 	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
 	const TArray<float> First = ActorBranchRandoms(Actor);
 	TestTrue(TEXT("Branch randoms present"), First.Num() > 0);
@@ -229,6 +237,10 @@ bool FCambrianaLiveActorLsysGrammarSizeTest::RunTest(const FString& Parameters)
 {
 	FCambrianaTestWorld World;
 	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), TEXT("size 50cm\n") + LoadFixture(TEXT("sk.lsys")), 1);
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
 	TestFalse(TEXT("Size override is off by default"), Actor->bOverrideSize);
 	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
 	TestNearlyEqual(TEXT("The grammar's size applies"), ActorMeshOf(Actor).GetBounds().MaxDim(), 50.0, 1e-6);
@@ -243,12 +255,17 @@ bool FCambrianaLiveActorLsysSizeOverrideTest::RunTest(const FString& Parameters)
 {
 	FCambrianaTestWorld World;
 	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), TEXT("size 50cm\n") + LoadFixture(TEXT("sk.lsys")), 1);
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
+	// Neither the grammar's 50 cm nor the core's default 200 cm.
 	Actor->bOverrideSize = true;
 	Actor->SizeMode = ECambrianaSizeMode::Fit;
-	Actor->SizeValue = 200.0;
+	Actor->SizeValue = 120.0;
 	Actor->Rebuild();
 	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
-	TestNearlyEqual(TEXT("The actor's Fit size applies"), ActorMeshOf(Actor).GetBounds().MaxDim(), 200.0, 1e-6);
+	TestNearlyEqual(TEXT("The actor's Fit size applies"), ActorMeshOf(Actor).GetBounds().MaxDim(), 120.0, 1e-6);
 	return true;
 }
 
@@ -260,6 +277,10 @@ bool FCambrianaLiveActorLsysGrammarStepTest::RunTest(const FString& Parameters)
 {
 	FCambrianaTestWorld World;
 	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), TEXT("step 2cm\n") + LoadFixture(TEXT("sk.lsys")), 1);
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
 	TestFalse(TEXT("No errors"), Actor->GetLastBuildReport().bHasErrors);
 	TestNearlyEqual(TEXT("The grammar's step applies"), Actor->GetLastBuildReport().StepLength, 2.0, 1e-9);
 	return true;
@@ -273,6 +294,10 @@ bool FCambrianaLiveActorLsysNoGrammarSizeTest::RunTest(const FString& Parameters
 {
 	FCambrianaTestWorld World;
 	ACambrianaLiveActor* Actor = SpawnTextActor(World.Get(), LoadFixture(TEXT("sk.lsys")), 1);
+	if (!TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		return false;
+	}
 	Actor->SizeMode = ECambrianaSizeMode::Fit;
 	Actor->SizeValue = 75.0;
 	Actor->Rebuild();
