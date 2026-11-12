@@ -74,6 +74,13 @@ Standalone asset editor, opened from the grammar asset.
   0.5 s, when the text loses focus, before the asset is saved and when the editor closes.
 - `[Proposed — unconfirmed]` Rules text reaches the asset with `\n` line breaks on every
   platform.
+- **Decided:** the Outputs panel is an empty tab until bake exists.
+- `[Proposed — unconfirmed]` The Viewport shows an advanced preview scene holding one dynamic
+  mesh, built through `Cambriana::BuildMesh` from the build input of a live actor referencing
+  the asset with every override off and the asset's seed, in the live actor's preview
+  palette. It rebuilds when the asset changes (Rules or Details edit, undo, redo, reimport)
+  and its build input differs from the last build's. The scene, mesh and materials are
+  transient; nothing of the preview is saved in the asset.
 
 ## Live actor
 

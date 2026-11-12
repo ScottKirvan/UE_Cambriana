@@ -8,6 +8,7 @@ public class CambrianaEditor : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"AdvancedPreviewScene",
 			"AssetDefinition",
 			"AssetTools",
 			"Cambriana",
@@ -15,6 +16,8 @@ public class CambrianaEditor : ModuleRules
 			"Core",
 			"CoreUObject",
 			"EditorFramework",
+			"GeometryCore",
+			"GeometryFramework",
 			"Engine",
 			"PlacementMode",
 			"Projects",

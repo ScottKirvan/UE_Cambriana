@@ -6,6 +6,7 @@
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
 
+class FCambrianaGrammarPreview;
 class FObjectPreSaveContext;
 class UCambrianaGrammar;
 
@@ -15,7 +16,9 @@ public:
 	static const FName ToolkitName;
 	static const FName AppIdentifier;
 	static const FName RulesTabId;
+	static const FName ViewportTabId;
 	static const FName DetailsTabId;
+	static const FName OutputsTabId;
 	/** A Rules edit reaches the grammar once typing pauses this long, and in any case on commit, before a save and on close. */
 	static constexpr float RulesApplyDelaySeconds = 0.5f;
 
@@ -39,6 +42,7 @@ public:
 	void CommitRulesText(const FText& NewText);
 
 	TArray<TWeakObjectPtr<UObject>> GetDetailsObjects() const;
+	const FCambrianaGrammarPreview& GetPreview() const { return *Preview; }
 	bool IsDetailsPropertyVisible(FName PropertyName) const;
 
 	FOnTextCommitted MakeRulesCommittedDelegate();
@@ -47,7 +51,9 @@ public:
 private:
 	UCambrianaGrammar* GetGrammar() const;
 	TSharedRef<SDockTab> SpawnRulesTab(const FSpawnTabArgs& Args);
+	TSharedRef<SDockTab> SpawnViewportTab(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnDetailsTab(const FSpawnTabArgs& Args);
+	TSharedRef<SDockTab> SpawnOutputsTab(const FSpawnTabArgs& Args);
 	void HandleGrammarChanged(const UCambrianaGrammar* ChangedGrammar);
 	void HandleRulesTextChanged(const FText& NewText);
 	void HandleRulesTextCommitted(const FText& NewText, ETextCommit::Type CommitType);
@@ -59,6 +65,7 @@ private:
 
 	TSharedPtr<SMultiLineEditableTextBox> RulesTextBox;
 	TSharedPtr<IDetailsView> DetailsView;
+	TSharedPtr<FCambrianaGrammarPreview> Preview;
 	FDelegateHandle GrammarChangedHandle;
 	FDelegateHandle ObjectPreSaveHandle;
 	FTSTicker::FDelegateHandle RulesApplyTimer;
