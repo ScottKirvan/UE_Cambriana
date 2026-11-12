@@ -12,6 +12,8 @@
 #include "Containers/Ticker.h"
 #include "Framework/Docking/TabManager.h"
 #include "HAL/FileManager.h"
+#include "IMessageLogListing.h"
+#include "Logging/TokenizedMessage.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
@@ -54,10 +56,32 @@ namespace
 		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
 	}
 
-	TSharedPtr<SMultiLineEditableTextBox> RulesTextBoxOf(FCambrianaGrammarEditorToolkit& Toolkit)
+	TSharedPtr<SWidget> FindWidgetOfType(const TSharedRef<SWidget>& Root, FName Type)
+	{
+		if (Root->GetType() == Type)
+		{
+			return Root;
+		}
+		FChildren* Children = Root->GetChildren();
+		for (int32 Index = 0; Children && Index < Children->Num(); ++Index)
+		{
+			if (TSharedPtr<SWidget> Found = FindWidgetOfType(Children->GetChildAt(Index), Type))
+			{
+				return Found;
+			}
+		}
+		return nullptr;
+	}
+
+	TSharedPtr<SWidget> RulesTabWidgetOfType(FCambrianaGrammarEditorToolkit& Toolkit, FName Type)
 	{
 		const TSharedPtr<SDockTab> Tab = Toolkit.GetTabManager()->FindExistingLiveTab(FTabId(FCambrianaGrammarEditorToolkit::RulesTabId));
-		return Tab ? StaticCastSharedRef<SMultiLineEditableTextBox>(Tab->GetContent()) : TSharedPtr<SMultiLineEditableTextBox>();
+		return Tab ? FindWidgetOfType(Tab->GetContent(), Type) : nullptr;
+	}
+
+	TSharedPtr<SMultiLineEditableTextBox> RulesTextBoxOf(FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		return StaticCastSharedPtr<SMultiLineEditableTextBox>(RulesTabWidgetOfType(Toolkit, TEXT("SMultiLineEditableTextBox")));
 	}
 
 	const TCHAR* const TypedGrammarText = TEXT("generations 2\naxiom A\n\ngrow {\n    A -> F A\n}\n");
@@ -521,6 +545,185 @@ bool FCambrianaGrammarPreviewOtherGrammarTest::RunTest(const FString& Parameters
 	TestEqual(TEXT("Another grammar's change does not rebuild the preview"), Preview.GetBuildCount(), BuildsBefore);
 	EditGrammarSides(Grammar, Grammar->Sides);
 	TestEqual(TEXT("A change to the same value does not rebuild the preview"), Preview.GetBuildCount(), BuildsBefore);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+namespace
+{
+	// Positions are hand-counted from docs/grammar-spec.md (Diagnostics: lines and byte columns from 1, the position each
+	// code is reported at) and, for legacy text, from the end of the text; descriptions are DescribeCode's text per code.
+	const TCHAR* const SyntaxErrorText = TEXT("axiom X\ngrow {\nX > F\n}\n");
+	const TCHAR* const SyntaxErrorMessage = TEXT("line 3, column 3: syntax error");
+	const TCHAR* const UnreachableRuleText = TEXT("axiom A\ngrow {\n    A -> F A\n    A -> F\n}\n");
+	const TCHAR* const UnreachableRuleMessage = TEXT("line 4, column 5: unreachable rule");
+
+	int32 CountMessages(const IMessageLogListing& Listing, EMessageSeverity::Type Severity, const FString& Text)
+	{
+		int32 Count = 0;
+		for (const TSharedRef<FTokenizedMessage>& Message : Listing.GetFilteredMessages())
+		{
+			Count += Message->GetSeverity() == Severity && Message->ToText().ToString() == Text;
+		}
+		return Count;
+	}
+
+	bool DiagnosticsAreInTheRulesTab(FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		return RulesTabWidgetOfType(Toolkit, TEXT("SMessageLogListing")).IsValid();
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarDiagnosticsErrorTest,
+	"Cambriana.Editor.GrammarEditor.Diagnostics.RulesEditWithAnErrorShowsTheErrorAtItsLineAndColumnInTheRulesTab",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarDiagnosticsErrorTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	const TSharedPtr<SMultiLineEditableTextBox> Rules = Toolkit ? RulesTextBoxOf(*Toolkit) : nullptr;
+	if (!TestTrue(TEXT("The grammar editor shows Rules"), Rules.IsValid()))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	TestTrue(TEXT("The Rules tab shows the grammar's diagnostics"), DiagnosticsAreInTheRulesTab(*Toolkit));
+	const IMessageLogListing& Diagnostics = Toolkit->GetRulesDiagnostics();
+	TestEqual(TEXT("The default grammar has no diagnostics"), Diagnostics.GetFilteredMessages().Num(), 0);
+
+	AddExpectedMessagePlain(TEXT("Grammar error at line 3, column 3: syntax error"), ELogVerbosity::Error);
+	Rules->SelectAllText();
+	Rules->InsertTextAtCursor(FString(SyntaxErrorText));
+	PauseTyping(1.0f);
+	TestEqual(TEXT("The syntax error shows as an error at line 3, column 3"),
+		CountMessages(Diagnostics, EMessageSeverity::Error, SyntaxErrorMessage), 1);
+	TestEqual(TEXT("It does not show as a warning"), CountMessages(Diagnostics, EMessageSeverity::Warning, SyntaxErrorMessage), 0);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarDiagnosticsWarningTest,
+	"Cambriana.Editor.GrammarEditor.Diagnostics.RulesEditWithAWarningShowsTheWarningAtItsLineAndColumn",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarDiagnosticsWarningTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const IMessageLogListing& Diagnostics = Toolkit->GetRulesDiagnostics();
+
+	AddExpectedMessagePlain(TEXT("Grammar warning at line 4, column 5: unreachable rule"), ELogVerbosity::Warning);
+	Toolkit->CommitRulesText(FText::FromString(UnreachableRuleText));
+	TestEqual(TEXT("One diagnostic shows"), Diagnostics.GetFilteredMessages().Num(), 1);
+	TestEqual(TEXT("The unreachable rule shows as a warning at line 4, column 5"),
+		CountMessages(Diagnostics, EMessageSeverity::Warning, UnreachableRuleMessage), 1);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarDiagnosticsFixedTest,
+	"Cambriana.Editor.GrammarEditor.Diagnostics.ErrorsShownWhenTheEditorOpensGoAwayWhenTheRulesAreFixedAndComeBackOnUndo",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarDiagnosticsFixedTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	Grammar->GrammarText = SyntaxErrorText;
+	AddExpectedMessagePlain(TEXT("Grammar error at line 3, column 3: syntax error"), ELogVerbosity::Error, EAutomationExpectedMessageFlags::Contains, 2);
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const IMessageLogListing& Diagnostics = Toolkit->GetRulesDiagnostics();
+	TestEqual(TEXT("The error shows when the editor opens"), CountMessages(Diagnostics, EMessageSeverity::Error, SyntaxErrorMessage), 1);
+
+	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
+	TestEqual(TEXT("Fixing the rules clears every diagnostic"), Diagnostics.GetFilteredMessages().Num(), 0);
+
+	TestTrue(TEXT("The fix can be undone"), GEditor->UndoTransaction());
+	TestEqual(TEXT("Undo shows the error again"), CountMessages(Diagnostics, EMessageSeverity::Error, SyntaxErrorMessage), 1);
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarDiagnosticsSeveralTest,
+	"Cambriana.Editor.GrammarEditor.Diagnostics.SeveralDiagnosticsAllShowInReportOrder",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarDiagnosticsSeveralTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const IMessageLogListing& Diagnostics = Toolkit->GetRulesDiagnostics();
+
+	AddExpectedMessagePlain(TEXT("Grammar warning at line 4, column 5: unreachable rule"), ELogVerbosity::Warning);
+	AddExpectedMessagePlain(TEXT("Grammar warning at line 5, column 5: unreachable rule"), ELogVerbosity::Warning);
+	Toolkit->CommitRulesText(FText::FromString(TEXT("axiom A\ngrow {\n    A -> F A\n    A -> F\n    A -> F F\n}\n")));
+	TestEqual(TEXT("The rule on line 4 shows"), CountMessages(Diagnostics, EMessageSeverity::Warning, UnreachableRuleMessage), 1);
+	TestEqual(TEXT("The rule on line 5 shows"),
+		CountMessages(Diagnostics, EMessageSeverity::Warning, TEXT("line 5, column 5: unreachable rule")), 1);
+
+	const TArray<FCambrianaDiagnostic>& Reported = Toolkit->GetPreview().GetLastBuildReport().Diagnostics;
+	const TArray<TSharedRef<FTokenizedMessage>>& Shown = Diagnostics.GetFilteredMessages();
+	if (TestEqual(TEXT("Every reported diagnostic shows"), Shown.Num(), Reported.Num()))
+	{
+		for (int32 Index = 0; Index < Shown.Num(); ++Index)
+		{
+			TestTrue(FString::Printf(TEXT("Diagnostic %d shows in report order"), Index),
+				Shown[Index]->ToText().ToString().StartsWith(FString::Printf(TEXT("line %llu, column %llu:"), Reported[Index].Line, Reported[Index].Column)));
+		}
+	}
+	CloseGrammarEditor(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarDiagnosticsLegacyTest,
+	"Cambriana.Editor.GrammarEditor.Diagnostics.LegacyTextShowsItsErrorAndWarningsAtTheirLineAndColumnOrProductionPosition",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarDiagnosticsLegacyTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const IMessageLogListing& Diagnostics = Toolkit->GetRulesDiagnostics();
+
+	// Three setting lines and no axiom: the text ends at line 4, column 1.
+	AddExpectedMessagePlain(TEXT("Grammar error at line 4, column 1: missing axiom"), ELogVerbosity::Error);
+	Toolkit->CommitRulesText(FText::FromString(TEXT("20\n25\n50\n")));
+	TestEqual(TEXT("One diagnostic shows"), Diagnostics.GetFilteredMessages().Num(), 1);
+	TestEqual(TEXT("The missing axiom shows as an error at the end of the text"),
+		CountMessages(Diagnostics, EMessageSeverity::Error, TEXT("line 4, column 1: missing axiom")), 1);
+
+	// The basic angle line is not a number (FMT-legacy-ls.md, File structure 2).
+	AddExpectedMessagePlain(TEXT("Grammar warning at line 2, column 1: invalid number"), ELogVerbosity::Warning);
+	Toolkit->CommitRulesText(FText::FromString(TEXT("4\nabc\n50\nA\nA=F^'A\n@\n")));
+	TestEqual(TEXT("The invalid number shows as a warning at line 2, column 1"),
+		CountMessages(Diagnostics, EMessageSeverity::Warning, TEXT("line 2, column 1: invalid number")), 1);
+
+	// F at production position 0, the unmatched ] at 1 (grammar-spec.md, Diagnostics: codes 6, 7 and 8).
+	AddExpectedMessagePlain(TEXT("Grammar warning at production position 1: unmatched ']'"), ELogVerbosity::Warning);
+	Toolkit->CommitRulesText(FText::FromString(TEXT("1\n25\n50\nF]\n@\n")));
+	TestEqual(TEXT("One diagnostic shows"), Diagnostics.GetFilteredMessages().Num(), 1);
+	TestEqual(TEXT("The unmatched pop shows as a warning at its production position, having no line"),
+		CountMessages(Diagnostics, EMessageSeverity::Warning, TEXT("production position 1: unmatched ']'")), 1);
 	CloseGrammarEditor(Grammar);
 	return true;
 }
