@@ -13,10 +13,14 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, const TSharedRef<FCambrianaGrammarPreview>& InPreview);
+	virtual ~SCambrianaGrammarViewport() override;
 
 protected:
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
 
 private:
+	void HandlePreviewRebuilt();
+
 	TSharedPtr<FCambrianaGrammarPreview> Preview;
+	FDelegateHandle PreviewRebuiltHandle;
 };

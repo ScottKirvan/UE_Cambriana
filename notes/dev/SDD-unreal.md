@@ -81,6 +81,8 @@ Standalone asset editor, opened from the grammar asset.
   palette. It rebuilds when the asset changes (Rules or Details edit, undo, redo, reimport)
   and its build input differs from the last build's. The scene, mesh and materials are
   transient; nothing of the preview is saved in the asset.
+- `[Proposed — unconfirmed]` Each preview rebuild asks the Viewport to redraw, so the new
+  mesh shows without user input.
 
 ## Live actor
 

@@ -15,6 +15,8 @@ class UWorld;
 class FCambrianaGrammarPreview : public FGCObject
 {
 public:
+	DECLARE_MULTICAST_DELEGATE(FOnRebuilt);
+
 	FCambrianaGrammarPreview();
 	virtual ~FCambrianaGrammarPreview() override;
 
@@ -30,6 +32,7 @@ public:
 	int32 GetBuildCount() const { return BuildCount; }
 	const FCambrianaBuildInput& GetLastBuildInput() const { return LastBuildInput; }
 	const FCambrianaBuildReport& GetLastBuildReport() const { return LastBuildReport; }
+	FOnRebuilt& OnRebuilt() { return RebuiltDelegate; }
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	virtual FString GetReferencerName() const override;
@@ -42,4 +45,5 @@ private:
 	int32 BuildCount = 0;
 	FCambrianaBuildInput LastBuildInput;
 	FCambrianaBuildReport LastBuildReport;
+	FOnRebuilt RebuiltDelegate;
 };
