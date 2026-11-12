@@ -385,11 +385,16 @@ namespace
 FString FCambrianaDiagnostic::Describe() const
 {
 	const TCHAR* SeverityText = Severity == ECambrianaDiagnosticSeverity::Error ? TEXT("error") : TEXT("warning");
+	return FString::Printf(TEXT("%s at %s"), SeverityText, *DescribePositionAndProblem());
+}
+
+FString FCambrianaDiagnostic::DescribePositionAndProblem() const
+{
 	if (ProductionPosition)
 	{
-		return FString::Printf(TEXT("%s at production position %llu: %s"), SeverityText, *ProductionPosition, DescribeCode(Code));
+		return FString::Printf(TEXT("production position %llu: %s"), *ProductionPosition, DescribeCode(Code));
 	}
-	return FString::Printf(TEXT("%s at line %llu, column %llu: %s"), SeverityText, Line, Column, DescribeCode(Code));
+	return FString::Printf(TEXT("line %llu, column %llu: %s"), Line, Column, DescribeCode(Code));
 }
 
 namespace Cambriana

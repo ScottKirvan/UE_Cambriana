@@ -3,6 +3,8 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarPreview.h"
 #include "IDetailsView.h"
+#include "IMessageLogListing.h"
+#include "MessageLogModule.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "SCambrianaGrammarViewport.h"
@@ -11,6 +13,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Layout/SSplitter.h"
 
 #define LOCTEXT_NAMESPACE "CambrianaGrammarEditor"
 
@@ -44,8 +47,15 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	DetailsView->SetIsPropertyVisibleDelegate(MakeDetailsPropertyVisibleDelegate());
 	DetailsView->SetObject(Grammar);
 
+	FMessageLogInitializationOptions DiagnosticsOptions;
+	DiagnosticsOptions.bShowFilters = false;
+	DiagnosticsOptions.bShowPages = false;
+	DiagnosticsOptions.bAllowClear = false;
+	DiagnosticsOptions.MaxPageCount = 1;
+	RulesDiagnostics = FModuleManager::LoadModuleChecked<FMessageLogModule>(TEXT("MessageLog")).CreateLogListing(TEXT("CambrianaGrammarDiagnostics"), DiagnosticsOptions);
+
 	Preview = MakeShared<FCambrianaGrammarPreview>();
-	Preview->Update(*Grammar);
+	UpdatePreview(*Grammar);
 
 	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
 	ObjectPreSaveHandle = FCoreUObjectDelegates::OnObjectPreSave.AddSP(this, &FCambrianaGrammarEditorToolkit::HandleObjectPreSave);
@@ -183,7 +193,12 @@ UCambrianaGrammar* FCambrianaGrammarEditorToolkit::GetGrammar() const
 
 TSharedRef<SDockTab> FCambrianaGrammarEditorToolkit::SpawnRulesTab(const FSpawnTabArgs& Args)
 {
-	return SNew(SDockTab).Label(LOCTEXT("RulesTitle", "Rules"))[RulesTextBox.ToSharedRef()];
+	return SNew(SDockTab).Label(LOCTEXT("RulesTitle", "Rules"))
+	[
+		SNew(SSplitter).Orientation(Orient_Vertical)
+		+ SSplitter::Slot().Value(0.8f)[RulesTextBox.ToSharedRef()]
+		+ SSplitter::Slot().Value(0.2f)[FModuleManager::LoadModuleChecked<FMessageLogModule>(TEXT("MessageLog")).CreateLogListingWidget(RulesDiagnostics.ToSharedRef())]
+	];
 }
 
 TSharedRef<SDockTab> FCambrianaGrammarEditorToolkit::SpawnViewportTab(const FSpawnTabArgs& Args)
@@ -207,7 +222,7 @@ void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGramma
 	{
 		return;
 	}
-	Preview->Update(*ChangedGrammar);
+	UpdatePreview(*ChangedGrammar);
 	// A change that left the grammar text alone keeps a Rules edit still waiting to be applied.
 	if (bRulesEditPending && ChangedGrammar->GrammarText.Equals(RulesTextBeforeEdit, ESearchCase::CaseSensitive))
 	{
@@ -277,6 +292,20 @@ void FCambrianaGrammarEditorToolkit::CancelPendingRulesEdit()
 	RulesApplyTimer.Reset();
 	bRulesEditPending = false;
 	RulesTextBeforeEdit.Reset();
+}
+
+void FCambrianaGrammarEditorToolkit::UpdatePreview(const UCambrianaGrammar& Grammar)
+{
+	Preview->Update(Grammar);
+	TArray<TSharedRef<FTokenizedMessage>> Messages;
+	for (const FCambrianaDiagnostic& Diagnostic : Preview->GetLastBuildReport().Diagnostics)
+	{
+		const EMessageSeverity::Type Severity = Diagnostic.Severity == ECambrianaDiagnosticSeverity::Error ? EMessageSeverity::Error : EMessageSeverity::Warning;
+		Messages.Add(FTokenizedMessage::Create(Severity, FText::FromString(Diagnostic.DescribePositionAndProblem())));
+	}
+	RulesDiagnostics->ClearMessages();
+	// The build has already logged its diagnostics.
+	RulesDiagnostics->AddMessages(Messages, false);
 }
 
 #undef LOCTEXT_NAMESPACE

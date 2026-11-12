@@ -8,6 +8,7 @@
 
 class FCambrianaGrammarPreview;
 class FObjectPreSaveContext;
+class IMessageLogListing;
 class UCambrianaGrammar;
 
 class FCambrianaGrammarEditorToolkit : public FAssetEditorToolkit
@@ -43,6 +44,8 @@ public:
 
 	TArray<TWeakObjectPtr<UObject>> GetDetailsObjects() const;
 	const FCambrianaGrammarPreview& GetPreview() const { return *Preview; }
+	/** The preview build's diagnostics, shown under the Rules text. */
+	const IMessageLogListing& GetRulesDiagnostics() const { return *RulesDiagnostics; }
 	bool IsDetailsPropertyVisible(FName PropertyName) const;
 
 	FOnTextCommitted MakeRulesCommittedDelegate();
@@ -62,8 +65,10 @@ private:
 	bool HandleIsDetailsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const;
 	void ApplyPendingRulesEdit();
 	void CancelPendingRulesEdit();
+	void UpdatePreview(const UCambrianaGrammar& Grammar);
 
 	TSharedPtr<SMultiLineEditableTextBox> RulesTextBox;
+	TSharedPtr<IMessageLogListing> RulesDiagnostics;
 	TSharedPtr<IDetailsView> DetailsView;
 	TSharedPtr<FCambrianaGrammarPreview> Preview;
 	FDelegateHandle GrammarChangedHandle;
