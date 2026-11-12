@@ -308,13 +308,25 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorDelegatesTest,
 
 bool FCambrianaGrammarEditorDelegatesTest::RunTest(const FString& Parameters)
 {
-	TSharedPtr<FCambrianaGrammarEditorToolkit> Toolkit = MakeShared<FCambrianaGrammarEditorToolkit>();
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		CloseGrammarEditor(Grammar);
+		return false;
+	}
+	const TWeakPtr<IToolkit> Editor = Toolkit->AsShared();
 	const FOnTextCommitted RulesCommitted = Toolkit->MakeRulesCommittedDelegate();
 	const FIsPropertyVisible DetailsPropertyVisible = Toolkit->MakeDetailsPropertyVisibleDelegate();
 	TestTrue(TEXT("The Rules commit callback is bound while the editor exists"), RulesCommitted.IsBound());
 	TestTrue(TEXT("The Details visibility callback is bound while the editor exists"), DetailsPropertyVisible.IsBound());
 
-	Toolkit.Reset();
+	Toolkit = nullptr;
+	CloseGrammarEditor(Grammar);
+	if (!TestFalse(TEXT("Closing the grammar editor destroys it"), Editor.IsValid()))
+	{
+		return false;
+	}
 	TestFalse(TEXT("The Rules commit callback is unbound once the editor is gone"), RulesCommitted.IsBound());
 	TestFalse(TEXT("The Details visibility callback is unbound once the editor is gone"), DetailsPropertyVisible.IsBound());
 	return true;
