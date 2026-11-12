@@ -141,6 +141,14 @@ namespace CambrianaLiveActorEditableTests
 			if (const TSharedPtr<IDetailTreeNode> Node = FindNode(Rows.GetRootTreeNodes(), PropertyName))
 			{
 				Widgets = Node->CreateNodeWidgets();
+				// Slate caches bound enabled and visibility attributes and updates them in the prepass, which a headless test does not run.
+				for (const TSharedPtr<SWidget>& Widget : { Widgets.NameWidget, Widgets.ValueWidget, Widgets.EditConditionWidget })
+				{
+					if (Widget)
+					{
+						Widget->SlatePrepass(1.0f);
+					}
+				}
 				const FProperty* Property = ACambrianaLiveActor::StaticClass()->FindPropertyByName(PropertyName);
 				bHasEditCondition = Property && Property->HasMetaData(TEXT("EditCondition"));
 				bFound = true;
