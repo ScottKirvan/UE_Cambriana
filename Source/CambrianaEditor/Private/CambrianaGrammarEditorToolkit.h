@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
+#include "GenericPlatform/GenericPlatformMisc.h"
 #include "IDetailsView.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
@@ -38,6 +39,13 @@ public:
 	virtual bool OnRequestClose(EAssetEditorCloseReason InCloseReason) override;
 	virtual void SaveAsset_Execute() override;
 	virtual void SaveAssetAs_Execute() override;
+
+	/** Asked when the editor closes with unsaved edits: Yes saves them, No discards them, Cancel keeps the editor open. */
+	using FUnsavedEditsPrompt = TFunction<EAppReturnType::Type(const FText& Message)>;
+
+	UCambrianaGrammar* GetWorkingCopy() const;
+	bool HasUnsavedEdits() const;
+	void SetUnsavedEditsPrompt(FUnsavedEditsPrompt Prompt);
 
 	FText GetRulesText() const;
 	void CommitRulesText(const FText& NewText);
@@ -76,4 +84,5 @@ private:
 	FTSTicker::FDelegateHandle RulesApplyTimer;
 	bool bRulesEditPending = false;
 	FString RulesTextBeforeEdit;
+	FUnsavedEditsPrompt UnsavedEditsPrompt;
 };

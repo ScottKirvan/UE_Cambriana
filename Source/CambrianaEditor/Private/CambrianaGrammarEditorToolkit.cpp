@@ -144,6 +144,21 @@ void FCambrianaGrammarEditorToolkit::SaveAssetAs_Execute()
 	FAssetEditorToolkit::SaveAssetAs_Execute();
 }
 
+UCambrianaGrammar* FCambrianaGrammarEditorToolkit::GetWorkingCopy() const
+{
+	return GetGrammar();
+}
+
+bool FCambrianaGrammarEditorToolkit::HasUnsavedEdits() const
+{
+	return false;
+}
+
+void FCambrianaGrammarEditorToolkit::SetUnsavedEditsPrompt(FUnsavedEditsPrompt Prompt)
+{
+	UnsavedEditsPrompt = MoveTemp(Prompt);
+}
+
 FText FCambrianaGrammarEditorToolkit::GetRulesText() const
 {
 	return RulesTextBox->GetText();

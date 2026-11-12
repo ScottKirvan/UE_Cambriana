@@ -6,14 +6,22 @@
 #include "CambrianaGrammarFactory.h"
 #include "CambrianaGrammarFormat.h"
 #include "CambrianaLiveActor.h"
+#include "Containers/Ticker.h"
 #include "CoreMinimal.h"
 #include "Editor.h"
 #include "Elements/Actor/ActorElementData.h"
+#include "Framework/Docking/TabManager.h"
 #include "IDetailTreeNode.h"
 #include "Interfaces/IPluginManager.h"
+#include "Misc/PackageName.h"
 #include "Misc/Paths.h"
+#include "PackageTools.h"
 #include "PropertyHandle.h"
+#include "ScopedTransaction.h"
 #include "Subsystems/AssetEditorSubsystem.h"
+#include "UObject/Package.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Widgets/SWidget.h"
 
 #include <cambriana/cambriana.h>
@@ -27,22 +35,73 @@ namespace Cambriana::Editor::Tests
 			MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional, nullptr, nullptr));
 	}
 
-	inline FCambrianaGrammarEditorToolkit* OpenGrammarEditor(UCambrianaGrammar* Grammar)
+	inline FCambrianaGrammarEditorToolkit* FindGrammarEditor(UCambrianaGrammar* Grammar)
 	{
-		UAssetEditorSubsystem* AssetEditors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
-		if (!AssetEditors->OpenEditorForAsset(Grammar))
-		{
-			return nullptr;
-		}
-		IAssetEditorInstance* Editor = AssetEditors->FindEditorForAsset(Grammar, false);
+		IAssetEditorInstance* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->FindEditorForAsset(Grammar, false);
 		return Editor && Editor->GetEditorName() == FCambrianaGrammarEditorToolkit::ToolkitName
 			? static_cast<FCambrianaGrammarEditorToolkit*>(Editor)
 			: nullptr;
 	}
 
+	inline FCambrianaGrammarEditorToolkit* OpenGrammarEditor(UCambrianaGrammar* Grammar)
+	{
+		return GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(Grammar) ? FindGrammarEditor(Grammar) : nullptr;
+	}
+
+	/** Closes the grammar's editor, discarding unsaved edits: unattended, the close prompt answers Cancel and the editor stays open. */
 	inline void CloseGrammarEditor(UCambrianaGrammar* Grammar)
 	{
+		if (FCambrianaGrammarEditorToolkit* Toolkit = FindGrammarEditor(Grammar))
+		{
+			Toolkit->SetUnsavedEditsPrompt([](const FText&) { return EAppReturnType::No; });
+		}
 		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->CloseAllEditorsForAsset(Grammar);
+	}
+
+	inline UCambrianaGrammar* CreateGrammarInPackage(const TCHAR* PackageName)
+	{
+		UPackage* Package = CreatePackage(PackageName);
+		UCambrianaGrammarFactory* Factory = NewObject<UCambrianaGrammarFactory>();
+		return Cast<UCambrianaGrammar>(Factory->FactoryCreateNew(UCambrianaGrammar::StaticClass(), Package,
+			*FPackageName::GetShortName(PackageName), RF_Public | RF_Standalone | RF_Transactional, nullptr, nullptr));
+	}
+
+	inline bool UnloadPackage(UPackage* Package)
+	{
+		FText Error;
+		return UPackageTools::UnloadPackages({ Package }, Error, true);
+	}
+
+	inline FString PackageFilename(const TCHAR* PackageName)
+	{
+		return FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension()));
+	}
+
+	/** Changes the grammar's sides as a Details edit does: one undoable property change. */
+	inline void EditGrammarSides(UCambrianaGrammar* Grammar, int32 Sides)
+	{
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Edit Sides")));
+		FProperty* Property = UCambrianaGrammar::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Sides));
+		Grammar->PreEditChange(Property);
+		Grammar->Sides = Sides;
+		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
+		Grammar->PostEditChangeProperty(Event);
+	}
+
+	inline const TCHAR* const TypedGrammarText = TEXT("generations 2\naxiom A\n\ngrow {\n    A -> F A\n}\n");
+
+	/** Types TypedGrammarText over the whole Rules text, in several insertions as typing does. */
+	inline void TypeOverRules(SMultiLineEditableTextBox& Rules)
+	{
+		Rules.SelectAllText();
+		Rules.InsertTextAtCursor(FString(TEXT("generations 2\naxiom A\n\ngrow {\n")));
+		Rules.InsertTextAtCursor(FString(TEXT("    A -> F A\n")));
+		Rules.InsertTextAtCursor(FString(TEXT("}\n")));
+	}
+
+	inline void PauseTyping(float Seconds)
+	{
+		FTSTicker::GetCoreTicker().Tick(Seconds);
 	}
 
 	inline TSharedPtr<SWidget> FindWidgetOfType(const TSharedRef<SWidget>& Root, FName Type)
@@ -60,6 +119,17 @@ namespace Cambriana::Editor::Tests
 			}
 		}
 		return nullptr;
+	}
+
+	inline TSharedPtr<SWidget> RulesTabWidgetOfType(FCambrianaGrammarEditorToolkit& Toolkit, FName Type)
+	{
+		const TSharedPtr<SDockTab> Tab = Toolkit.GetTabManager()->FindExistingLiveTab(FTabId(FCambrianaGrammarEditorToolkit::RulesTabId));
+		return Tab ? FindWidgetOfType(Tab->GetContent(), Type) : nullptr;
+	}
+
+	inline TSharedPtr<SMultiLineEditableTextBox> RulesTextBoxOf(FCambrianaGrammarEditorToolkit& Toolkit)
+	{
+		return StaticCastSharedPtr<SMultiLineEditableTextBox>(RulesTabWidgetOfType(Toolkit, TEXT("SMultiLineEditableTextBox")));
 	}
 
 	inline TSharedPtr<IPropertyHandle> FindPropertyHandle(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
