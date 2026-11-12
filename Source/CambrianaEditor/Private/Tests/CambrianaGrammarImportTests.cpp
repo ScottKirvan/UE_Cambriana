@@ -5,8 +5,12 @@
 #include "AssetToolsModule.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarEditorToolkit.h"
 #include "CambrianaGrammarFormat.h"
+#include "CambrianaGrammarPreview.h"
 #include "CambrianaLiveActor.h"
+#include "Components/DynamicMeshComponent.h"
+#include "Editor.h"
 #include "EditorFramework/AssetImportData.h"
 #include "EditorReimportHandler.h"
 #include "FileHelpers.h"
@@ -17,6 +21,7 @@
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "ObjectTools.h"
+#include "Subsystems/AssetEditorSubsystem.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -471,6 +476,44 @@ bool FCambrianaSaveLeavesSourceFileTest::RunTest(const FString& Parameters)
 		TestTrue(FString::Printf(TEXT("Saving the asset leaves the bytes of %s unchanged"), Fixture), SourceBytes == FixtureBytes);
 		IFileManager::Get().Delete(*Path);
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaReimportRebuildsGrammarEditorPreviewTest,
+	"Cambriana.Editor.Reimport.OpenGrammarEditorPreviewRebuildsOnce",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaReimportRebuildsGrammarEditorPreviewTest::RunTest(const FString& Parameters)
+{
+	const FString Path = WriteTemporaryFile(TEXT("reimport-preview.lsys"), FirstLsysText);
+	const FImportedGrammar Imported(Path);
+	UCambrianaGrammar* Grammar = Imported.Grammar();
+	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
+	{
+		return false;
+	}
+	UAssetEditorSubsystem* AssetEditors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+	AssetEditors->OpenEditorForAsset(Grammar);
+	IAssetEditorInstance* Editor = AssetEditors->FindEditorForAsset(Grammar, false);
+	if (!TestTrue(TEXT("The grammar opens in the grammar editor"), Editor && Editor->GetEditorName() == FCambrianaGrammarEditorToolkit::ToolkitName))
+	{
+		AssetEditors->CloseAllEditorsForAsset(Grammar);
+		return false;
+	}
+	const FCambrianaGrammarPreview& Preview = static_cast<FCambrianaGrammarEditorToolkit*>(Editor)->GetPreview();
+	const UDynamicMeshComponent* Mesh = Preview.GetMeshComponent();
+	if (TestNotNull(TEXT("The preview has a mesh"), Mesh))
+	{
+		TestEqual(TEXT("The first text's 3 segments in one chain at 8 sides: 4 rings of 8"), Mesh->GetMesh()->VertexCount(), 4 * 8);
+	}
+	const int32 BuildsBefore = Preview.GetBuildCount();
+
+	WriteTemporaryFile(TEXT("reimport-preview.lsys"), SecondLsysText);
+	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
+	TestEqual(TEXT("The reimport rebuilt the preview once"), Preview.GetBuildCount(), BuildsBefore + 1);
+	TestEqual(TEXT("The preview built the reimported text"), Preview.GetLastBuildInput().GrammarText, FString(SecondLsysText));
+	AssetEditors->CloseAllEditorsForAsset(Grammar);
+	IFileManager::Get().Delete(*Path);
 	return true;
 }
 

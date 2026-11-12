@@ -583,4 +583,53 @@ bool FCambrianaGrammarAssetSettingChangeRebuildsTest::RunTest(const FString& Par
 }
 #endif
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarAssetOwnBuildInputTest,
+	"Cambriana.GrammarAsset.Settings.AssetsOwnBuildInputIsAnActorsWithEveryOverrideOffAndTheAssetsSeed",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarAssetOwnBuildInputTest::RunTest(const FString& Parameters)
+{
+	const FString Text = TEXT("generations 2\naxiom A\n\ngrow {\n    A -> F A\n}\n");
+	UCambrianaGrammar* Grammar = MakeGrammar(Text);
+	Grammar->Seed = 4242;
+	Grammar->SizeMode = ECambrianaSizeMode::Step;
+	Grammar->SizeValue = 12.5;
+	Grammar->bClosedForm = false;
+	Grammar->Sides = 3;
+	Grammar->MinThickness = 1.5;
+
+	const FCambrianaBuildInput Input = ACambrianaLiveActor::MakeBuildInputFor(*Grammar);
+	TestEqual(TEXT("The asset's text"), Input.GrammarText, Text);
+	TestEqual(TEXT("The asset's seed"), Input.Seed, uint32(4242));
+	const FCambrianaBuildSettings& Settings = Input.Settings;
+	TestFalse(TEXT("The grammar's recursion"), Settings.Recursion.IsSet());
+	TestFalse(TEXT("The grammar's basic angle"), Settings.BasicAngle.IsSet());
+	TestFalse(TEXT("The grammar's thickness"), Settings.Thickness.IsSet());
+	TestTrue(TEXT("The asset's size mode"), Settings.SizeMode == ECambrianaSizeMode::Step);
+	TestEqual(TEXT("The asset's size value"), Settings.SizeValue, 12.5);
+	TestFalse(TEXT("The asset's closed form"), Settings.bClosedForm);
+	TestEqual(TEXT("The asset's sides"), Settings.Sides, 3);
+	TestEqual(TEXT("The asset's min thickness"), Settings.MinThickness, 1.5);
+	TestFalse(TEXT("The grammar text's size wins"), Settings.bOverrideGrammarSize);
+	TestTrue(TEXT("The asset's size applies to text without size or step"), Settings.bSizeForGrammarWithoutSize);
+	TestFalse(TEXT("The grammar text's sides win"), Settings.bOverrideGrammarSides);
+	TestFalse(TEXT("The grammar text's surface wins"), Settings.bOverrideGrammarSurface);
+	TestFalse(TEXT("The grammar text's min thickness wins"), Settings.bOverrideGrammarMinThickness);
+
+	FCambrianaTestWorld World;
+	ACambrianaLiveActor* Actor = SpawnActor(World.Get());
+	if (TestNotNull(TEXT("Actor spawned"), Actor))
+	{
+		Actor->bOverrideRecursion = true;
+		Actor->bOverrideBasicAngle = true;
+		Actor->bOverrideThickness = true;
+		Actor->bOverrideSides = true;
+		Actor->Sides = 5;
+		Actor->bOverrideSize = true;
+		Actor->SetGrammar(Grammar);
+		TestTrue(TEXT("A placed actor's overrides leave the asset's own build input alone"), ACambrianaLiveActor::MakeBuildInputFor(*Grammar) == Input);
+	}
+	return true;
+}
+
 #endif
