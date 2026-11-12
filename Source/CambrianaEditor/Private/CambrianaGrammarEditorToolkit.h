@@ -49,6 +49,9 @@ public:
 	/** Whether the working copy differs from the asset or a Rules edit is still waiting to reach it. */
 	bool HasUnsavedEdits() const;
 	void SetUnsavedEditsPrompt(FUnsavedEditsPrompt Prompt);
+	/** Asked by Save As for the new asset's long package name; an empty name cancels. */
+	using FSaveAsPrompt = TFunction<FString(const UCambrianaGrammar& Grammar)>;
+	void SetSaveAsPrompt(FSaveAsPrompt Prompt);
 
 	FText GetRulesText() const;
 	void CommitRulesText(const FText& NewText);
@@ -90,4 +93,5 @@ private:
 	bool bRulesEditPending = false;
 	FString RulesTextBeforeEdit;
 	FUnsavedEditsPrompt UnsavedEditsPrompt;
+	FSaveAsPrompt SaveAsPrompt;
 };
