@@ -8,7 +8,7 @@
 
 class UAssetImportData;
 
-/** Interim grammar asset: grammar text (.lsys, or legacy .ls), a seed, size and surfacer settings and, when imported, its source file. */
+/** Interim grammar asset: grammar text (.lsys, or legacy .ls), a seed, parameter values, size and surfacer settings and, when imported, its source file. */
 UCLASS(BlueprintType)
 class CAMBRIANA_API UCambrianaGrammar : public UObject
 {
@@ -20,6 +20,10 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Grammar")
 	uint32 Seed = 0;
+
+	/** Values set for the text's parameters; a parameter without one uses the text's value. Kept when the text stops declaring the name. */
+	UPROPERTY()
+	TArray<FCambrianaParameterValue> ParameterValues;
 
 	/** Used by live actors without a size override; for .lsys text, only when the text states neither size nor step. */
 	UPROPERTY(EditAnywhere, Category = "Size")

@@ -59,11 +59,52 @@ struct FCambrianaBuildSettings
 	bool operator==(const FCambrianaBuildSettings&) const = default;
 };
 
+UENUM()
+enum class ECambrianaParameterTier : uint8
+{
+	None,
+	Pose,
+	Shape,
+	Structure,
+};
+
+/** A value stored for a grammar parameter, by its case-sensitive name. */
+USTRUCT()
+struct FCambrianaParameterValue
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString Name;
+
+	UPROPERTY()
+	double Value = 0.0;
+
+	bool operator==(const FCambrianaParameterValue& Other) const
+	{
+		return Name.Equals(Other.Name, ESearchCase::CaseSensitive) && Value == Other.Value;
+	}
+};
+
+/** A parameter declared by Cambriana grammar text. */
+struct FCambrianaParameter
+{
+	FString Name;
+	ECambrianaParameterTier Tier = ECambrianaParameterTier::None;
+	/** The value the text gives it. */
+	double TextValue = 0.0;
+	/** The value a build uses: the stored value, else the text's value computed with the stored values of earlier parameters. */
+	double Value = 0.0;
+	bool bStored = false;
+};
+
 struct FCambrianaBuildInput
 {
 	FCambrianaCaseSensitiveString GrammarText;
 	FCambrianaBuildSettings Settings;
 	uint32 Seed = 0;
+	/** Applied to the parameters Cambriana grammar text declares; values for other names, and for legacy text, are ignored. */
+	TArray<FCambrianaParameterValue> ParameterValues;
 
 	bool operator==(const FCambrianaBuildInput&) const = default;
 };
@@ -159,6 +200,9 @@ namespace Cambriana
 {
 	/** Generates a mesh in Unreal space (left-handed, +Z up, cm) from grammar text, settings and seed. */
 	CAMBRIANA_API FCambrianaBuildResult BuildMesh(const FCambrianaBuildInput& Input);
+
+	/** The parameters Cambriana grammar text declares, in file order, with StoredValues applied; none for legacy text. */
+	CAMBRIANA_API TArray<FCambrianaParameter> ReadParameters(const FString& GrammarText, TConstArrayView<FCambrianaParameterValue> StoredValues = {});
 
 	constexpr int32 PreviewPaletteSize = 10;
 

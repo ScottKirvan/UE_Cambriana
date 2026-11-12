@@ -34,7 +34,7 @@ FCambrianaSeedCustomization::FCambrianaSeedCustomization(FName InSeedPropertyNam
 {
 }
 
-void FCambrianaSeedCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
+void Cambriana::Editor::CustomizeSeedRow(IDetailLayoutBuilder& DetailBuilder, FName SeedPropertyName, UClass* OwnerClass)
 {
 	const TSharedRef<IPropertyHandle> SeedHandle = DetailBuilder.GetProperty(SeedPropertyName, OwnerClass);
 	IDetailPropertyRow* Row = DetailBuilder.EditDefaultProperty(SeedHandle);
@@ -73,6 +73,11 @@ void FCambrianaSeedCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailB
 				})
 			]
 		];
+}
+
+void FCambrianaSeedCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
+{
+	Cambriana::Editor::CustomizeSeedRow(DetailBuilder, SeedPropertyName, OwnerClass);
 }
 
 #undef LOCTEXT_NAMESPACE
