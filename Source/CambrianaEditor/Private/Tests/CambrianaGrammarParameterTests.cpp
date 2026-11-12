@@ -12,7 +12,7 @@
 #include "PropertyEditorModule.h"
 #include "PropertyHandle.h"
 #include "Widgets/Input/SButton.h"
-#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SEditableText.h"
 
 #include <limits>
 
@@ -105,8 +105,13 @@ namespace
 	{
 		const TSharedPtr<IDetailTreeNode> Row = FindParameterRow(Rows, Name);
 		const TSharedPtr<SWidget> Value = Row ? Row->CreateNodeWidgets().ValueWidget : nullptr;
-		const TSharedPtr<SWidget> Field = Value ? FindWidgetOfType(Value.ToSharedRef(), TEXT("SEditableTextBox")) : nullptr;
-		const FString Text = Field ? StaticCastSharedPtr<SEditableTextBox>(Field)->GetText().ToString() : FString();
+		if (Value)
+		{
+			// Bound Slate attributes refresh in the prepass of each frame, which a widget outside a window never gets.
+			Value->SlatePrepass(1.0f);
+		}
+		const TSharedPtr<SWidget> Field = Value ? FindWidgetOfType(Value.ToSharedRef(), TEXT("SEditableText")) : nullptr;
+		const FString Text = Field ? StaticCastSharedPtr<SEditableText>(Field)->GetText().ToString() : FString();
 		return Text.IsNumeric() ? FCString::Atod(*Text) : std::numeric_limits<double>::quiet_NaN();
 	}
 
