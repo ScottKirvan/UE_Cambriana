@@ -201,6 +201,19 @@ Standalone asset editor, opened from the grammar asset.
   override (recursion, basic angle, thickness, size, min thickness, closed form, sides) from
   the first of: the grammar text, when it states the setting; the grammar asset; the default.
   Afterwards the actor's values are independent of the asset's.
+- **Decided:** the Details reset-to-default arrow of each setting that has an override
+  (recursion, basic angle, thickness, size mode and value, min thickness, closed form, sides)
+  resets the actor's value to the value the setting would start from at placement, evaluated
+  at the time of the reset: the grammar text, when it states the setting; else the grammar
+  asset; else the default. Without a grammar asset (inline text) the same rule applies with no
+  asset step, so size without a `size` or `step` statement resets to the core's default size.
+  The arrow shows only when the actor's value differs from that value. A reset is undoable
+  like any property edit and leaves the override checkbox as it is.
+- `[Proposed — unconfirmed]` The size mode and size value reset separately, each from its own
+  row. With several actors selected, the arrow shows when any of them differs from its own
+  value, and a reset sets each to its own value in one transaction. The default is the live
+  actor's class default, which equals the core's defaults (recursion 4, basic angle 25,
+  thickness 50, Fit 200 cm, sides 8, closed form, min thickness 0).
 - **Decided:** a grammar asset's size and surfacer settings start from its grammar text, for
   each setting the text states; otherwise from the default. `[Proposed — unconfirmed]` This
   applies when the asset is created, by the new-asset factory or by import; a reimport or a
