@@ -517,4 +517,95 @@ bool FCambrianaReimportRebuildsGrammarEditorPreviewTest::RunTest(const FString& 
 	return true;
 }
 
+namespace CambrianaImportSettingsTests
+{
+	const TCHAR* StatingLsysText = TEXT("generations 3\nsize 50cm\nsides 3\nsurface blocks\nminthickness 5cm\naxiom A\n\ngrow {\n    A -> F A\n}\n");
+	const TCHAR* RestatingLsysText = TEXT("generations 3\nstep 2cm\nsides 4\nsurface tubes\nminthickness 1cm\naxiom A\n\ngrow {\n    A -> F A\n}\n");
+	const TCHAR* Defaults = TEXT("size Fit 200, sides 8, surface tubes, min thickness 0");
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaImportSettingsFromTextTest,
+	"Cambriana.Editor.Import.SizeAndSurfacerSettingsStartFromTheTextOtherwiseTheDefault",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaImportSettingsFromTextTest::RunTest(const FString& Parameters)
+{
+	using namespace CambrianaImportSettingsTests;
+	struct FCase
+	{
+		const TCHAR* FileName;
+		const TCHAR* Text;
+		const TCHAR* Expected;
+	};
+	const FCase Cases[] = {
+		{ TEXT("stating.lsys"), StatingLsysText, TEXT("size Fit 50, sides 3, surface blocks, min thickness 5") },
+		{ TEXT("restating.lsys"), RestatingLsysText, TEXT("size Step 2, sides 4, surface tubes, min thickness 1") },
+		{ TEXT("partly-stating.lsys"), TEXT("generations 3\nsides 5\naxiom A\n\ngrow {\n    A -> F A\n}\n"),
+			TEXT("size Fit 200, sides 5, surface tubes, min thickness 0") },
+		{ TEXT("converted.ls"), FirstLegacyText, Defaults },
+	};
+	for (const FCase& Case : Cases)
+	{
+		const FString Path = WriteTemporaryFile(Case.FileName, Case.Text);
+		const FImportedGrammar Imported(Path);
+		const UCambrianaGrammar* Grammar = Imported.Grammar();
+		if (TestNotNull(FString::Printf(TEXT("Importing %s creates a grammar asset"), Case.FileName), Grammar))
+		{
+			TestEqual(FString::Printf(TEXT("The settings of the asset imported from %s"), Case.FileName), DescribeSizeAndSurfacer(*Grammar),
+				FString(Case.Expected));
+		}
+		IFileManager::Get().Delete(*Path);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaReimportKeepsSettingsTest,
+	"Cambriana.Editor.Reimport.AssetSizeAndSurfacerSettingsAreUnchanged",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaReimportKeepsSettingsTest::RunTest(const FString& Parameters)
+{
+	using namespace CambrianaImportSettingsTests;
+	const FString Path = WriteTemporaryFile(TEXT("reimport-settings.lsys"), StatingLsysText);
+	const FImportedGrammar Imported(Path);
+	UCambrianaGrammar* Grammar = Imported.Grammar();
+	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
+	{
+		return false;
+	}
+	const FString ImportedSettings = DescribeSizeAndSurfacer(*Grammar);
+	TestEqual(TEXT("The imported asset's settings are the text's"), ImportedSettings, FString(TEXT("size Fit 50, sides 3, surface blocks, min thickness 5")));
+	WriteTemporaryFile(TEXT("reimport-settings.lsys"), RestatingLsysText);
+	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
+	TestEqual(TEXT("The reimport replaced the text"), Grammar->GrammarText, FString(RestatingLsysText));
+	TestEqual(TEXT("The reimport leaves the asset's settings"), DescribeSizeAndSurfacer(*Grammar), ImportedSettings);
+	IFileManager::Get().Delete(*Path);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaTextEditKeepsSettingsTest,
+	"Cambriana.Editor.GrammarTextEditLeavesTheAssetSizeAndSurfacerSettings",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaTextEditKeepsSettingsTest::RunTest(const FString& Parameters)
+{
+	using namespace CambrianaImportSettingsTests;
+	const FString Path = WriteTemporaryFile(TEXT("edit-settings.lsys"), StatingLsysText);
+	const FImportedGrammar Imported(Path);
+	UCambrianaGrammar* Grammar = Imported.Grammar();
+	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
+	{
+		return false;
+	}
+	FProperty* Property = UCambrianaGrammar::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText));
+	Grammar->PreEditChange(Property);
+	Grammar->GrammarText = RestatingLsysText;
+	FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
+	Grammar->PostEditChangeProperty(Event);
+	TestEqual(TEXT("Editing the text leaves the asset's settings"), DescribeSizeAndSurfacer(*Grammar),
+		FString(TEXT("size Fit 50, sides 3, surface blocks, min thickness 5")));
+	IFileManager::Get().Delete(*Path);
+	return true;
+}
+
 #endif
