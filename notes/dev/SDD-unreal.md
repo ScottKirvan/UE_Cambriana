@@ -17,23 +17,23 @@ display baked results.
 | Growth animation | Standard animation sequence; optional |
 | Control Rig | Shared rig shipped in the plugin's `Content/`; standalone copies written on request |
 
-- **Decided:** baked assets are written to a folder beside the grammar asset.
-- **Decided:** Bake writes from the grammar asset's saved state. With unsaved edits in the
+- Baked assets are written to a folder beside the grammar asset.
+- Bake writes from the grammar asset's saved state. With unsaved edits in the
   grammar editor, Bake asks to save first.
-- **Decided:** Bake writes a skeletal mesh, skeleton and physics asset. Static mesh output is
+- Bake writes a skeletal mesh, skeleton and physics asset. Static mesh output is
   a bake setting on the grammar asset.
-- **Decided:** Bake is offered on the grammar asset's right-click menu and in the grammar
+- Bake is offered on the grammar asset's right-click menu and in the grammar
   editor. The live actor's Details Bake writes a static mesh only, from the actor's own build
   input.
-- **Decided:** the physics asset merges capsules along chains.
-- **Decided:** **Reimport** is the standard right-click Reimport on a baked skeletal or static
+- The physics asset merges capsules along chains.
+- **Reimport** is the standard right-click Reimport on a baked skeletal or static
   mesh, with the grammar asset recorded as its source. It rebuilds the asset in place from the
   grammar's current saved state; references to it remain valid, and the mesh's stored
   definition is updated. A change to the bone tree replaces the skeleton in place.
-- **Decided:** **Detach** is a right-click item on a baked mesh that removes its link to its
+- **Detach** is a right-click item on a baked mesh that removes its link to its
   grammar. A detached mesh is not offered Reimport and is not listed in the grammar's
   outputs.
-- **Decided:** baked asset names are the grammar asset's name with the Unreal style prefixes
+- Baked asset names are the grammar asset's name with the Unreal style prefixes
   `SK_`, `SKEL_`, `PHYS_` and `SM_`.
 - Each variant (seed, axiom) gets its own skeleton.
 - The pose component drives any variant from its per-bone metadata, independent of bone names.
@@ -57,17 +57,17 @@ display baked results.
   `.ls` file is rejected when its conversion reports any error; each diagnostic is logged
   with the file path, line and column. Converted text is serialised in glyph style. The
   source file path is held in the asset's `UAssetImportData`.
-- **Decided:** an imported grammar asset's right-click menu shows Reimport through the
+- An imported grammar asset's right-click menu shows Reimport through the
   Content Browser's standard support for assets whose `UAssetImportData` holds source files;
   it reimports from the source file.
-- **Decided:** nothing but an explicit export writes to a source file on disk; saving the
+- Nothing but an explicit export writes to a source file on disk; saving the
   asset, or any other operation, leaves the source file unchanged.
-- **Decided:** export writes the grammar asset's text to a `.lsys` file through Unreal's
+- Export writes the grammar asset's text to a `.lsys` file through Unreal's
   standard asset export (Content Browser Asset Actions > Export). An asset holding legacy
   `.ls` text is exported as `.lsys`, converted by the core. Export is the only operation
   that writes a grammar text file; it writes only to the path the user chooses, never to the
   asset's source file unless the user picks that path.
-- **Decided:** an exported `.lsys` file is UTF-8 without a byte order mark.
+- An exported `.lsys` file is UTF-8 without a byte order mark.
 - `[Proposed — unconfirmed]` A legacy text the converter rejects exports nothing and logs
   each diagnostic with the asset path, line and column.
 
@@ -83,16 +83,16 @@ Standalone asset editor, opened from the grammar asset.
 | Outputs | Baked assets; Bake |
 
 - The editor layout reserves space for a variant grid (AR-01).
-- **Decided:** the grammar asset editor is a non-destructive playground: it edits a working
+- The grammar asset editor is a non-destructive playground: it edits a working
   copy of the grammar. The Rules, Details and Viewport panels all use the working copy.
-- **Decided:** Save copies the working copy into the asset and saves it. Placed actors
+- Save copies the working copy into the asset and saves it. Placed actors
   referencing the asset rebuild then, and only then.
-- **Decided:** edits are undoable inside the editor; the asset and the scene show nothing
+- Edits are undoable inside the editor; the asset and the scene show nothing
   until the save.
-- **Decided:** closing the editor with unsaved edits asks whether to save them or discard
+- Closing the editor with unsaved edits asks whether to save them or discard
   them.
-- **Decided:** no Apply button; Save only.
-- **Decided:** the Rules typing pause rebuilds the preview; the edit reaches the working copy,
+- No Apply button; Save only.
+- The Rules typing pause rebuilds the preview; the edit reaches the working copy,
   not the asset.
 - `[Proposed — unconfirmed]` The working copy is a transient duplicate of the asset
   (`StaticDuplicateObject` into the transient package, without `RF_Standalone` or
@@ -157,7 +157,7 @@ Standalone asset editor, opened from the grammar asset.
   reaches the working copy when the pause ends.
 - `[Proposed — unconfirmed]` Rules text reaches the working copy with `\n` line breaks on
   every platform.
-- **Decided:** the Outputs panel is an empty tab until bake exists.
+- The Outputs panel is an empty tab until bake exists.
 - `[Proposed — unconfirmed]` The Viewport shows an advanced preview scene holding one dynamic
   mesh, built through `Cambriana::BuildMesh` from the build input of a live actor referencing
   the working copy with every override off and the working copy's seed, in the live actor's
@@ -206,7 +206,7 @@ Standalone asset editor, opened from the grammar asset.
 ## Live actor
 
 - Dynamic-mesh actor. Rebuilds through the core on property change.
-- **Decided:** a grammar asset holds size (mode and value) and surfacer settings (closed form,
+- A grammar asset holds size (mode and value) and surfacer settings (closed form,
   sides, min thickness). A live actor that references the asset builds with the asset's
   settings, and the actor's own override toggles still win over them, as they win over a
   grammar file's settings.
@@ -215,21 +215,21 @@ Standalone asset editor, opened from the grammar asset.
 - Properties: recursion, basic angle, thickness, min thickness, seed, closed form, sides,
   size override, size mode and value; a grammar asset reference or inline grammar text.
   Inline `.ls` text is not converted; it builds as legacy text (below).
-- **Decided:** min thickness, closed form and sides each have an override toggle, off by
+- Min thickness, closed form and sides each have an override toggle, off by
   default, like size. Each size and surfacer setting is taken from the first of: the actor,
   when its override is on; the grammar text, when it states the setting; the grammar asset;
   the default. Without a grammar asset, the actor's own min thickness, closed form and sides
   take the asset's place; size has no asset step and falls back to the core's default size.
-- **Decided:** inline `.lsys` text (no grammar asset) with neither `size` nor `step` and the
+- Inline `.lsys` text (no grammar asset) with neither `size` nor `step` and the
   size override off builds at the core's default size.
-- **Decided:** turning an actor's override off changes none of the actor's values; the build
+- Turning an actor's override off changes none of the actor's values; the build
   then takes the setting from the grammar text, the grammar asset or the default, and turning
   the override back on builds with the actor's kept value.
-- **Decided:** a live actor placed from a grammar asset starts each setting that has an
+- A live actor placed from a grammar asset starts each setting that has an
   override (recursion, basic angle, thickness, size, min thickness, closed form, sides) from
   the first of: the grammar text, when it states the setting; the grammar asset; the default.
   Afterwards the actor's values are independent of the asset's.
-- **Decided:** the Details reset-to-default arrow of each setting that has an override
+- The Details reset-to-default arrow of each setting that has an override
   (recursion, basic angle, thickness, size mode and value, min thickness, closed form, sides)
   resets the actor's value to the value the setting would start from at placement, evaluated
   at the time of the reset: the grammar text, when it states the setting; else the grammar
@@ -250,7 +250,7 @@ Standalone asset editor, opened from the grammar asset.
   value, and a reset sets each to its own value in one transaction. The default is the live
   actor's class default, which equals the core's defaults (recursion 4, basic angle 25,
   thickness 50, Fit 200 cm, sides 8, closed form, min thickness 0).
-- **Decided:** a grammar asset's size and surfacer settings start from its grammar text, for
+- A grammar asset's size and surfacer settings start from its grammar text, for
   each setting the text states; otherwise from the default. `[Proposed — unconfirmed]` This
   applies when the asset is created, by the new-asset factory or by import; a reimport or a
   text edit leaves the asset's settings unchanged.
@@ -264,14 +264,14 @@ Standalone asset editor, opened from the grammar asset.
   or `-`, an optional `.`, then a digit. Otherwise it is `.lsys`, including empty text.
 - `.ls` text builds through `cambriana_build_legacy`; `.lsys` text through
   `cambriana_build_grammar` with the unnamed or first axiom. `[Proposed — unconfirmed]` For
-  `.lsys` text the actor's seed applies over the grammar's `seed`. **Decided:** for `.lsys`
+  `.lsys` text the actor's seed applies over the grammar's `seed`. For `.lsys`
   text the grammar's `size` or `step` applies unless the actor's size override is on, as with
   the recursion, basic angle and thickness overrides; with the override on, the actor's size
   mode and value apply. A grammar with neither builds at the core's default size. The
   override is off by default. `[Proposed — unconfirmed]` `.ls` text always uses the actor's
   size mode and value, whatever the override. In either format, diagnostics are logged with their line and column, and
   errors leave an empty mesh.
-- **Decided:** the Cambriana Grammar asset is under a "Boju Studios" category in the Content
+- The Cambriana Grammar asset is under a "Boju Studios" category in the Content
   Browser's Add menu, and the live actor is under a "Boju Studios" category when placing
   actors.
 - Dragging a grammar asset into a level spawns a live actor referencing it. A change to the
@@ -342,5 +342,5 @@ Engine dependencies: stable modules only; no experimental engine plugins.
 
 ## Plugin descriptor
 
-- **Decided:** the plugin's producer (`CreatedBy`) is Boju Studios. The description keeps
+- The plugin's producer (`CreatedBy`) is Boju Studios. The description keeps
   the Lparser credit (FR-23).
