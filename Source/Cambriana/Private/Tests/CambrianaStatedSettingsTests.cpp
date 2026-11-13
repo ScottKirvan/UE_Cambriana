@@ -1,4 +1,5 @@
 #include "CambrianaBuild.h"
+#include "CambrianaGrammarConversion.h"
 #include "CambrianaTestUtilities.h"
 #include "Misc/AutomationTest.h"
 
@@ -67,6 +68,40 @@ bool FCambrianaStatedSettingsLsTest::RunTest(const FString& Parameters)
 		FString(TEXT("recursion 7, angle 45, thickness 30, size unset unset, sides unset, surface unset, min thickness unset")));
 	TestEqual(TEXT(".ls text with errors states nothing"), Describe(Cambriana::ReadStatedSettings(TEXT("7\n45\n"))),
 		FString(TEXT("recursion unset, angle unset, thickness unset, size unset unset, sides unset, surface unset, min thickness unset")));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarSeedTest,
+	"Cambriana.Build.GrammarSeedIsTheTextsWholeNumberFromZeroToFourBillion",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarSeedTest::RunTest(const FString& Parameters)
+{
+	// FMT-grammar.md: `seed` is a whole number from 0 to 4294967295.
+	struct FCase
+	{
+		const TCHAR* Text;
+		TOptional<uint32> Expected;
+	};
+	const FCase Cases[] = {
+		{ TEXT("seed 0\naxiom F\n"), 0u },
+		{ TEXT("seed 7\naxiom F\n"), 7u },
+		{ TEXT("seed 4294967295\naxiom F\n"), 4294967295u },
+		{ TEXT("seed 1.5\naxiom F\n"), {} },
+		{ TEXT("seed -1\naxiom F\n"), {} },
+		{ TEXT("seed 4294967296\naxiom F\n"), {} },
+		{ TEXT("axiom F\n"), {} },
+	};
+	for (const FCase& Case : Cases)
+	{
+		const TOptional<uint32> Seed = Cambriana::GrammarSeed(Case.Text);
+		const FString Label = FString(Case.Text).Left(18).ReplaceCharWithEscapedChar();
+		TestEqual(FString::Printf(TEXT("\"%s\" gives a seed"), *Label), Seed.IsSet(), Case.Expected.IsSet());
+		if (Seed && Case.Expected)
+		{
+			TestEqual(FString::Printf(TEXT("\"%s\" gives its number"), *Label), *Seed, *Case.Expected);
+		}
+	}
 	return true;
 }
 
