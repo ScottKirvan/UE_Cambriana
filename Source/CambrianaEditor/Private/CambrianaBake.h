@@ -6,6 +6,8 @@
 
 class ACambrianaLiveActor;
 class UCambrianaGrammar;
+class USkeletalMesh;
+class USkeleton;
 class UStaticMesh;
 
 enum class ECambrianaBakeStatus : uint8
@@ -31,6 +33,9 @@ struct FCambrianaBakeResult
 	ECambrianaBakeStatus Status = ECambrianaBakeStatus::NothingToBuild;
 	/** The static mesh written, or the one that did not save. */
 	UStaticMesh* StaticMesh = nullptr;
+	/** The skeletal mesh and skeleton written, or those that did not save. */
+	USkeletalMesh* SkeletalMesh = nullptr;
+	USkeleton* Skeleton = nullptr;
 };
 
 namespace Cambriana::Editor
