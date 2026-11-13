@@ -34,7 +34,6 @@ namespace Cambriana::Editor
 	/** Asks whether to overwrite an existing asset; given the question, answers Yes or No. */
 	using FAskToOverwrite = TFunction<EAppReturnType::Type(const FText& Question)>;
 
-	inline const FName GrammarAssetContextMenu(TEXT("ContentBrowser.AssetContextMenu.CambrianaGrammar"));
 	inline const FName BakeMenuSection(TEXT("GetAssetActions"));
 	inline const FName BakeMenuEntry(TEXT("CambrianaGrammar_Bake"));
 
@@ -45,6 +44,6 @@ namespace Cambriana::Editor
 	 */
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, const FAskToOverwrite& AskToOverwrite = nullptr);
 
-	/** Adds Bake to the grammar asset's right-click menu in the Content Browser. */
-	void RegisterBakeMenu();
+	/** Adds Bake to the grammar asset's right-click menu in the Content Browser, owned by the current tool menu owner. */
+	void AddBakeMenuEntry();
 }
