@@ -260,11 +260,76 @@ namespace
 		}
 	};
 
+	FVector3d ToVector(const cambriana_vec3& Vector)
+	{
+		return FVector3d(Vector.x, Vector.y, Vector.z);
+	}
+
+	ECambrianaBoneKind ToBoneKind(int32 Kind)
+	{
+		switch (Kind)
+		{
+		case CAMBRIANA_BONE_POLYGON_ATTACHMENT: return ECambrianaBoneKind::PolygonAttachment;
+		case CAMBRIANA_BONE_SOCKET: return ECambrianaBoneKind::Socket;
+		case CAMBRIANA_BONE_OTHER_UNDRAWN: return ECambrianaBoneKind::OtherUndrawn;
+		default: return ECambrianaBoneKind::DrawnSegment;
+		}
+	}
+
+	void ReadBones(const cambriana_result* Result, TArray<FCambrianaBone>& Out)
+	{
+		const TConstArrayView<cambriana_bone> Bones = CoreArray(&cambriana_result_bones, Result);
+		Out.Reserve(Bones.Num());
+		for (const cambriana_bone& Core : Bones)
+		{
+			FCambrianaBone& Bone = Out.AddDefaulted_GetRef();
+			Bone.Name = FName(UTF8_TO_TCHAR(Core.name ? Core.name : ""));
+			Bone.Parent = Core.parent < static_cast<uint64_t>(Bones.Num()) ? static_cast<int32>(Core.parent) : INDEX_NONE;
+			Bone.Start = ToVector(Core.start);
+			Bone.End = ToVector(Core.end);
+			Bone.Side = ToVector(Core.frame.side);
+			Bone.Forward = ToVector(Core.frame.forward);
+			Bone.Up = ToVector(Core.frame.up);
+			Bone.Radius = Core.radius;
+			Bone.Kind = ToBoneKind(Core.kind);
+			Bone.bChainBreakBefore = Core.chain_break_before != 0;
+		}
+	}
+
+	/** The core's skin influences of each surface vertex. */
+	struct FSkinInfluences
+	{
+		TConstArrayView<cambriana_vertex_influences> Ranges;
+		TConstArrayView<cambriana_influence> All;
+		uint64 BoneCount = 0;
+
+		FCambrianaVertexInfluences Of(int32 Vertex) const
+		{
+			FCambrianaVertexInfluences Influences;
+			if (!Ranges.IsValidIndex(Vertex))
+			{
+				return Influences;
+			}
+			const cambriana_vertex_influences& Range = Ranges[Vertex];
+			for (uint64 Index = Range.first_influence; Index < Range.first_influence + Range.influence_count && Index < uint64(All.Num()); ++Index)
+			{
+				const cambriana_influence& Influence = All[int32(Index)];
+				if (Influence.bone < BoneCount)
+				{
+					Influences.Add({ static_cast<int32>(Influence.bone), Influence.weight });
+				}
+			}
+			return Influences;
+		}
+	};
+
 	class FMeshWriter
 	{
 	public:
-		FMeshWriter(FDynamicMesh3& InMesh, TConstArrayView<cambriana_vertex_channels> InChannels, const FVertexAttributes& InAttributes)
-			: Mesh(InMesh), Channels(InChannels), Attributes(InAttributes), Scale(ScaleOf(InChannels))
+		FMeshWriter(FCambrianaBuildResult& InResult, TConstArrayView<cambriana_vertex_channels> InChannels, const FVertexAttributes& InAttributes,
+			const FSkinInfluences& InInfluences)
+			: Mesh(InResult.Mesh), VertexInfluences(InResult.VertexInfluences), Channels(InChannels), Attributes(InAttributes), Influences(InInfluences),
+			  Scale(ScaleOf(InChannels))
 		{
 			Mesh.EnableAttributes();
 			UE::Geometry::FDynamicMeshAttributeSet& MeshAttributes = *Mesh.Attributes();
@@ -287,6 +352,8 @@ namespace
 			Uv2->AppendElement(FVector2f(float(Channel.root_distance), float(Channel.branch_random)));
 			Colours->AppendElement(FVector4f(float(Ratio(Channel.thickness, Scale.MaxThickness)), float(Attributes.Get(CoreIndex, 0)),
 				float(Attributes.Get(CoreIndex, 1)), float(Attributes.Get(CoreIndex, 2))));
+			VertexInfluences.SetNum(FMath::Max(VertexInfluences.Num(), Vid + 1));
+			VertexInfluences[Vid] = Influences.Of(CoreIndex);
 			return Vid;
 		}
 
@@ -307,8 +374,10 @@ namespace
 
 	private:
 		FDynamicMesh3& Mesh;
+		TArray<FCambrianaVertexInfluences>& VertexInfluences;
 		TConstArrayView<cambriana_vertex_channels> Channels;
 		FVertexAttributes Attributes;
+		FSkinInfluences Influences;
 		FChannelScale Scale;
 		UE::Geometry::FDynamicMeshUVOverlay* Uv0 = nullptr;
 		UE::Geometry::FDynamicMeshUVOverlay* Uv1 = nullptr;
@@ -343,7 +412,9 @@ namespace
 
 		Out.SlotMaterialIds = SortedMaterialIds(Triangles);
 		const FVertexAttributes Attributes{ CoreArray(&cambriana_result_vertex_attributes, Result), CoreArray(&cambriana_result_attribute_names, Result).Num() };
-		FMeshWriter Writer(Out.Mesh, Channels, Attributes);
+		const FSkinInfluences Influences{ CoreArray(&cambriana_result_vertex_influences, Result), CoreArray(&cambriana_result_influences, Result),
+			static_cast<uint64>(Out.Bones.Num()) };
+		FMeshWriter Writer(Out, Channels, Attributes, Influences);
 		for (int32 Index = 0; Index < Positions.Num(); ++Index)
 		{
 			Writer.AddVertex(Positions[Index], Index);
@@ -517,6 +588,7 @@ namespace Cambriana
 		LogBuildReport(Out.Report);
 		if (!Out.Report.bHasErrors)
 		{
+			ReadBones(Result.Get(), Out.Bones);
 			WriteMesh(Result.Get(), Out);
 		}
 		return Out;
