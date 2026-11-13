@@ -15,15 +15,20 @@
 #include "Elements/Actor/ActorElementData.h"
 #include "Framework/Docking/TabManager.h"
 #include "IDetailTreeNode.h"
+#include "IPropertyRowGenerator.h"
 #include "Interfaces/IPluginManager.h"
+#include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
+#include "Modules/ModuleManager.h"
 #include "Misc/Paths.h"
 #include "PackageTools.h"
+#include "PropertyEditorModule.h"
 #include "PropertyHandle.h"
 #include "ScopedTransaction.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 #include "UObject/Package.h"
 #include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Input/SEditableText.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Widgets/SWidget.h"
 
@@ -116,15 +121,26 @@ namespace Cambriana::Editor::Tests
 		Save();
 	}
 
+	/** Runs Change between the pre- and post-edit notifications a Details edit of the property sends. */
+	inline void EditProperty(UObject* Object, FName PropertyName, TFunctionRef<void()> Change)
+	{
+		FProperty* Property = Object->GetClass()->FindPropertyByName(PropertyName);
+		Object->PreEditChange(Property);
+		Change();
+		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
+		Object->PostEditChangeProperty(Event);
+	}
+
+	inline void SetGrammarText(UCambrianaGrammar* Grammar, const TCHAR* Text)
+	{
+		EditProperty(Grammar, GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText), [Grammar, Text] { Grammar->GrammarText = Text; });
+	}
+
 	/** Changes the grammar's sides as a Details edit does: one undoable property change. */
 	inline void EditGrammarSides(UCambrianaGrammar* Grammar, int32 Sides)
 	{
 		const FScopedTransaction Transaction(FText::FromString(TEXT("Edit Sides")));
-		FProperty* Property = UCambrianaGrammar::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Sides));
-		Grammar->PreEditChange(Property);
-		Grammar->Sides = Sides;
-		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
-		Grammar->PostEditChangeProperty(Event);
+		EditProperty(Grammar, GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Sides), [Grammar, Sides] { Grammar->Sides = Sides; });
 	}
 
 	inline const TCHAR* const TypedGrammarText = TEXT("generations 2\naxiom A\n\ngrow {\n    A -> F A\n}\n");
@@ -171,6 +187,40 @@ namespace Cambriana::Editor::Tests
 		return StaticCastSharedPtr<SMultiLineEditableTextBox>(RulesTabWidgetOfType(Toolkit, TEXT("SMultiLineEditableTextBox")));
 	}
 
+	inline TSharedRef<IPropertyRowGenerator> MakeRows(const TArray<UObject*>& Objects)
+	{
+		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
+		const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
+		Rows->SetObjects(Objects);
+		return Rows;
+	}
+
+	inline TSharedPtr<IDetailTreeNode> FindCategory(const IPropertyRowGenerator& Rows, FName Category)
+	{
+		for (const TSharedRef<IDetailTreeNode>& Node : Rows.GetRootTreeNodes())
+		{
+			if (Node->GetNodeType() == EDetailNodeType::Category && Node->GetNodeName() == Category)
+			{
+				return Node;
+			}
+		}
+		return nullptr;
+	}
+
+	/** The number a parameter row's value field shows; NaN when the row has no numeric field. */
+	inline double ShownValue(const TSharedPtr<IDetailTreeNode>& Row)
+	{
+		const TSharedPtr<SWidget> Value = Row ? Row->CreateNodeWidgets().ValueWidget : nullptr;
+		if (Value)
+		{
+			// Bound Slate attributes refresh in the prepass of each frame, which a widget outside a window never gets.
+			Value->SlatePrepass(1.0f);
+		}
+		const TSharedPtr<SWidget> Field = Value ? FindWidgetOfType(Value.ToSharedRef(), TEXT("SEditableText")) : nullptr;
+		const FString Text = Field ? StaticCastSharedPtr<SEditableText>(Field)->GetText().ToString() : FString();
+		return Text.IsNumeric() ? FCString::Atod(*Text) : std::numeric_limits<double>::quiet_NaN();
+	}
+
 	inline TSharedPtr<IPropertyHandle> FindPropertyHandle(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
 	{
 		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
@@ -208,6 +258,13 @@ namespace Cambriana::Editor::Tests
 	{
 		return FString::Printf(TEXT("size %s %g, sides %d, surface %s, min thickness %g"), Grammar.SizeMode == ECambrianaSizeMode::Fit ? TEXT("Fit") : TEXT("Step"),
 			Grammar.SizeValue, Grammar.Sides, Grammar.bClosedForm ? TEXT("tubes") : TEXT("blocks"), Grammar.MinThickness);
+	}
+
+	inline FString LoadFile(const FString& Path)
+	{
+		FString Text;
+		FFileHelper::LoadFileToString(Text, *Path);
+		return Text;
 	}
 
 	inline FString FixturePath(const TCHAR* FileName)

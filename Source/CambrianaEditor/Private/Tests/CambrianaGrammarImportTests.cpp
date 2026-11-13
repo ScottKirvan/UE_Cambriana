@@ -111,13 +111,6 @@ namespace
 		TArray<FString> Paths;
 	};
 
-	FString LoadFile(const FString& Path)
-	{
-		FString Text;
-		FFileHelper::LoadFileToString(Text, *Path);
-		return Text;
-	}
-
 	UAssetImportData* ImportDataOf(const UObject* Object)
 	{
 		const FObjectProperty* Property = CastField<FObjectProperty>(Object->GetClass()->FindPropertyByName(TEXT("AssetImportData")));
@@ -623,11 +616,7 @@ bool FCambrianaTextEditKeepsSettingsTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	FProperty* Property = UCambrianaGrammar::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText));
-	Grammar->PreEditChange(Property);
-	Grammar->GrammarText = RestatingLsysText;
-	FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
-	Grammar->PostEditChangeProperty(Event);
+	SetGrammarText(Grammar, RestatingLsysText);
 	TestEqual(TEXT("Editing the text leaves the asset's settings"), DescribeSizeAndSurfacer(*Grammar),
 		FString(TEXT("size Fit 50, sides 3, surface blocks, min thickness 5")));
 	IFileManager::Get().Delete(*Path);

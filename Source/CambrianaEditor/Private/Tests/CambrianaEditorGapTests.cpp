@@ -27,6 +27,7 @@ using Cambriana::Editor::Tests::CreateGrammarWithFactory;
 using Cambriana::Editor::Tests::DestroyActor;
 using Cambriana::Editor::Tests::FGrammarChangeCounter;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
+using Cambriana::Editor::Tests::MakeRows;
 
 namespace
 {
@@ -57,9 +58,7 @@ namespace
 	/** Whether Details for a grammar shows a category of parameters, which only the grammar customization adds. */
 	bool ShowsParameterCategory(UCambrianaGrammar* Grammar)
 	{
-		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-		Rows->SetObjects({ Grammar });
+		const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Grammar });
 		return Rows->GetRootTreeNodes().ContainsByPredicate([](const TSharedRef<IDetailTreeNode>& Node) { return Node->GetNodeName() == TEXT("Structure Parameters"); });
 	}
 }

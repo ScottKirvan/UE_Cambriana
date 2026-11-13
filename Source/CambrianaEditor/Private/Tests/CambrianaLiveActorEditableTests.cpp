@@ -15,6 +15,7 @@ using Cambriana::Editor::Tests::CreateGrammarWithFactory;
 using Cambriana::Editor::Tests::DestroyActor;
 using Cambriana::Editor::Tests::FindNode;
 using Cambriana::Editor::Tests::SpawnLiveActor;
+using Cambriana::Editor::Tests::MakeRows;
 
 namespace CambrianaLiveActorEditableTests
 {
@@ -165,14 +166,6 @@ namespace CambrianaLiveActorEditableTests
 		}
 	};
 
-	TSharedRef<IPropertyRowGenerator> MakeRows(ACambrianaLiveActor& Actor)
-	{
-		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-		Rows->SetObjects({ &Actor });
-		return Rows;
-	}
-
 	struct FEditableCase
 	{
 		const TCHAR* Label;
@@ -219,7 +212,7 @@ bool FCambrianaLiveActorDetailsEditableTest::RunTest(const FString& Parameters)
 			continue;
 		}
 		SetEveryOverride(*Actor, Case.bOverridesOn);
-		const TSharedRef<IPropertyRowGenerator> Rows = MakeRows(*Actor);
+		const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Actor });
 		for (const FSetting& Setting : Settings)
 		{
 			const FSettingRow Row(*Rows, Setting.Value);
@@ -247,7 +240,7 @@ bool FCambrianaLiveActorDetailsCheckboxTest::RunTest(const FString& Parameters)
 		{
 			continue;
 		}
-		const TSharedRef<IPropertyRowGenerator> Rows = MakeRows(*Actor);
+		const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Actor });
 		for (const FSetting& Setting : Settings)
 		{
 			const FString Label = FString::Printf(TEXT("%s, %s"), InlineText == LegacyText ? TEXT(".ls") : TEXT(".lsys"), *Setting.Value.ToString());
