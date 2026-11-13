@@ -57,8 +57,8 @@ namespace Cambriana::Editor
 	inline const FName BakeMenuEntry(TEXT("CambrianaGrammar_Bake"));
 
 	/**
-	 * Bakes the grammar asset's saved state into a skeleton SKEL_<grammar asset name> and skinned skeletal mesh SK_<grammar asset name>,
-	 * and a static mesh SM_<grammar asset name> when its bake settings select it, written to a folder beside the asset named after it,
+	 * Bakes the grammar asset's saved state into a skeleton SKEL_<grammar asset name>, skinned skeletal mesh SK_<grammar asset name> and
+	 * its physics asset PHYS_<grammar asset name>, and a static mesh SM_<grammar asset name> when its bake settings select it, written to a folder beside the asset named after it,
 	 * and saves them. A grammar without saved state is first offered to the engine's save prompt. AskToOverwrite is asked once before
 	 * existing outputs are rebuilt in place; unset, a message dialog asks.
 	 */

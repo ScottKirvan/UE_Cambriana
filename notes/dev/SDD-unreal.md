@@ -71,7 +71,7 @@ display baked results.
   slot's material, as an FBX reimport keeps materials by slot name.
 - `[Proposed — unconfirmed]` When any output it writes already exists as an asset of its class,
   Bake asks once "Do you want to overwrite the existing asset?" (Yes/No), naming the first
-  existing one in the order `SK_`, `SKEL_`, `SM_`, as the engine's import asks once per imported
+  existing one in the order `SK_`, `SKEL_`, `PHYS_`, `SM_`, as the engine's import asks once per imported
   file (`AssetTools.cpp`, `ImportObjectAlreadyExists_SameClass`). Yes rebuilds every existing
   output as the same object in place, so references to it stay valid; No bakes nothing. An asset
   of another class at any output's name is left alone, an error is logged and nothing is baked.
@@ -92,6 +92,14 @@ display baked results.
   recreated from the mesh (`USkeleton::RecreateBoneTree`), as the procedural vegetation export
   does for the skeleton it writes (`PVExportHelper.cpp`). A rebake rebuilds an existing skeleton
   in place the same way, so its tree follows a changed bone tree.
+- `[Proposed — unconfirmed]` The physics asset's bodies and capsules are computed in the runtime
+  module from the build result (`Cambriana::MakePhysicsBodies`, SDD-rigging.md, Physics). The
+  editor module writes them into `PHYS_<name>` with the engine's physics asset functions
+  (`FPhysicsAssetUtils::CreateNewBody`, `CreateNewConstraint`), sets the skeletal mesh as its
+  preview mesh and it as the skeletal mesh's physics asset, as
+  `FPhysicsAssetUtils::CreateFromSkeletalMesh` does. A rebake empties its bodies and
+  constraints first, as the physics asset editor does before regenerating all bodies
+  (`PhysicsAssetEditor.cpp`), and rebuilds the same object.
 - `[Proposed — unconfirmed]` A grammar with errors, or one that builds no triangles (empty
   text included), or whose bone tree makes no reference skeleton (a parent after its child, or
   two bones of one name), bakes nothing and leaves an existing baked mesh unchanged; after the
