@@ -7,7 +7,7 @@
 
 namespace Cambriana::Editor::Tests
 {
-	// ATS-46, ATS-47: a baked mesh's vertices match the live actor's within 0.001 cm.
+	// ATS-42, ATS-46, ATS-47: a baked mesh's vertices match the live actor's within 0.001 cm.
 	constexpr double VertexTolerance = 0.001;
 
 	struct FMeshTriangle
@@ -28,7 +28,7 @@ namespace Cambriana::Editor::Tests
 		}
 	};
 
-	/** How the triangles of a static mesh's rendered LOD 0 pair off with a live actor's. */
+	/** How the triangles of a baked mesh's rendered LOD 0 pair off with a live actor's. */
 	struct FTriangleMatch
 	{
 		int32 LiveTriangles = 0;
@@ -155,10 +155,9 @@ namespace Cambriana::Editor::Tests
 	 * Pairs each live triangle without coincident corners with a distinct rendered triangle having the same corners in the same
 	 * winding, within Tolerance, and finds each live vertex among the rendered vertices.
 	 */
-	inline FTriangleMatch MatchTriangles(const UE::Geometry::FDynamicMesh3& Live, const UStaticMesh& StaticMesh, double Tolerance = VertexTolerance)
+	inline FTriangleMatch MatchTriangles(const UE::Geometry::FDynamicMesh3& Live, TConstArrayView<FMeshTriangle> Rendered, double Tolerance = VertexTolerance)
 	{
 		const TArray<FMeshTriangle> LiveTriangles = TrianglesOf(Live);
-		const TArray<FMeshTriangle> Rendered = RenderedTrianglesOf(StaticMesh);
 		FTriangleMatch Match;
 		Match.LiveTriangles = LiveTriangles.Num();
 		Match.RenderedTriangles = Rendered.Num();
@@ -203,5 +202,10 @@ namespace Cambriana::Editor::Tests
 			Match.UnmatchedVertices += Found == INDEX_NONE;
 		}
 		return Match;
+	}
+
+	inline FTriangleMatch MatchTriangles(const UE::Geometry::FDynamicMesh3& Live, const UStaticMesh& StaticMesh, double Tolerance = VertexTolerance)
+	{
+		return MatchTriangles(Live, RenderedTrianglesOf(StaticMesh), Tolerance);
 	}
 }
