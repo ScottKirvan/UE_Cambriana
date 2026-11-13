@@ -1,3 +1,5 @@
+#include "ScopedTransaction.h"
+#include "Misc/SecureHash.h"
 #include "AssetDefinition.h"
 #include "AssetDefinitionRegistry.h"
 #include "AssetImportTask.h"
@@ -605,6 +607,90 @@ bool FCambrianaTextEditKeepsSettingsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Editing the text leaves the asset's settings"), DescribeSizeAndSurfacer(*Grammar),
 		FString(TEXT("size Fit 50, sides 3, surface blocks, min thickness 5")));
 	IFileManager::Get().Delete(*Path);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaImportUppercaseExtensionTest,
+	"Cambriana.Editor.Import.ALegacyFileWithAnUppercaseExtensionIsConvertedOnImportAndReimport",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaImportUppercaseExtensionTest::RunTest(const FString& Parameters)
+{
+	const FString Path = WriteTemporaryFile(TEXT("upper-case.LS"), FirstLegacyText);
+	const FImportedGrammar Imported(Path);
+	UCambrianaGrammar* Grammar = Imported.Grammar();
+	if (!TestNotNull(TEXT("Importing a .LS file creates a grammar asset"), Grammar))
+	{
+		return false;
+	}
+	TestTrue(TEXT("The asset holds .lsys text"), Cambriana::DetectGrammarFormat(Grammar->GrammarText) == ECambrianaGrammarFormat::Cambriana);
+	const FString FirstText = Grammar->GrammarText;
+
+	WriteTemporaryFile(TEXT("upper-case.LS"), SecondLegacyText);
+	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
+	TestTrue(TEXT("The reimported asset holds .lsys text"), Cambriana::DetectGrammarFormat(Grammar->GrammarText) == ECambrianaGrammarFormat::Cambriana);
+	TestNotEqual(TEXT("The reimport replaced the text"), Grammar->GrammarText, FirstText);
+	IFileManager::Get().Delete(*Path);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaReimportEffectsTest,
+	"Cambriana.Editor.Reimport.ReimportRecordsTheFileMarksThePackageDirtyAndCanBeUndone",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaReimportEffectsTest::RunTest(const FString& Parameters)
+{
+	const FString Path = WriteTemporaryFile(TEXT("reimport-effects.lsys"), FirstLsysText);
+	const FImportedGrammar Imported(Path);
+	UCambrianaGrammar* Grammar = Imported.Grammar();
+	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
+	{
+		return false;
+	}
+	const FMD5Hash HashBefore = Grammar->AssetImportData->GetSourceData().SourceFiles[0].FileHash;
+	TestTrue(TEXT("The import recorded the first file's hash"), HashBefore == FMD5Hash::HashFile(*Path));
+	Grammar->GetPackage()->SetDirtyFlag(false);
+
+	WriteTemporaryFile(TEXT("reimport-effects.lsys"), SecondLsysText);
+	{
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Reimport")));
+		TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
+	}
+	TestTrue(TEXT("The reimport recorded the changed file's hash"), Grammar->AssetImportData->GetSourceData().SourceFiles[0].FileHash == FMD5Hash::HashFile(*Path));
+	TestTrue(TEXT("The hash changed"), Grammar->AssetImportData->GetSourceData().SourceFiles[0].FileHash != HashBefore);
+	TestTrue(TEXT("The reimport marked the package dirty"), Grammar->GetPackage()->IsDirty());
+	TestTrue(TEXT("The reimport can be undone"), GEditor->UndoTransaction());
+	TestEqualSensitive(TEXT("Undo restores the text"), Grammar->GrammarText, FString(FirstLsysText));
+	IFileManager::Get().Delete(*Path);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaReimportPathsTest,
+	"Cambriana.Editor.Reimport.AnAssetWithoutASourceFileCannotBeReimportedAndAReimportPathReplacesTheSource",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaReimportPathsTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Made = CreateGrammarWithFactory();
+	TestFalse(TEXT("A new grammar has no source file to reimport"), FReimportManager::Instance()->CanReimport(Made));
+
+	const FString Path = WriteTemporaryFile(TEXT("reimport-paths.lsys"), FirstLsysText);
+	const FString NewPath = WriteTemporaryFile(TEXT("reimport-paths-moved.lsys"), FirstLsysText);
+	const FString OtherPath = WriteTemporaryFile(TEXT("reimport-paths-other.lsys"), FirstLsysText);
+	const FImportedGrammar Imported(Path);
+	UCambrianaGrammar* Grammar = Imported.Grammar();
+	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
+	{
+		return false;
+	}
+	TestTrue(TEXT("An imported grammar can be reimported"), FReimportManager::Instance()->CanReimport(Grammar));
+	FReimportManager::Instance()->UpdateReimportPaths(Grammar, { NewPath });
+	TestTrue(TEXT("A new reimport path becomes the source file"), FPaths::IsSamePath(Grammar->AssetImportData->GetFirstFilename(), NewPath));
+	FReimportManager::Instance()->UpdateReimportPaths(Grammar, { Path, OtherPath });
+	TestTrue(TEXT("Two paths for a one-file asset change nothing"), FPaths::IsSamePath(Grammar->AssetImportData->GetFirstFilename(), NewPath));
+	IFileManager::Get().Delete(*Path);
+	IFileManager::Get().Delete(*NewPath);
+	IFileManager::Get().Delete(*OtherPath);
 	return true;
 }
 
