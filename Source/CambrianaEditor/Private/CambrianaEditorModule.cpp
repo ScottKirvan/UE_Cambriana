@@ -1,6 +1,11 @@
+#include "CambrianaEditorCategory.h"
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarCustomization.h"
 #include "CambrianaLiveActor.h"
-#include "CambrianaSeedCustomization.h"
+#include "CambrianaLiveActorCustomization.h"
+#include "Engine/Engine.h"
+#include "IPlacementModeModule.h"
+#include "Misc/CoreDelegates.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
@@ -11,12 +16,28 @@ public:
 	virtual void StartupModule() override
 	{
 		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		RegisterSeedCustomization(PropertyEditor, UCambrianaGrammar::StaticClass(), GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed));
-		RegisterSeedCustomization(PropertyEditor, ACambrianaLiveActor::StaticClass(), GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Seed));
+		RegisterCustomization(PropertyEditor, UCambrianaGrammar::StaticClass(),
+			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaGrammarCustomization::MakeInstance));
+		RegisterCustomization(PropertyEditor, ACambrianaLiveActor::StaticClass(),
+			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaLiveActorCustomization::MakeInstance));
+		// Placement mode needs the editor, which isn't up yet while plugin modules start at their usual loading phase.
+		if (GEngine && GEngine->IsInitialized())
+		{
+			RegisterPlacementCategory();
+		}
+		else
+		{
+			FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &FCambrianaEditorModule::RegisterPlacementCategory);
+		}
 	}
 
 	virtual void ShutdownModule() override
 	{
+		FCoreDelegates::GetOnPostEngineInit().RemoveAll(this);
+		if (IPlacementModeModule::IsAvailable())
+		{
+			IPlacementModeModule::Get().UnregisterPlacementCategory(Cambriana::Editor::BojuStudiosCategoryName);
+		}
 		if (FPropertyEditorModule* PropertyEditor = FModuleManager::GetModulePtr<FPropertyEditorModule>(TEXT("PropertyEditor")))
 		{
 			for (const FName& ClassName : CustomizedClasses)
@@ -28,10 +49,21 @@ public:
 	}
 
 private:
-	void RegisterSeedCustomization(FPropertyEditorModule& PropertyEditor, UClass* Class, FName SeedPropertyName)
+	void RegisterPlacementCategory()
 	{
-		PropertyEditor.RegisterCustomClassLayout(Class->GetFName(),
-			FOnGetDetailCustomizationInstance::CreateStatic(&FCambrianaSeedCustomization::MakeInstance, SeedPropertyName, Class));
+		if (!GIsEditor || IsRunningCommandlet())
+		{
+			return;
+		}
+		IPlacementModeModule& Placement = IPlacementModeModule::Get();
+		const FName Category = Cambriana::Editor::BojuStudiosCategoryName;
+		Placement.RegisterPlacementCategory(FPlacementCategoryInfo(Cambriana::Editor::BojuStudiosCategoryText(), Category, TEXT("PMBojuStudios")));
+		Placement.RegisterPlaceableItem(Category, MakeShared<FPlaceableItem>(static_cast<UActorFactory*>(nullptr),FAssetData(ACambrianaLiveActor::StaticClass())));
+	}
+
+	void RegisterCustomization(FPropertyEditorModule& PropertyEditor, UClass* Class, FOnGetDetailCustomizationInstance MakeInstance)
+	{
+		PropertyEditor.RegisterCustomClassLayout(Class->GetFName(), MoveTemp(MakeInstance));
 		CustomizedClasses.Add(Class->GetFName());
 	}
 

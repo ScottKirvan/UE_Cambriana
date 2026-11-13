@@ -23,18 +23,7 @@ namespace Cambriana::Editor
 	}
 }
 
-TSharedRef<IDetailCustomization> FCambrianaSeedCustomization::MakeInstance(FName SeedPropertyName, UClass* OwnerClass)
-{
-	return MakeShareable(new FCambrianaSeedCustomization(SeedPropertyName, OwnerClass));
-}
-
-FCambrianaSeedCustomization::FCambrianaSeedCustomization(FName InSeedPropertyName, UClass* InOwnerClass)
-	: SeedPropertyName(InSeedPropertyName)
-	, OwnerClass(InOwnerClass)
-{
-}
-
-void FCambrianaSeedCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
+void Cambriana::Editor::CustomizeSeedRow(IDetailLayoutBuilder& DetailBuilder, FName SeedPropertyName, UClass* OwnerClass)
 {
 	const TSharedRef<IPropertyHandle> SeedHandle = DetailBuilder.GetProperty(SeedPropertyName, OwnerClass);
 	IDetailPropertyRow* Row = DetailBuilder.EditDefaultProperty(SeedHandle);

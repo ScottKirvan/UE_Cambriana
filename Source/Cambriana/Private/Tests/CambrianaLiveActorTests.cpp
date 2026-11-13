@@ -6,16 +6,7 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-namespace
-{
-	UCambrianaGrammar* MakeGrammar(const FString& Text)
-	{
-		UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(GetTransientPackage());
-		Grammar->GrammarText = Text;
-		return Grammar;
-	}
-}
-
+using Cambriana::Tests::MakeGrammar;
 using Cambriana::Tests::SimpleGrammar;
 #if WITH_EDITOR
 using Cambriana::Tests::EditProperty;
@@ -97,10 +88,10 @@ bool FCambrianaLiveActorGrammarTextSourceTest::RunTest(const FString& Parameters
 		return false;
 	}
 	Actor->InlineGrammar = SimpleGrammar(1);
-	TestEqual(TEXT("Inline text is used without a grammar asset"), Actor->MakeBuildInput().GrammarText, SimpleGrammar(1));
+	TestEqualSensitive(TEXT("Inline text is used without a grammar asset"), Actor->MakeBuildInput().GrammarText, SimpleGrammar(1));
 
 	Actor->SetGrammar(MakeGrammar(SimpleGrammar(2)));
-	TestEqual(TEXT("Asset text is used with a grammar asset"), Actor->GetLastBuildInput().GrammarText, SimpleGrammar(2));
+	TestEqualSensitive(TEXT("Asset text is used with a grammar asset"), Actor->GetLastBuildInput().GrammarText, SimpleGrammar(2));
 	return true;
 }
 
@@ -126,6 +117,7 @@ bool FCambrianaLiveActorSettingsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Default sides"), Defaults.Sides, 8);
 	TestTrue(TEXT("Fit by default"), Defaults.SizeMode == ECambrianaSizeMode::Fit);
 	TestEqual(TEXT("Default target size"), Defaults.SizeValue, 200.0);
+	TestFalse(TEXT("A grammar's size applies by default"), Defaults.bOverrideGrammarSize);
 
 	Actor->bOverrideRecursion = true;
 	Actor->Recursion = 2.5;
@@ -138,6 +130,7 @@ bool FCambrianaLiveActorSettingsTest::RunTest(const FString& Parameters)
 	Actor->Sides = 5;
 	Actor->SizeMode = ECambrianaSizeMode::Step;
 	Actor->SizeValue = 12.0;
+	Actor->bOverrideSize = true;
 	Actor->Seed = 77;
 
 	const FCambrianaBuildInput Input = Actor->MakeBuildInput();
@@ -149,6 +142,7 @@ bool FCambrianaLiveActorSettingsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Sides"), Input.Settings.Sides, 5);
 	TestTrue(TEXT("Size mode"), Input.Settings.SizeMode == ECambrianaSizeMode::Step);
 	TestEqual(TEXT("Size value"), Input.Settings.SizeValue, 12.0);
+	TestTrue(TEXT("Size override"), Input.Settings.bOverrideGrammarSize);
 	TestEqual(TEXT("Seed"), Input.Seed, 77u);
 	return true;
 }
@@ -183,8 +177,8 @@ bool FCambrianaLiveActorRebuildsOnGrammarChangeTest::RunTest(const FString& Para
 
 	TestEqual(TEXT("First referencing actor rebuilt once"), First->GetBuildCount(), FirstCount + 1);
 	TestEqual(TEXT("Second referencing actor rebuilt once"), Second->GetBuildCount(), SecondCount + 1);
-	TestEqual(TEXT("First actor built from the changed text"), First->GetLastBuildInput().GrammarText, SimpleGrammar(5));
-	TestEqual(TEXT("Second actor built from the changed text"), Second->GetLastBuildInput().GrammarText, SimpleGrammar(5));
+	TestEqualSensitive(TEXT("First actor built from the changed text"), First->GetLastBuildInput().GrammarText, SimpleGrammar(5));
+	TestEqualSensitive(TEXT("Second actor built from the changed text"), Second->GetLastBuildInput().GrammarText, SimpleGrammar(5));
 	TestEqual(TEXT("Actor referencing another asset did not rebuild"), Unrelated->GetBuildCount(), UnrelatedCount);
 
 	const int32 FirstCountBeforeSeed = First->GetBuildCount();
@@ -220,6 +214,7 @@ bool FCambrianaLiveActorRebuildsOnPropertyChangeTest::RunTest(const FString& Par
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, BasicAngle), [Actor] { Actor->bOverrideBasicAngle = true; Actor->BasicAngle = 33.0; });
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Sides), [Actor] { Actor->Sides = 6; });
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, SizeMode), [Actor] { Actor->SizeMode = ECambrianaSizeMode::Step; });
+	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, bOverrideSize), [Actor] { Actor->bOverrideSize = true; });
 	ExpectRebuild(GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Grammar), [Actor] { Actor->Grammar = MakeGrammar(SimpleGrammar(2)); });
 	return true;
 }

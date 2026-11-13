@@ -65,13 +65,14 @@ Layout `[Proposed — unconfirmed]`:
 |---|---|
 | `Cambriana.uplugin` | Plugin descriptor; modules allowed on Win64 only until other platforms' core libraries are delivered |
 | `Source/Cambriana/` | Runtime module |
-| `Source/Cambriana/Public/CambrianaBuild.h` | Generation seam `Cambriana::BuildMesh` (grammar text + settings + seed to mesh, material slot IDs and a build report with diagnostics and budget flags) and the preview palette; implemented in `Private/CambrianaBuild.cpp`, the only file that calls the core's build API. Empty grammar text builds nothing without calling the core; a grammar with errors builds an empty mesh `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaBuild.h` | Generation seam `Cambriana::BuildMesh` (grammar text + settings + seed + stored parameter values to mesh, material slot IDs and a build report with diagnostics and budget flags), `Cambriana::ReadParameters` (the `.lsys` text's parameters: name, tier, text value, value used), the settings grammar text states (`Cambriana::ReadStatedSettings`: `.lsys` settings statements, or the `.ls` header of text without errors) and the preview palette; implemented in `Private/CambrianaBuild.cpp`, the only file that calls the core's build API, over `Private/CambrianaCoreGrammar.h` (`Cambriana::FCoreGrammar`, the owned core grammar model also used by `CambrianaGrammarConversion.cpp`). Empty grammar text builds nothing without calling the core; a grammar with errors builds an empty mesh `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Private/CambrianaBuildInternal.h` | Seam internals exposed to tests: core-availability gate (logs once), result-flag mapping, report logging to `LogCambriana` `[Proposed — unconfirmed]` |
-| `Source/Cambriana/Public/CambrianaGrammar.h` | Interim grammar asset (legacy `.ls` text and seed); broadcasts `OnGrammarChanged` after edits `[Proposed — unconfirmed]` |
-| `Source/Cambriana/Public/CambrianaLiveActor.h` | Live actor; rebuilds in `OnConstruction` only when its build input differs from the last build (so moves do not rebuild), and whenever its grammar asset changes `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaGrammar.h` | Interim grammar asset (grammar text, `.lsys` or legacy `.ls`, seed, stored parameter values by case-sensitive name, size and surfacer settings); its factories start the settings from the text; broadcasts `OnGrammarChanged` after edits `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaLiveActor.h` | Live actor; rebuilds in `OnConstruction` only when its build input differs from the last build (so moves do not rebuild), and whenever its grammar asset changes; placement from an asset starts its overridable settings from `GetStartingSettings` (the text, the asset or the default), and each setting's Details reset goes to that starting value (`IsAtStartingValue`, `ResetToStartingValue`; the text's stated settings are cached, keyed by the exact text); `MakeBuildInputFor` gives a grammar asset's own build input (every override off, the asset's seed); `UsesOwnValue` tells whether the build uses the actor's own value of a setting (its override on, or nothing ahead of the actor gives it) `[Proposed — unconfirmed]` |
+| `Source/Cambriana/Public/CambrianaPreviewMaterials.h` | Preview palette materials on a dynamic mesh component, shared by the live actor and the grammar editor preview `[Proposed — unconfirmed]` |
 | `Source/Cambriana/Public/CambrianaSeed.h` | Seed generation from the OS random source `[Proposed — unconfirmed]` |
 | `Source/CambrianaEditor/` | Editor module |
-| `Source/CambrianaEditor/Private/` | Grammar factory and asset definition, live actor factory (drag and drop), seed field with new-seed button `[Proposed — unconfirmed]` |
+| `Source/CambrianaEditor/Private/` | Grammar factory (new assets hold the default grammar as `.lsys` text) and asset definition, live actor factory (drag and drop), `CambrianaConversionLog` (legacy conversion diagnostics logged for import, reimport and export), seed field with new-seed button, live actor Details customization `CambrianaLiveActorCustomization` (seed field; each overridable setting's reset arrow shown while it differs from its starting value and resetting it in one undoable edit; the size and surfacer overrides drawn inline, each value greyed while the build does not use it) `[Proposed — unconfirmed]`; grammar asset details customization `CambrianaGrammarCustomization` (seed row; `.lsys` parameters in one category per tier, set and reset as undoable changes) `[Proposed — unconfirmed]`; grammar editor toolkit `CambrianaGrammarEditorToolkit`, editing a transient working copy (`CambrianaGrammarWorkingCopy`: duplicate, compare and copy every grammar property but the import data) that Save copies into the asset and saves, restoring the asset when the save does not complete, and Save As writes to a new asset only, never over an existing one, with `*` on the tab while edits are unsaved and a prompt on close: save, discard or cancel when its tab closes; save or discard, asking again after a save that does not complete, on the asset editor subsystem's closes, which cannot be stopped (`SetUnsavedEditsPrompt`, given the buttons offered, and `SetSaveAsPrompt` answer the dialogs in tests) (Rules tab: the working copy's text above a message log listing of the preview build's errors and warnings, each with its line and column or production position; text applied to the working copy as one undoable edit once typing pauses for `RulesApplyDelaySeconds`, on focus loss, before a save, on close and before the editor's own Undo and Redo, with `\n` line breaks; Viewport tab showing `CambrianaGrammarPreview`, the working copy's transient preview built as a live actor referencing it with every override off and its seed would build it, with the scene floor at the mesh's lowest point after each rebuild, in `SCambrianaGrammarViewport`, which redraws on each rebuild and frames the mesh on open and on F; Details tab showing the working copy without the grammar text or the import data; empty Outputs tab) `[Proposed — unconfirmed]` |
 | `Source/*/Private/Tests/` | Automation tests, named `Cambriana.*` |
 | `Source/Cambriana/Private/Tests/Fixtures/` | Byte-exact legacy `.ls` fixtures (`sk.ls`, `TREE11.LS`), kept out of line-ending conversion by `.gitattributes` `[Proposed — unconfirmed]` |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
@@ -306,3 +307,84 @@ When using sub-agents for implementation:
   stated requirements or complex problems go back to the sub-agent rather than being
   patched over.
 - Create the PR only after review passes.
+
+## Author's Standing Rules
+
+These rules come from the author over many sessions. They apply on every machine and override
+any per-machine agent memory that disagrees.
+
+### Workflow and steps
+
+- Design is docs-driven. Ideas are explored and refined in the specs and docs. Code builds
+  only small steps that are already specified, each with an acceptance test. `[Proposed —
+  unconfirmed]` markings go on agent choices; text without a marking is decided.
+- Work goes one bounded step at a time, never as a multi-part phase. An agreed milestone step
+  list is standing authorization to proceed through it.
+- Every testable step gets its own PR with exact hand-test steps. Don't wait for the author's
+  test before starting the next steps: build them stacked, each on the previous step's
+  branch, each with its own PR, so the author has a queue to test at the machine.
+- PRs into a milestone branch (for example `feat/m3-bake`) are merged by the session once the
+  author has tested them: rebase merge, delete the branch, then rebase the stack on top. PRs
+  into `main` are the author's to merge. Merges always use rebase merge (release-please).
+- The session pushes its own and its sub-agents' work, and never hands the author a push.
+  Push a step as soon as it's committed, then test. Before saying a PR is ready to test,
+  `git fetch` and confirm the remote head equals the tested head, and name that hash.
+- Before opening any PR for sub-agent work, read the full product-code diff line by line.
+  Report defects in the same message as the PR.
+- Do decided work and your own fixes without asking. Ask only about real scope or
+  requirement decisions. If only one option is sensible, it isn't a decision: do it, mark
+  it, and call it out in one line. Corrected twice on a point means comply without asking.
+- When reviewing an agent's work, tell the author your own view of its quality and anything
+  it did that you didn't expect.
+- Bug fixes aren't part of a milestone. File them as issues (and test-harness work as a
+  general issue) unless the author says otherwise.
+
+### Unreal behaviour
+
+- Behaviour an Unreal user would expect outranks earlier project decisions. "It was decided"
+  carries no weight; only whether it's correct does. Precedent claims must be accurate.
+- Any choice an agent or the session makes for user-facing or engine-facing behaviour
+  implements the normal native Unreal pattern. Find the nearest engine equivalent in the
+  engine source, follow it, and cite it. No shortcuts and minimal improvising. If no native
+  equivalent exists, say so and keep the choice small and conventional.
+
+### Sub-agent briefs
+
+Every implementation brief states:
+
+- what to build, and the load-bearing constraints;
+- the failing test is committed alone before the fix or feature. Expected values come from
+  specs, legacy output or hand calculation; values taken from the code are labelled
+  regression pins;
+- ideas beyond the brief go in the report as suggestions, not built;
+- the `.lsys` `merge`, `bone` and `socket` features stay frozen: change, extend and rely on
+  nothing in them until the author decides;
+- append one timestamped line to `progress-<task>.md` in the session scratchpad after each
+  commit and each build or test run: what was done, what's next, items done out of the
+  total. The session reads that file, the branch and the newest logs when asked how a run is
+  going, and never answers only "still running";
+- if a push is refused, stop and report; the session pushes;
+- for UI or engine-facing choices, the native-pattern rule above.
+
+### Builds, tests and cost
+
+- Agents build and test in the worktree `../UE_Cambriana_dev1`, against the base project
+  `Cambriana_Base_dev1` (created with `scripts/New-BaseProject.ps1 -ProjectDir <path>`,
+  junctioned to that worktree). Never rebuild the author's own `Cambriana_Base` unless asked.
+- While iterating on a step, build incrementally and run only the new or changed tests. Run
+  the full `Cambriana.*` suite once before a step's push, and at milestone gates.
+- Batch red/green: commit each failing test, then one build and run shows them all red;
+  commit each fix, then one run shows them all green.
+- Be lean with tokens: short messages, few re-runs, small briefs. Wait for builds and agents
+  in the background, never blocking. Hand bulk reading (full code reviews) to a read-only
+  agent and keep the main session for decisions. Use a lighter model for mechanical briefs
+  (refactors, helper consolidation). The session does planning and spec writing itself
+  rather than through an agent.
+- Mutation audits at milestone gates cover the acceptance tests and the milestone's new and
+  changed tests, with mutants batched per build.
+
+### Messages
+
+- Keep messages short: the problem, what it does now, what you suggest.
+- Link every PR and issue number to its GitHub URL and name the repo. Never write a list item
+  as "#N"; call it "item N".

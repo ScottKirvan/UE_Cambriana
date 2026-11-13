@@ -5,6 +5,26 @@
 
 #include "CambrianaBuild.generated.h"
 
+/** A string whose == and != respect case; FString's ignore it, but grammar text is case-sensitive. */
+struct FCambrianaCaseSensitiveString : FString
+{
+	using FString::FString;
+	FCambrianaCaseSensitiveString() = default;
+	FCambrianaCaseSensitiveString(const FString& Text) : FString(Text) {}
+	FCambrianaCaseSensitiveString(FString&& Text) : FString(MoveTemp(Text)) {}
+
+	bool operator==(const FCambrianaCaseSensitiveString& Other) const
+	{
+		return Equals(Other, ESearchCase::CaseSensitive);
+	}
+};
+
+template <>
+struct TIsContiguousContainer<FCambrianaCaseSensitiveString>
+{
+	static constexpr bool Value = true;
+};
+
 UENUM()
 enum class ECambrianaSizeMode : uint8
 {
@@ -23,6 +43,14 @@ struct FCambrianaBuildSettings
 	int32 Sides = 8;
 	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
 	double SizeValue = 200.0;
+	/** Cambriana grammar text uses SizeMode and SizeValue only when set; otherwise its own size or step, else the core's default. */
+	bool bOverrideGrammarSize = false;
+	/** Cambriana grammar text stating neither size nor step uses SizeMode and SizeValue instead of the core's default. */
+	bool bSizeForGrammarWithoutSize = false;
+	/** Cambriana grammar text uses Sides, bClosedForm and MinThickness over its own sides, surface and minthickness only when set. */
+	bool bOverrideGrammarSides = false;
+	bool bOverrideGrammarSurface = false;
+	bool bOverrideGrammarMinThickness = false;
 	TOptional<uint64> ProductionBudget;
 	TOptional<uint64> BoneBudget;
 	TOptional<uint64> WorkBudget;
@@ -31,11 +59,52 @@ struct FCambrianaBuildSettings
 	bool operator==(const FCambrianaBuildSettings&) const = default;
 };
 
+UENUM()
+enum class ECambrianaParameterTier : uint8
+{
+	None,
+	Pose,
+	Shape,
+	Structure,
+};
+
+/** A value stored for a grammar parameter, by its case-sensitive name. */
+USTRUCT()
+struct FCambrianaParameterValue
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString Name;
+
+	UPROPERTY()
+	double Value = 0.0;
+
+	bool operator==(const FCambrianaParameterValue& Other) const
+	{
+		return Name.Equals(Other.Name, ESearchCase::CaseSensitive) && Value == Other.Value;
+	}
+};
+
+/** A parameter declared by Cambriana grammar text. */
+struct FCambrianaParameter
+{
+	FString Name;
+	ECambrianaParameterTier Tier = ECambrianaParameterTier::None;
+	/** The value the text gives it. */
+	double TextValue = 0.0;
+	/** The value a build uses: the stored value, else the text's value computed with the stored values of earlier parameters. */
+	double Value = 0.0;
+	bool bStored = false;
+};
+
 struct FCambrianaBuildInput
 {
-	FString GrammarText;
+	FCambrianaCaseSensitiveString GrammarText;
 	FCambrianaBuildSettings Settings;
 	uint32 Seed = 0;
+	/** Applied to the parameters Cambriana grammar text declares; values for other names, and for legacy text, are ignored. */
+	TArray<FCambrianaParameterValue> ParameterValues;
 
 	bool operator==(const FCambrianaBuildInput&) const = default;
 };
@@ -57,6 +126,23 @@ enum class ECambrianaDiagnosticCode : uint8
 	UnmatchedPop,
 	UnmatchedPolygonEnd,
 	UnclosedPolygon,
+	Syntax,
+	CommandUsedAsName,
+	ReservedName,
+	UnknownName,
+	DuplicateName,
+	ArgumentCount,
+	PoseParameter,
+	MacroCycle,
+	ModuleInDrawRule,
+	UnknownAxiom,
+	SegmentReplacedBySeveral,
+	UnreachableRule,
+	NotConstant,
+	SizeAndStep,
+	NonFiniteValue,
+	NotConvertible,
+	ShapeParameter,
 };
 
 /** A grammar diagnostic. Parse diagnostics carry a 1-based line and column; turtle diagnostics a production position instead. */
@@ -69,6 +155,8 @@ struct FCambrianaDiagnostic
 	TOptional<uint64> ProductionPosition;
 
 	CAMBRIANA_API FString Describe() const;
+	/** Describe() without the severity: "line 3, column 3: syntax error" or "production position 1: unmatched ']'". */
+	CAMBRIANA_API FString DescribePositionAndProblem() const;
 };
 
 /** What a build reported besides its mesh. */
@@ -88,6 +176,29 @@ struct FCambrianaBuildReport
 	double BasicAngle = 0.0;
 	double Thickness = 0.0;
 	double StepLength = 0.0;
+	/** The size mode and value the build used; in Step mode the value is StepLength. */
+	ECambrianaSizeMode SizeMode = ECambrianaSizeMode::Fit;
+	double SizeValue = 0.0;
+	/** The surfacer settings the build used. */
+	int32 Sides = 0;
+	bool bClosedForm = true;
+	double MinThickness = 0.0;
+};
+
+/** The settings grammar text states; each is unset when the text does not state it. */
+struct FCambrianaStatedSettings
+{
+	TOptional<double> Recursion;
+	TOptional<double> BasicAngle;
+	TOptional<double> Thickness;
+	/** Fit with the size, or Step with the step length. */
+	TOptional<ECambrianaSizeMode> SizeMode;
+	TOptional<double> SizeValue;
+	TOptional<int32> Sides;
+	TOptional<bool> bClosedForm;
+	TOptional<double> MinThickness;
+
+	bool operator==(const FCambrianaStatedSettings&) const = default;
 };
 
 struct FCambrianaBuildResult
@@ -103,6 +214,12 @@ namespace Cambriana
 {
 	/** Generates a mesh in Unreal space (left-handed, +Z up, cm) from grammar text, settings and seed. */
 	CAMBRIANA_API FCambrianaBuildResult BuildMesh(const FCambrianaBuildInput& Input);
+
+	/** The parameters Cambriana grammar text declares, in file order, with StoredValues applied; none for legacy text. */
+	CAMBRIANA_API TArray<FCambrianaParameter> ReadParameters(const FString& GrammarText, TConstArrayView<FCambrianaParameterValue> StoredValues = {});
+
+	/** The settings the grammar text states: .lsys settings statements, or the .ls header of text without errors. */
+	CAMBRIANA_API FCambrianaStatedSettings ReadStatedSettings(const FString& GrammarText);
 
 	constexpr int32 PreviewPaletteSize = 10;
 
