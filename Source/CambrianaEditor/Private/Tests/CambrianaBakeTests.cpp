@@ -1,4 +1,5 @@
 #include "CambrianaBake.h"
+#include "CambrianaBakeTestFixture.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "ContentBrowserMenuContexts.h"
@@ -17,8 +18,6 @@ using namespace Cambriana::Editor::Tests;
 
 namespace
 {
-	const TCHAR* BakeTestRoot = TEXT("/Game/CambrianaBakeTests");
-
 	// SDD-surfacing.md, Tubes: sk.ls at 8 sides has 1,280 triangles. Each of its 80 segments (four branches of 20, one per
 	// generation) is a tube of 2 triangles per side without caps, so at 6 sides it has 80 * 2 * 6 = 960.
 	constexpr int32 SkTriangles = 1280;
@@ -35,74 +34,6 @@ namespace
 		const FStaticMeshRenderData* RenderData = Mesh ? Mesh->GetRenderData() : nullptr;
 		return RenderData && RenderData->LODResources.Num() > 0 ? RenderData->LODResources[0].GetNumTriangles() : 0;
 	}
-
-	/** A grammar asset in its own package under BakeTestRoot, holding sk.ls with static mesh output on; removes it and whatever was baked from it, in memory and on disk. */
-	class FBakeFixture
-	{
-	public:
-		explicit FBakeFixture(const TCHAR* InName)
-			: Name(InName)
-			, GrammarPackage(FString(BakeTestRoot) / InName)
-			// Expected location, from SDD-unreal.md: a folder beside the grammar asset, the asset named SM_<grammar asset name>.
-			, MeshPackage(FString(BakeTestRoot) / InName / (TEXT("SM_") + FString(InName)))
-		{
-			Remove();
-			Grammar = CreateGrammarInPackage(*GrammarPackage);
-			Grammar->GrammarText = LoadFile(FixturePath(TEXT("sk.ls")));
-			Grammar->Bake.bStaticMesh = true;
-		}
-
-		~FBakeFixture() { Remove(); }
-
-		FBakeFixture(const FBakeFixture&) = delete;
-		FBakeFixture& operator=(const FBakeFixture&) = delete;
-
-		FString MeshObjectPath() const { return MeshPackage + TEXT(".SM_") + Name; }
-
-		UStaticMesh* FindMesh() const { return FindObject<UStaticMesh>(nullptr, *MeshObjectPath()); }
-
-		bool MeshFileExists() const { return IFileManager::Get().FileExists(*PackageFilename(*MeshPackage)); }
-
-		/** Bakes with the engine's save prompts saving without asking, as for an unattended script. */
-		FCambrianaBakeResult Bake(const Cambriana::Editor::FAskToOverwrite& AskToOverwrite = nullptr) const
-		{
-			FCambrianaBakeResult Result;
-			RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeGrammar(*Grammar, AskToOverwrite); });
-			return Result;
-		}
-
-		/** Changes the grammar as an edit does, so that the bake saves it first. */
-		void Edit(TFunctionRef<void(UCambrianaGrammar&)> Change) const
-		{
-			Change(*Grammar);
-			Grammar->MarkPackageDirty();
-		}
-
-		const FString Name;
-		const FString GrammarPackage;
-		const FString MeshPackage;
-		UCambrianaGrammar* Grammar = nullptr;
-
-	private:
-		void Remove()
-		{
-			for (const FString& PackageName : { MeshPackage, GrammarPackage })
-			{
-				if (UPackage* Package = FindPackage(nullptr, *PackageName))
-				{
-					if (UCambrianaGrammar* Loaded = FindObject<UCambrianaGrammar>(Package, *Name))
-					{
-						CloseGrammarEditor(Loaded);
-					}
-					UnloadPackage(Package);
-				}
-				IFileManager::Get().Delete(*PackageFilename(*PackageName));
-			}
-			IFileManager::Get().DeleteDirectory(*FPaths::GetPath(PackageFilename(*MeshPackage)), false, true);
-			IFileManager::Get().DeleteDirectory(*FPaths::GetPath(PackageFilename(*GrammarPackage)), false, false);
-			Grammar = nullptr;
-		}
-	};
 
 	Cambriana::Editor::FAskToOverwrite Answer(EAppReturnType::Type Reply, int32& Asked)
 	{
