@@ -53,6 +53,9 @@ namespace Cambriana::Editor
 	 */
 	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToOverwrite& AskToOverwrite = nullptr);
 
+	/** Shows a notification of a bake's result; Source names what was baked. A declined overwrite shows nothing. */
+	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result);
+
 	/** Adds Bake to the grammar asset's right-click menu in the Content Browser, owned by the current tool menu owner. */
 	void AddBakeMenuEntry();
 }

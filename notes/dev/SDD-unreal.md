@@ -79,7 +79,24 @@ display baked results.
   text included), bakes nothing and leaves an existing baked mesh unchanged; after the
   build's diagnostics an error naming the grammar is logged, as a failed import creates no
   asset.
-- Each variant (seed, axiom) gets its own skeleton.
+- `[Proposed — unconfirmed]` The live actor's Details Bake is a `Bake` button on its own row at
+  the end of the Cambriana category, as the procedural mesh component's Details places its
+  Create StaticMesh button (`ProceduralMeshComponentDetails.cpp`). It bakes each selected
+  placed live actor, shows a notification for each, and is disabled for class defaults and
+  archetypes.
+- `[Proposed — unconfirmed]` A live actor with a grammar asset bakes
+  `SM_<grammar asset name>_<actor label>` into that grammar's bake folder: a grammar
+  `/Game/Trees/Fern` and an actor labelled `Fern2` bake `/Game/Trees/Fern/SM_Fern_Fern2`. One
+  with inline text and no grammar asset bakes `SM_<actor label>` at the project's content root
+  (`/Game`). This follows Merge Actors, which names its mesh `SM_` plus a default name made from
+  the actor's name and puts it at the content root when nothing else gives a folder
+  (`MeshMergingTool.cpp`, `GetDefaultPackageName`; `MeshMergeUtilities.cpp`). The label is
+  sanitised as an object name (`ObjectTools::SanitizeObjectName`).
+- `[Proposed — unconfirmed]` The live actor's Details Bake reuses the grammar Bake's overwrite
+  question, in-place rebuild, refusal of an asset of another class, nothing baked for errors or
+  no triangles, and saving without a prompt. A grammar asset without a saved state is first
+  offered to the engine's save prompt; when it is not saved, nothing is baked. The grammar's own
+  bake settings do not apply.
 - The pose component drives any variant from its per-bone metadata, independent of bone names.
 
 ## Source files
