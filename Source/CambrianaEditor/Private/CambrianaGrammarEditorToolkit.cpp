@@ -47,6 +47,23 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	UCambrianaGrammar* Grammar)
 {
 	WorkingCopy.Reset(Cambriana::Editor::DuplicateWorkingCopy(*Grammar));
+	InstallDefaultPrompts();
+	CreateWidgets();
+
+	Preview = MakeShared<FCambrianaGrammarPreview>();
+	UpdatePreview(*WorkingCopy);
+
+	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
+
+	// As the Material and Blueprint editors do, the editor's own undo and redo first finish what is in progress.
+	ToolkitCommands->MapAction(FGenericCommands::Get().Undo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::UndoAfterPendingRulesEdit));
+	ToolkitCommands->MapAction(FGenericCommands::Get().Redo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::RedoAfterPendingRulesEdit));
+
+	InitAssetEditor(Mode, InitToolkitHost, AppIdentifier, MakeLayout(), true, true, Grammar);
+}
+
+void FCambrianaGrammarEditorToolkit::InstallDefaultPrompts()
+{
 	UnsavedEditsPrompt = [](EAppMsgType::Type Buttons, const FText& Message) { return FMessageDialog::Open(Buttons, Message); };
 	SaveAsPrompt = [](const UCambrianaGrammar& Edited)
 	{
@@ -59,7 +76,10 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 		const FString ObjectPath = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser")).Get().CreateModalSaveAssetDialog(Config);
 		return ObjectPath.IsEmpty() ? FString() : FPackageName::ObjectPathToPackageName(ObjectPath);
 	};
+}
 
+void FCambrianaGrammarEditorToolkit::CreateWidgets()
+{
 	RulesTextBox = SNew(SMultiLineEditableTextBox)
 		.Text(FText::FromString(WorkingCopy->GrammarText))
 		.OnTextChanged(FOnTextChanged::CreateSP(this, &FCambrianaGrammarEditorToolkit::HandleRulesTextChanged))
@@ -77,25 +97,17 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	DiagnosticsOptions.bAllowClear = false;
 	DiagnosticsOptions.MaxPageCount = 1;
 	RulesDiagnostics = FModuleManager::LoadModuleChecked<FMessageLogModule>(TEXT("MessageLog")).CreateLogListing(TEXT("CambrianaGrammarDiagnostics"), DiagnosticsOptions);
+}
 
-	Preview = MakeShared<FCambrianaGrammarPreview>();
-	UpdatePreview(*WorkingCopy);
-
-	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
-
-	// As the Material and Blueprint editors do, the editor's own undo and redo first finish what is in progress.
-	ToolkitCommands->MapAction(FGenericCommands::Get().Undo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::UndoAfterPendingRulesEdit));
-	ToolkitCommands->MapAction(FGenericCommands::Get().Redo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::RedoAfterPendingRulesEdit));
-
-	const TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout(TEXT("Standalone_CambrianaGrammarEditor_Layout_v2"))
+TSharedRef<FTabManager::FLayout> FCambrianaGrammarEditorToolkit::MakeLayout()
+{
+	return FTabManager::NewLayout(TEXT("Standalone_CambrianaGrammarEditor_Layout_v2"))
 		->AddArea(FTabManager::NewPrimaryArea()->SetOrientation(Orient_Horizontal)
 			->Split(FTabManager::NewStack()->SetSizeCoefficient(0.3f)->AddTab(RulesTabId, ETabState::OpenedTab))
 			->Split(FTabManager::NewStack()->SetSizeCoefficient(0.45f)->AddTab(ViewportTabId, ETabState::OpenedTab)->SetHideTabWell(true))
 			->Split(FTabManager::NewSplitter()->SetOrientation(Orient_Vertical)->SetSizeCoefficient(0.25f)
 				->Split(FTabManager::NewStack()->SetSizeCoefficient(0.7f)->AddTab(DetailsTabId, ETabState::OpenedTab))
 				->Split(FTabManager::NewStack()->SetSizeCoefficient(0.3f)->AddTab(OutputsTabId, ETabState::OpenedTab))));
-
-	InitAssetEditor(Mode, InitToolkitHost, AppIdentifier, Layout, true, true, Grammar);
 }
 
 FCambrianaGrammarEditorToolkit::~FCambrianaGrammarEditorToolkit()

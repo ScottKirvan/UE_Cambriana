@@ -89,6 +89,9 @@ private:
 	bool SaveWorkingCopy();
 	void CancelPendingRulesEdit();
 	void UpdatePreview(const UCambrianaGrammar& Grammar);
+	void InstallDefaultPrompts();
+	void CreateWidgets();
+	static TSharedRef<FTabManager::FLayout> MakeLayout();
 
 	TSharedPtr<SMultiLineEditableTextBox> RulesTextBox;
 	TSharedPtr<IMessageLogListing> RulesDiagnostics;
