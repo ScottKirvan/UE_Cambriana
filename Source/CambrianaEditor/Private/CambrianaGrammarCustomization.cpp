@@ -14,33 +14,24 @@
 
 namespace
 {
-	constexpr ECambrianaParameterTier TierOrder[] = {
-		ECambrianaParameterTier::Pose,
-		ECambrianaParameterTier::Shape,
-		ECambrianaParameterTier::Structure,
-		ECambrianaParameterTier::None,
+	/** A parameter tier's Details category. */
+	struct FTierCategory
+	{
+		ECambrianaParameterTier Tier;
+		FName Name;
+		FText Text;
 	};
 
-	FName CategoryName(ECambrianaParameterTier Tier)
+	/** The categories in the order they are shown. */
+	const TArray<FTierCategory>& TierCategories()
 	{
-		switch (Tier)
-		{
-		case ECambrianaParameterTier::Pose: return TEXT("Pose Parameters");
-		case ECambrianaParameterTier::Shape: return TEXT("Shape Parameters");
-		case ECambrianaParameterTier::Structure: return TEXT("Structure Parameters");
-		default: return TEXT("Parameters");
-		}
-	}
-
-	FText CategoryText(ECambrianaParameterTier Tier)
-	{
-		switch (Tier)
-		{
-		case ECambrianaParameterTier::Pose: return LOCTEXT("PoseParameters", "Pose Parameters");
-		case ECambrianaParameterTier::Shape: return LOCTEXT("ShapeParameters", "Shape Parameters");
-		case ECambrianaParameterTier::Structure: return LOCTEXT("StructureParameters", "Structure Parameters");
-		default: return LOCTEXT("Parameters", "Parameters");
-		}
+		static const TArray<FTierCategory> Categories = {
+			{ ECambrianaParameterTier::Pose, TEXT("Pose Parameters"), LOCTEXT("PoseParameters", "Pose Parameters") },
+			{ ECambrianaParameterTier::Shape, TEXT("Shape Parameters"), LOCTEXT("ShapeParameters", "Shape Parameters") },
+			{ ECambrianaParameterTier::Structure, TEXT("Structure Parameters"), LOCTEXT("StructureParameters", "Structure Parameters") },
+			{ ECambrianaParameterTier::None, TEXT("Parameters"), LOCTEXT("Parameters", "Parameters") },
+		};
+		return Categories;
 	}
 
 	bool SameRows(const TArray<FCambrianaParameter>& A, const TArray<FCambrianaParameter>& B)
@@ -150,18 +141,18 @@ void FCambrianaGrammarCustomization::AddParameterRows(IDetailLayoutBuilder& Deta
 	Parameters = Cambriana::ReadParameters(Grammar->GrammarText, Grammar->ParameterValues);
 	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddRaw(this, &FCambrianaGrammarCustomization::HandleGrammarChanged);
 
-	for (const ECambrianaParameterTier Tier : TierOrder)
+	for (const FTierCategory& Tier : TierCategories())
 	{
 		IDetailCategoryBuilder* Category = nullptr;
 		for (const FCambrianaParameter& Parameter : Parameters)
 		{
-			if (Parameter.Tier != Tier)
+			if (Parameter.Tier != Tier.Tier)
 			{
 				continue;
 			}
 			if (!Category)
 			{
-				Category = &DetailBuilder.EditCategory(CategoryName(Tier), CategoryText(Tier));
+				Category = &DetailBuilder.EditCategory(Tier.Name, Tier.Text);
 			}
 			const FString Name = Parameter.Name;
 			const FText NameText = FText::FromString(Name);
