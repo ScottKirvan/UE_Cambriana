@@ -201,12 +201,51 @@ struct FCambrianaStatedSettings
 	bool operator==(const FCambrianaStatedSettings&) const = default;
 };
 
+enum class ECambrianaBoneKind : uint8
+{
+	DrawnSegment,
+	PolygonAttachment,
+	Socket,
+	OtherUndrawn,
+};
+
+/** A bone of the core's bone tree (SDD-rigging.md, Bone tree), in Unreal space. */
+struct FCambrianaBone
+{
+	FName Name;
+	/** Index of the parent bone, or INDEX_NONE for a root of the tree. */
+	int32 Parent = INDEX_NONE;
+	FVector3d Start = FVector3d::ZeroVector;
+	FVector3d End = FVector3d::ZeroVector;
+	/** The turtle frame: orthonormal, Forward along the bone, Up = Side x Forward. */
+	FVector3d Side = FVector3d::ZeroVector;
+	FVector3d Forward = FVector3d::ZeroVector;
+	FVector3d Up = FVector3d::ZeroVector;
+	double Radius = 0.0;
+	ECambrianaBoneKind Kind = ECambrianaBoneKind::DrawnSegment;
+	/** The tube surfacer starts a new chain at this bone (SDD-surfacing.md, Tubes: chains break after ], f, z, g). */
+	bool bChainBreakBefore = false;
+};
+
+/** A skin influence: a bone of the build's bone tree and its weight. */
+struct FCambrianaInfluence
+{
+	int32 Bone = INDEX_NONE;
+	double Weight = 0.0;
+};
+
+using FCambrianaVertexInfluences = TArray<FCambrianaInfluence, TInlineAllocator<1>>;
+
 struct FCambrianaBuildResult
 {
 	/** Each triangle's material ID is a slot index. */
 	UE::Geometry::FDynamicMesh3 Mesh;
 	/** The core material ID of each slot, ascending. */
 	TArray<int64> SlotMaterialIds;
+	/** The core's bone tree, in core order. */
+	TArray<FCambrianaBone> Bones;
+	/** Each mesh vertex's skin influences, by vertex ID, as the core gives them. */
+	TArray<FCambrianaVertexInfluences> VertexInfluences;
 	FCambrianaBuildReport Report;
 };
 

@@ -8,6 +8,7 @@ public class Cambriana : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
+			"AnimationCore",
 			"Core",
 			"CoreUObject",
 			"Engine",
@@ -21,6 +22,7 @@ public class Cambriana : ModuleRules
 			"MeshConversion",
 			"MeshDescription",
 			"Projects",
+			"SkeletalMeshDescription",
 			"StaticMeshDescription",
 		});
 	}
