@@ -13,18 +13,16 @@ class UStaticMesh;
 enum class ECambrianaBakeStatus : uint8
 {
 	Baked,
-	/** No output the bake writes yet is selected in the grammar's bake settings. */
-	NoOutputSelected,
 	/** The grammar has no saved state to bake from: its save was declined or did not complete. */
 	GrammarNotSaved,
-	/** The grammar has errors or builds no triangles. */
+	/** The grammar has errors, builds no triangles, or its bone tree makes no skeleton. */
 	NothingToBuild,
-	/** An asset that is not a static mesh holds the static mesh's name. */
+	/** An asset of another class holds an output's name. */
 	NameTaken,
 	OverwriteDeclined,
 	/** The save-asset dialog for the static mesh's location was cancelled. */
 	LocationNotChosen,
-	/** The static mesh was built but its package did not save. */
+	/** The outputs were built but did not all save. */
 	SaveFailed,
 };
 
@@ -56,9 +54,10 @@ namespace Cambriana::Editor
 	inline const FName BakeMenuEntry(TEXT("CambrianaGrammar_Bake"));
 
 	/**
-	 * Bakes the grammar asset's saved state into its selected outputs, written to a folder beside the asset named after it, and saves
-	 * them. The static mesh is SM_<grammar asset name>. A grammar without saved state is first offered
-	 * to the engine's save prompt. AskToOverwrite is asked before an existing static mesh is rebuilt; unset, a message dialog asks.
+	 * Bakes the grammar asset's saved state into a skeleton SKEL_<grammar asset name> and skinned skeletal mesh SK_<grammar asset name>,
+	 * and a static mesh SM_<grammar asset name> when its bake settings select it, written to a folder beside the asset named after it,
+	 * and saves them. A grammar without saved state is first offered to the engine's save prompt. AskToOverwrite is asked once before
+	 * existing outputs are rebuilt in place; unset, a message dialog asks.
 	 */
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, const FAskToOverwrite& AskToOverwrite = nullptr);
 
