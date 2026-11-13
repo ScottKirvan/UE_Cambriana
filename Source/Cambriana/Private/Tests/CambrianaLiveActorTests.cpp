@@ -6,16 +6,7 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-namespace
-{
-	UCambrianaGrammar* MakeGrammar(const FString& Text)
-	{
-		UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(GetTransientPackage());
-		Grammar->GrammarText = Text;
-		return Grammar;
-	}
-}
-
+using Cambriana::Tests::MakeGrammar;
 using Cambriana::Tests::SimpleGrammar;
 #if WITH_EDITOR
 using Cambriana::Tests::EditProperty;
