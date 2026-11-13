@@ -300,6 +300,20 @@ bool FCambrianaToolkitCommitCancelsTypingTimerTest::RunTest(const FString& Param
 	TestTrue(TEXT("and is pending meanwhile"), Editor.Toolkit->HasUnsavedEdits());
 	PauseTyping(Delay * 0.6f);
 	TestEqualSensitive(TEXT("It applies a pause after it was typed"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
+
+	// A commit leaves no timer that can fire later: with no further typing a full pause passes and nothing more is applied.
+	int32 Changes = 0;
+	const UCambrianaGrammar* WorkingCopy = Editor.Toolkit->GetWorkingCopy();
+	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, WorkingCopy](const UCambrianaGrammar* Changed) { Changes += Changed == WorkingCopy; });
+	TypeOtherText(*Rules, TEXT("axiom F F\n"));
+	PauseTyping(Delay * 0.6f);
+	Editor.Toolkit->CommitRulesText(FText::FromString(CountText));
+	const int32 ChangesAfterCommit = Changes;
+	PauseTyping(Delay);
+	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
+	TestEqualSensitive(TEXT("After a commit a full pause leaves the committed text"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(CountText));
+	TestEqual(TEXT("and sends no further change"), Changes, ChangesAfterCommit);
+	TestEqual(TEXT("the commit itself being one change"), ChangesAfterCommit, 1);
 	return true;
 }
 
