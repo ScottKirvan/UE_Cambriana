@@ -39,7 +39,7 @@ namespace
 		return Parameter;
 	}
 
-	/** Records each grammar change broadcast and, as a listener that edits an object would, modifies the changed grammar. */
+	/** Records each grammar change broadcast, whether an undo transaction was active for it, and, as a listener that edits an object would, modifies the changed grammar. */
 	class FChangeListener
 	{
 	public:
@@ -48,6 +48,7 @@ namespace
 			Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([this](const UCambrianaGrammar* Changed)
 			{
 				++Count;
+				bUndoActive |= GUndo != nullptr;
 				const_cast<UCambrianaGrammar*>(Changed)->Modify();
 			});
 		}
@@ -58,6 +59,7 @@ namespace
 		FChangeListener& operator=(const FChangeListener&) = delete;
 
 		int32 Count = 0;
+		bool bUndoActive = false;
 
 	private:
 		FDelegateHandle Handle;
@@ -142,30 +144,34 @@ bool FCambrianaWorkingCopyCopyTest::RunTest(const FString& Parameters)
 	UPackage* Package = To->GetPackage();
 	Package->SetDirtyFlag(false);
 
+	TestTrue(TEXT("Copying a different grammar changes the target"), CopyGrammar(*From, *To));
+	TestTrue(TEXT("The target holds the copied grammar"), HoldSameGrammar(*From, *To));
+	TestTrue(TEXT("The target's package is dirty"), Package->IsDirty());
+	TestFalse(TEXT("Copying the same grammar changes nothing"), CopyGrammar(*From, *To));
+	TestFalse(TEXT("Copying values of the same grammar changes nothing"), CopyGrammarValues(*From, *To));
+
 	{
 		FChangeListener Listener;
-		TestTrue(TEXT("Copying a different grammar changes the target"), CopyGrammar(*From, *To));
-		TestEqual(TEXT("The change is broadcast once"), Listener.Count, 1);
-		TestTrue(TEXT("The target holds the copied grammar"), HoldSameGrammar(*From, *To));
-		TestTrue(TEXT("The target's package is dirty"), Package->IsDirty());
-
-		TestFalse(TEXT("Copying the same grammar changes nothing"), CopyGrammar(*From, *To));
-		TestEqual(TEXT("and broadcasts nothing"), Listener.Count, 1);
-		TestFalse(TEXT("Copying values of the same grammar changes nothing"), CopyGrammarValues(*From, *To));
-
 		From->Seed = 6;
 		const int32 HistoryBefore = UndoHistoryLength();
 		{
 			const FScopedTransaction Transaction(FText::FromString(TEXT("Copy")));
 			TestTrue(TEXT("Copying inside a transaction changes the target"), CopyGrammar(*From, *To));
 		}
+		TestEqual(TEXT("The change is broadcast once"), Listener.Count, 1);
+		TestFalse(TEXT("The change is broadcast outside the undo transaction"), Listener.bUndoActive);
 		TestEqual(TEXT("A copy and its listeners write nothing into the undo history"), UndoHistoryLength(), HistoryBefore);
+
+		TestFalse(TEXT("Copying the same grammar again changes nothing"), CopyGrammar(*From, *To));
+		TestEqual(TEXT("and broadcasts nothing"), Listener.Count, 1);
 
 		{
 			const FScopedTransaction Transaction(FText::FromString(TEXT("Notify")));
 			NotifyGrammarChanged(*To);
 		}
-		TestEqual(TEXT("A change notification and its listeners write nothing into the undo history"), UndoHistoryLength(), HistoryBefore);
+		TestEqual(TEXT("A change notification is broadcast"), Listener.Count, 2);
+		TestFalse(TEXT("outside the undo transaction"), Listener.bUndoActive);
+		TestEqual(TEXT("and its listeners write nothing into the undo history"), UndoHistoryLength(), HistoryBefore);
 	}
 
 	UnloadPackage(Package);
@@ -180,7 +186,10 @@ bool FCambrianaWorkingCopyDuplicateAsAssetTest::RunTest(const FString& Parameter
 {
 	const TCHAR* PackageName = TEXT("/Game/CambrianaWorkingCopyTests/AsAsset");
 	UCambrianaGrammar* Source = TransientGrammar(TEXT("axiom F F\n"), 5);
+	TArray<const UObject*> Announced;
+	const FDelegateHandle Handle = IAssetRegistry::GetChecked().OnInMemoryAssetCreated().AddLambda([&Announced](UObject* Created) { Announced.Add(Created); });
 	UCambrianaGrammar* Asset = DuplicateAsAsset(*Source, PackageName);
+	IAssetRegistry::GetChecked().OnInMemoryAssetCreated().Remove(Handle);
 	if (!TestNotNull(TEXT("An asset is made"), Asset))
 	{
 		return false;
@@ -190,8 +199,7 @@ bool FCambrianaWorkingCopyDuplicateAsAssetTest::RunTest(const FString& Parameter
 	TestTrue(TEXT("The asset's package is dirty"), Asset->GetPackage()->IsDirty());
 	TestEqualSensitive(TEXT("The asset holds the text"), Asset->GrammarText, Source->GrammarText);
 	TestEqual(TEXT("The asset holds the seed"), Asset->Seed, 5u);
-	const FAssetData Registered = IAssetRegistry::GetChecked().GetAssetByObjectPath(FSoftObjectPath(Asset));
-	TestTrue(TEXT("The asset registry knows the asset"), Registered.IsValid());
+	TestTrue(TEXT("The asset registry was told once that the asset was created"), Announced.Num() == 1 && Announced[0] == Asset);
 	UnloadPackage(Asset->GetPackage());
 	return true;
 }
