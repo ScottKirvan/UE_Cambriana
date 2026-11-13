@@ -1,5 +1,6 @@
 #include "CambrianaGrammarExporter.h"
 
+#include "CambrianaConversionLog.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarConversion.h"
 #include "CambrianaGrammarFormat.h"
@@ -14,23 +15,7 @@ namespace
 			return Grammar.GrammarText;
 		}
 
-		const FCambrianaLegacyConversion Conversion = Cambriana::ConvertLegacyGrammar(Grammar.GrammarText);
-		const FString Name = Grammar.GetPathName();
-		if (Conversion.bCoreUnavailable)
-		{
-			Warn->Logf(ELogVerbosity::Error, TEXT("%s: CambrianaCore is unavailable, so the legacy text cannot be converted"), *Name);
-			return {};
-		}
-		for (const FCambrianaDiagnostic& Diagnostic : Conversion.Diagnostics)
-		{
-			const ELogVerbosity::Type Verbosity = Diagnostic.Severity == ECambrianaDiagnosticSeverity::Error ? ELogVerbosity::Error : ELogVerbosity::Warning;
-			Warn->Logf(Verbosity, TEXT("%s: %s"), *Name, *Diagnostic.Describe());
-		}
-		if (!Conversion.GrammarText && Conversion.Diagnostics.IsEmpty())
-		{
-			Warn->Logf(ELogVerbosity::Error, TEXT("%s: the legacy text could not be converted"), *Name);
-		}
-		return Conversion.GrammarText;
+		return Cambriana::Editor::ReportLegacyConversion(Cambriana::ConvertLegacyGrammar(Grammar.GrammarText), Grammar.GetPathName(), TEXT("legacy text"), *Warn);
 	}
 }
 
