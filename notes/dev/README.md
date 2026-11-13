@@ -2,9 +2,10 @@
 
 ## Status markings
 
+Text without a marking is decided: a requirement.
+
 | Marking | Meaning |
 |---|---|
-| Unmarked | Requirement. |
 | `[Proposed — unconfirmed]` | Working assumption until the author confirms or changes it. |
 | **Open** | Needs a decision; listed in [TBD.md](TBD.md). |
 

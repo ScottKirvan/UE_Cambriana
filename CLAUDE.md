@@ -14,8 +14,7 @@ Core specs are in CambrianaCore `notes/dev/`.
 
 Spec conventions:
 
-- Anything unmarked is decided; mark only `[Proposed — unconfirmed]` and **Open**. Don't write
-  "Decided" markers.
+- Mark status only as `[Proposed — unconfirmed]` or **Open**; text without a marking is decided.
 - State decisions without rationale; no history; programmer-relevant content only.
 - Refer to the project owner as "the author"; do not use their name.
 - Do not define release boundaries; scope is the author's call.
