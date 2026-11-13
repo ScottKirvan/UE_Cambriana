@@ -4,6 +4,8 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarExporter.h"
 #include "CambrianaGrammarFactory.h"
+#include "CambrianaGrammarWorkingCopy.h"
+#include "ScopedTransaction.h"
 #include "CambrianaLiveActor.h"
 #include "Editor.h"
 #include "Exporters/Exporter.h"
@@ -121,9 +123,20 @@ bool FCambrianaGapUndoRebuildsActorsTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	EditGrammarSides(Grammar, 3);
+	// The undo history holds the grammar's edit alone: the change event that rebuilds the actor is sent outside it, so undoing the edit
+	// does not restore the actor and only the grammar's own undo notification can rebuild it.
+	{
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Edit Sides")));
+		Grammar->Modify();
+		Grammar->Sides = 3;
+	}
+	Cambriana::Editor::NotifyGrammarChanged(*Grammar);
 	TestEqual(TEXT("The edit rebuilt the actor with 3 sides"), Actor->GetLastBuildInput().Settings.Sides, 3);
+	int32 Changes = 0;
+	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, Grammar](const UCambrianaGrammar* Changed) { Changes += Changed == Grammar; });
 	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
+	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
+	TestTrue(TEXT("Undo is broadcast as a change to the grammar"), Changes >= 1);
 	TestEqual(TEXT("Undo restored the grammar's 8 sides"), Grammar->Sides, 8);
 	TestEqual(TEXT("Undo rebuilt the actor with 8 sides"), Actor->GetLastBuildInput().Settings.Sides, 8);
 	Actor->GetWorld()->EditorDestroyActor(Actor, false);

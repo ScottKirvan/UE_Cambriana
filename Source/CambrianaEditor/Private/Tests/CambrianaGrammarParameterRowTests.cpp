@@ -349,17 +349,48 @@ bool FCambrianaParameterStoreSameValueTest::RunTest(const FString& Parameters)
 	Grammar->GrammarText = FourTierText;
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
 	const int32 HistoryAfterFirst = GEditor->Trans->GetQueueLength();
+	int32 Changes = 0;
+	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, Grammar](const UCambrianaGrammar* Changed) { Changes += Changed == Grammar; });
 
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
 	TestEqual(TEXT("Storing the same value again makes no undo step"), GEditor->Trans->GetQueueLength(), HistoryAfterFirst);
+	TestEqual(TEXT("and is not a change to the grammar"), Changes, 0);
 
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 6.0);
 	TestEqual(TEXT("Storing a different value makes one"), GEditor->Trans->GetQueueLength(), HistoryAfterFirst + 1);
+	TestEqual(TEXT("and is one change to the grammar"), Changes, 1);
+	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
 	const FCambrianaParameterValue* Stored = FindStoredValue(*Grammar, TEXT("count"));
 	TestTrue(TEXT("The new value replaces the old"), Stored && Stored->Value == 6.0 && Grammar->ParameterValues.Num() == 1);
 	TestTrue(TEXT("Undo restores the first value"), GEditor->UndoTransaction());
 	Stored = FindStoredValue(*Grammar, TEXT("count"));
 	TestTrue(TEXT("The first value is back"), Stored && Stored->Value == 5.0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaParameterStoredNamesCaseTest,
+	"Cambriana.Editor.GrammarParameterRows.ValuesStoredForNamesDifferingOnlyInCaseAreStoredAndResetSeparately",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaParameterStoredNamesCaseTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	Grammar->GrammarText = TEXT("structure param Count = 7\nstructure param count = 3\n\naxiom repeat count { F }\n");
+	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("Count"), 1.0);
+	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 2.0);
+	if (!TestEqual(TEXT("Each name has its own stored value"), Grammar->ParameterValues.Num(), 2))
+	{
+		return false;
+	}
+	const FCambrianaParameterValue* Upper = FindStoredValue(*Grammar, TEXT("Count"));
+	const FCambrianaParameterValue* Lower = FindStoredValue(*Grammar, TEXT("count"));
+	TestTrue(TEXT("Count is 1"), Upper && Upper->Value == 1.0);
+	TestTrue(TEXT("count is 2"), Lower && Lower->Value == 2.0);
+
+	Cambriana::Editor::ResetParameterValue(*Grammar, TEXT("count"));
+	TestEqual(TEXT("Resetting count removes one value"), Grammar->ParameterValues.Num(), 1);
+	Upper = FindStoredValue(*Grammar, TEXT("Count"));
+	TestTrue(TEXT("and keeps Count's"), Upper && Upper->Value == 1.0);
 	return true;
 }
 
