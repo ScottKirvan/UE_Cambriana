@@ -37,6 +37,9 @@ using Cambriana::Editor::Tests::TubeVertices;
 using Cambriana::Editor::Tests::TypedGrammarText;
 using Cambriana::Editor::Tests::TypeOverRules;
 using Cambriana::Editor::Tests::UnloadPackage;
+using Cambriana::Editor::Tests::AnswerSaveAs;
+using Cambriana::Editor::Tests::AnswerUnsavedEdits;
+using Cambriana::Editor::Tests::DiscardGrammarAndActor;
 
 namespace
 {
@@ -115,9 +118,7 @@ bool FCambrianaWorkingCopyEditsStayInTheEditorTest::RunTest(const FString& Param
 	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
 	if (!TestNotNull(TEXT("A live actor was placed"), Actor) || !TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
-		CloseGrammarEditor(Grammar);
-		DestroyActor(Actor);
-		UnloadPackage(Grammar->GetPackage());
+		DiscardGrammarAndActor(Grammar, Actor);
 		return false;
 	}
 	Grammar->GetPackage()->SetDirtyFlag(false);
@@ -133,9 +134,7 @@ bool FCambrianaWorkingCopyEditsStayInTheEditorTest::RunTest(const FString& Param
 	TestTrue(TEXT("The editor has unsaved edits"), Toolkit->HasUnsavedEdits());
 	TestEqual(TEXT("The tab marks the unsaved edits"), Toolkit->GetTabSuffix().ToString(), FString(TEXT("*")));
 
-	CloseGrammarEditor(Grammar);
-	DestroyActor(Actor);
-	UnloadPackage(Grammar->GetPackage());
+	DiscardGrammarAndActor(Grammar, Actor);
 	return true;
 }
 
@@ -155,9 +154,7 @@ bool FCambrianaWorkingCopySaveTest::RunTest(const FString& Parameters)
 	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
 	if (!TestNotNull(TEXT("A live actor was placed"), Actor) || !TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
-		CloseGrammarEditor(Grammar);
-		DestroyActor(Actor);
-		UnloadPackage(Package);
+		DiscardGrammarAndActor(Grammar, Actor);
 		return false;
 	}
 	EditInEveryPanel(*Toolkit);
@@ -216,9 +213,7 @@ bool FCambrianaWorkingCopyUndoAfterSaveTest::RunTest(const FString& Parameters)
 	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
 	if (!TestNotNull(TEXT("A live actor was placed"), Actor) || !TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
-		CloseGrammarEditor(Grammar);
-		DestroyActor(Actor);
-		UnloadPackage(Package);
+		DiscardGrammarAndActor(Grammar, Actor);
 		return false;
 	}
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
@@ -240,9 +235,7 @@ bool FCambrianaWorkingCopyUndoAfterSaveTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The edit can be redone"), GEditor->RedoTransaction());
 	TestEqualSensitive(TEXT("Redo restores the working copy's edited text"), Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 	TestFalse(TEXT("Redoing back to the saved text leaves nothing unsaved"), Toolkit->HasUnsavedEdits());
-	CloseGrammarEditor(Grammar);
-	DestroyActor(Actor);
-	UnloadPackage(Package);
+	DiscardGrammarAndActor(Grammar, Actor);
 	DeleteSavedPackage(Filename);
 	return true;
 }
@@ -312,7 +305,7 @@ bool FCambrianaWorkingCopyCloseCleanTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::Cancel; });
+	AnswerUnsavedEdits(*Toolkit, EAppReturnType::Cancel, Asked);
 	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing does not ask"), Asked, 0);
 	if (!TestNull(TEXT("The editor closes"), FindGrammarEditor(Grammar)))
@@ -339,9 +332,7 @@ bool FCambrianaWorkingCopyCloseSaveTest::RunTest(const FString& Parameters)
 	const TSharedPtr<SMultiLineEditableTextBox> Rules = Toolkit ? RulesTextBoxOf(*Toolkit) : nullptr;
 	if (!TestNotNull(TEXT("A live actor was placed"), Actor) || !TestTrue(TEXT("The grammar editor shows Rules"), Rules.IsValid()))
 	{
-		CloseGrammarEditor(Grammar);
-		DestroyActor(Actor);
-		UnloadPackage(Package);
+		DiscardGrammarAndActor(Grammar, Actor);
 		return false;
 	}
 	TypeOverRules(*Rules);
@@ -387,7 +378,7 @@ bool FCambrianaWorkingCopyCloseDiscardTest::RunTest(const FString& Parameters)
 	Toolkit->CommitRulesText(FText::FromString(TypedGrammarText));
 	const int32 ActorBuildsBefore = Actor->GetBuildCount();
 	int32 Asked = 0;
-	Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::No; });
+	AnswerUnsavedEdits(*Toolkit, EAppReturnType::No, Asked);
 
 	CloseAsking(Grammar);
 	TestEqual(TEXT("Closing asks once"), Asked, 1);
@@ -571,7 +562,7 @@ bool FCambrianaWorkingCopyCloseSaveCancelledTest::RunTest(const FString& Paramet
 		return false;
 	}
 	int32 Asked = 0;
-	Edited.Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::Yes; });
+	AnswerUnsavedEdits(*Edited.Toolkit, EAppReturnType::Yes, Asked);
 	TestFalse(TEXT("The tab does not close"), CloseFromTab(*Edited.Toolkit));
 	TestEqual(TEXT("Closing asks once"), Asked, 1);
 	Edited.TestGrammarAndActorUnchanged(*this);
@@ -594,7 +585,7 @@ bool FCambrianaWorkingCopySaveAsTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	int32 Asked = 0;
-	Edited.Toolkit->SetSaveAsPrompt([&Asked, CopyPackageName](const UCambrianaGrammar&) { ++Asked; return FString(CopyPackageName); });
+	AnswerSaveAs(*Edited.Toolkit, CopyPackageName, Asked);
 
 	RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
 	TestEqual(TEXT("Save As asks for the new asset once"), Asked, 1);
@@ -639,7 +630,7 @@ bool FCambrianaWorkingCopySaveAsCancelledTest::RunTest(const FString& Parameters
 		return false;
 	}
 	int32 Asked = 0;
-	Edited.Toolkit->SetSaveAsPrompt([&Asked](const UCambrianaGrammar&) { ++Asked; return FString(); });
+	AnswerSaveAs(*Edited.Toolkit, FString(), Asked);
 
 	RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
 	TestEqual(TEXT("Save As asks for the new asset once"), Asked, 1);
@@ -773,7 +764,7 @@ bool FCambrianaWorkingCopySaveAsOwnPathTest::RunTest(const FString& Parameters)
 			return false;
 		}
 		int32 Asked = 0;
-		Edited.Toolkit->SetSaveAsPrompt([&Asked, PackageName](const UCambrianaGrammar&) { ++Asked; return FString(PackageName); });
+		AnswerSaveAs(*Edited.Toolkit, PackageName, Asked);
 
 		RunWithoutSavePrompt([&Edited] { Edited.Toolkit->SaveAssetAs_Execute(); });
 		TestEqual(TEXT("Save As asks for the asset once"), Asked, 1);
