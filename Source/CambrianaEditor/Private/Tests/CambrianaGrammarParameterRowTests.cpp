@@ -66,6 +66,24 @@ namespace
 			}
 		}
 
+		/** The number of rows the view generated. */
+		int32 RowCount() const
+		{
+			int32 Count = 0;
+			TArray<TSharedRef<SWidget>> Pending = { View.ToSharedRef() };
+			while (!Pending.IsEmpty())
+			{
+				const TSharedRef<SWidget> Widget = Pending.Pop();
+				Count += Widget->GetType() == TEXT("SDetailSingleItemRow");
+				FChildren* Children = Widget->GetChildren();
+				for (int32 Index = 0; Children && Index < Children->Num(); ++Index)
+				{
+					Pending.Add(Children->GetChildAt(Index));
+				}
+			}
+			return Count;
+		}
+
 		/** The row whose name text is Label. */
 		TSharedPtr<SWidget> FindRow(const TCHAR* Label) const
 		{
@@ -109,16 +127,29 @@ namespace
 		return true;
 	}
 
-	/** The reset arrow of the row: the first button of its right-hand toolbar. */
+	/** The reset arrow of the row: the button whose label is the toolbar's "Reset to Default" (the label is collapsed, the button is not). */
 	TSharedPtr<SButton> ResetButtonOf(const TSharedRef<SWidget>& Row)
 	{
-		const TSharedPtr<SWidget> Toolbar = FindWidgetOfType(Row, TEXT("SMultiBoxWidget"));
-		const TSharedPtr<SWidget> Button = Toolbar ? FindWidgetOfType(Toolbar.ToSharedRef(), TEXT("SButton")) : nullptr;
-		if (Button)
+		TArray<TSharedRef<SWidget>> Pending = { Row };
+		while (!Pending.IsEmpty())
 		{
-			Button->SlatePrepass(1.0f);
+			const TSharedRef<SWidget> Widget = Pending.Pop();
+			if (Widget->GetType() == TEXT("SButton"))
+			{
+				const TSharedPtr<SWidget> Label = FindWidgetOfType(Widget, TEXT("STextBlock"));
+				if (Label && StaticCastSharedPtr<STextBlock>(Label)->GetText().ToString() == TEXT("Reset to Default"))
+				{
+					Widget->SlatePrepass(1.0f);
+					return StaticCastSharedRef<SButton>(Widget);
+				}
+			}
+			FChildren* Children = Widget->GetChildren();
+			for (int32 Index = 0; Children && Index < Children->Num(); ++Index)
+			{
+				Pending.Add(Children->GetChildAt(Index));
+			}
 		}
-		return StaticCastSharedPtr<SButton>(Button);
+		return nullptr;
 	}
 
 	TSharedRef<IPropertyRowGenerator> DetailsOf(UCambrianaGrammar* Grammar)
@@ -212,10 +243,12 @@ bool FCambrianaParameterRowCommitTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 	Grammar->GrammarText = FourTierText;
+	TestNull(TEXT("Nothing is stored before the commit"), FindStoredValue(*Grammar, TEXT("count")));
 	{
 		const FRenderedDetails Details(Grammar);
 		const TSharedPtr<SWidget> Row = Details.FindRow(TEXT("count"));
-		if (!TestTrue(TEXT("Details has a row for count"), Row.IsValid()) || !TestTrue(TEXT("The row has a value field"), CommitValue(Row.ToSharedRef(), TEXT("7"))))
+		if (!TestTrue(TEXT("Details generated rows"), Details.RowCount() > 0) || !TestTrue(TEXT("Details has a row for count"), Row.IsValid())
+			|| !TestTrue(TEXT("The row has a value field"), CommitValue(Row.ToSharedRef(), TEXT("7"))))
 		{
 			return false;
 		}
@@ -226,7 +259,7 @@ bool FCambrianaParameterRowCommitTest::RunTest(const FString& Parameters)
 	{
 		const FRenderedDetails Details(Grammar);
 		const TSharedPtr<SWidget> Row = Details.FindRow(TEXT("count"));
-		if (!TestTrue(TEXT("Details has a row for count again"), Row.IsValid()) || !TestTrue(TEXT("The row has a value field"), CommitValue(Row.ToSharedRef(), TEXT("9"))))
+		if (!TestTrue(TEXT("Details generated rows again"), Details.RowCount() > 0) || !TestTrue(TEXT("Details has a row for count again"), Row.IsValid()) || !TestTrue(TEXT("The row has a value field"), CommitValue(Row.ToSharedRef(), TEXT("9"))))
 		{
 			return false;
 		}
@@ -238,7 +271,7 @@ bool FCambrianaParameterRowCommitTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaParameterRowResetTest,
-	"Cambriana.Editor.GrammarParameterRows.TheResetArrowShowsOnlyForAStoredValueAndRemovesIt",
+	"Cambriana.Editor.GrammarParameterRows.TheResetArrowIsEnabledOnlyForAStoredValueAndClickingItRemovesIt",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaParameterRowResetTest::RunTest(const FString& Parameters)
@@ -248,6 +281,10 @@ bool FCambrianaParameterRowResetTest::RunTest(const FString& Parameters)
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
 	{
 		const FRenderedDetails Details(Grammar);
+		if (!TestTrue(TEXT("Details generated rows"), Details.RowCount() > 0))
+		{
+			return false;
+		}
 		const TSharedPtr<SWidget> Stored = Details.FindRow(TEXT("count"));
 		const TSharedPtr<SWidget> Unstored = Details.FindRow(TEXT("bend"));
 		if (!TestTrue(TEXT("Details has rows for count and bend"), Stored.IsValid() && Unstored.IsValid()))
