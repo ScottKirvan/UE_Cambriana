@@ -80,6 +80,21 @@ Mapping:
 | Vertex colour R | Thickness / maximum thickness |
 | Vertex colour G, B, A | First three user attributes |
 
+- `[Proposed — unconfirmed]` Vertex colour G, B and A hold the values of the first three
+  attribute names in first-use order, unscaled; a vertex without an attribute, and every
+  vertex when the grammar sets fewer, has 0 there. Later attributes are in no slot.
+- `[Proposed — unconfirmed]` A baked static mesh stores the vertex colour as 8 bits per
+  channel (the engine's static mesh format): a material's Vertex Color reads each value
+  clamped to [0, 1], to the nearest 1/255. The values are converted sRGB to linear before the
+  static mesh build, which encodes them back, as mesh paint does
+  (`FDynamicMeshToMeshDescription::ApplyVertexColorTransform`), so the material reads the
+  values and not their sRGB encoding.
+- `[Proposed — unconfirmed]` A baked static mesh stores its UVs at full precision
+  (`bUseFullPrecisionUVs`), as Datasmith's static mesh import
+  (`DatasmithStaticMeshImporter.cpp`) and the groom deformer builder
+  (`GroomDeformerBuilder.cpp`) do; half precision holds a root distance of 200 cm only to
+  0.125 cm.
+
 ## Materials
 
 - Material ID per triangle from `c`; one material slot per ID on baked meshes.

@@ -246,22 +246,36 @@ namespace
 		return Max > 0.0 ? Value / Max : 0.0;
 	}
 
+	/** The core's user attribute table: one row per surface vertex, one column per attribute name in first-use order. */
+	struct FVertexAttributes
+	{
+		TConstArrayView<double> Values;
+		int32 Columns = 0;
+
+		/** The value of a column for a vertex, 0 for a column or row the table does not have. */
+		double Get(int32 Vertex, int32 Column) const
+		{
+			const int64 Index = int64(Vertex) * Columns + Column;
+			return Column < Columns && Values.IsValidIndex(Index) ? Values[Index] : 0.0;
+		}
+	};
+
 	class FMeshWriter
 	{
 	public:
-		FMeshWriter(FDynamicMesh3& InMesh, TConstArrayView<cambriana_vertex_channels> InChannels)
-			: Mesh(InMesh), Channels(InChannels), Scale(ScaleOf(InChannels))
+		FMeshWriter(FDynamicMesh3& InMesh, TConstArrayView<cambriana_vertex_channels> InChannels, const FVertexAttributes& InAttributes)
+			: Mesh(InMesh), Channels(InChannels), Attributes(InAttributes), Scale(ScaleOf(InChannels))
 		{
 			Mesh.EnableAttributes();
-			UE::Geometry::FDynamicMeshAttributeSet& Attributes = *Mesh.Attributes();
-			Attributes.SetNumUVLayers(3);
-			Attributes.EnablePrimaryColors();
-			Attributes.EnableMaterialID();
-			Uv0 = Attributes.GetUVLayer(0);
-			Uv1 = Attributes.GetUVLayer(1);
-			Uv2 = Attributes.GetUVLayer(2);
-			Colours = Attributes.PrimaryColors();
-			MaterialIds = Attributes.GetMaterialID();
+			UE::Geometry::FDynamicMeshAttributeSet& MeshAttributes = *Mesh.Attributes();
+			MeshAttributes.SetNumUVLayers(3);
+			MeshAttributes.EnablePrimaryColors();
+			MeshAttributes.EnableMaterialID();
+			Uv0 = MeshAttributes.GetUVLayer(0);
+			Uv1 = MeshAttributes.GetUVLayer(1);
+			Uv2 = MeshAttributes.GetUVLayer(2);
+			Colours = MeshAttributes.PrimaryColors();
+			MaterialIds = MeshAttributes.GetMaterialID();
 		}
 
 		int32 AddVertex(const cambriana_vec3& Position, int32 CoreIndex)
@@ -271,7 +285,8 @@ namespace
 			Uv0->AppendElement(FVector2f::ZeroVector);
 			Uv1->AppendElement(FVector2f(float(Channel.along_branch), float(Ratio(double(Channel.generation), Scale.MaxGeneration))));
 			Uv2->AppendElement(FVector2f(float(Channel.root_distance), float(Channel.branch_random)));
-			Colours->AppendElement(FVector4f(float(Ratio(Channel.thickness, Scale.MaxThickness)), 0.0f, 0.0f, 0.0f));
+			Colours->AppendElement(FVector4f(float(Ratio(Channel.thickness, Scale.MaxThickness)), float(Attributes.Get(CoreIndex, 0)),
+				float(Attributes.Get(CoreIndex, 1)), float(Attributes.Get(CoreIndex, 2))));
 			return Vid;
 		}
 
@@ -293,6 +308,7 @@ namespace
 	private:
 		FDynamicMesh3& Mesh;
 		TConstArrayView<cambriana_vertex_channels> Channels;
+		FVertexAttributes Attributes;
 		FChannelScale Scale;
 		UE::Geometry::FDynamicMeshUVOverlay* Uv0 = nullptr;
 		UE::Geometry::FDynamicMeshUVOverlay* Uv1 = nullptr;
@@ -326,7 +342,8 @@ namespace
 		}
 
 		Out.SlotMaterialIds = SortedMaterialIds(Triangles);
-		FMeshWriter Writer(Out.Mesh, Channels);
+		const FVertexAttributes Attributes{ CoreArray(&cambriana_result_vertex_attributes, Result), CoreArray(&cambriana_result_attribute_names, Result).Num() };
+		FMeshWriter Writer(Out.Mesh, Channels, Attributes);
 		for (int32 Index = 0; Index < Positions.Num(); ++Index)
 		{
 			Writer.AddVertex(Positions[Index], Index);
