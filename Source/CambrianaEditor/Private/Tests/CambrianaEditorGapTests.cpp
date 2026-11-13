@@ -2,6 +2,7 @@
 #include "AssetDefinition_CambrianaGrammar.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
+#include "CambrianaGrammarEditorToolkit.h"
 #include "CambrianaGrammarExporter.h"
 #include "CambrianaGrammarFactory.h"
 #include "CambrianaGrammarWorkingCopy.h"
@@ -33,6 +34,25 @@ namespace
 	{
 		return FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::AutomationTransientDir(), TEXT("CambrianaGaps"), FileName));
 	}
+
+	/** Shuts a module down and starts it again when it goes out of scope, however the test ends. */
+	class FModuleRestart
+	{
+	public:
+		explicit FModuleRestart(IModuleInterface& InModule)
+			: Module(InModule)
+		{
+			Module.ShutdownModule();
+		}
+
+		~FModuleRestart() { Module.StartupModule(); }
+
+		FModuleRestart(const FModuleRestart&) = delete;
+		FModuleRestart& operator=(const FModuleRestart&) = delete;
+
+	private:
+		IModuleInterface& Module;
+	};
 
 	/** Whether Details for a grammar shows a category of parameters, which only the grammar customization adds. */
 	bool ShowsParameterCategory(UCambrianaGrammar* Grammar)
@@ -107,7 +127,8 @@ bool FCambrianaGapAssetColourTest::RunTest(const FString& Parameters)
 	// Regression pin: no spec gives the colour; the asset's and the editor tab's are the same green (64, 160, 96).
 	const FLinearColor Asset = GetDefault<UAssetDefinition_CambrianaGrammar>()->GetAssetColor();
 	TestEqual(TEXT("The asset colour"), Asset.ToFColorSRGB(), FColor(64, 160, 96));
-	TestEqual(TEXT("It is the editor tab's colour"), Asset, FLinearColor(FColor(64, 160, 96)));
+	const TSharedRef<FCambrianaGrammarEditorToolkit> Toolkit = MakeShared<FCambrianaGrammarEditorToolkit>();
+	TestEqual(TEXT("It is the colour the grammar editor's tab uses"), Asset, Toolkit->GetWorldCentricTabColorScale());
 	return true;
 }
 
@@ -160,12 +181,12 @@ bool FCambrianaGapEditorModuleShutdownTest::RunTest(const FString& Parameters)
 
 	// A start waiting for engine init, as the module leaves when it starts before the editor is up.
 	const FDelegateHandle Pending = FCoreDelegates::GetOnPostEngineInit().AddRaw(Module, &IModuleInterface::StartupModule);
-	Module->ShutdownModule();
-	TestFalse(TEXT("Shutdown drops the module's pending engine init start"), FCoreDelegates::GetOnPostEngineInit().IsBoundToObject(Module));
-	FCoreDelegates::GetOnPostEngineInit().Remove(Pending);
-	TestFalse(TEXT("Details no longer shows the parameters after shutdown"), ShowsParameterCategory(Grammar));
-
-	Module->StartupModule();
+	{
+		const FModuleRestart Restart(*Module);
+		TestFalse(TEXT("Shutdown drops the module's pending engine init start"), FCoreDelegates::GetOnPostEngineInit().IsBoundToObject(Module));
+		FCoreDelegates::GetOnPostEngineInit().Remove(Pending);
+		TestFalse(TEXT("Details no longer shows the parameters after shutdown"), ShowsParameterCategory(Grammar));
+	}
 	TestTrue(TEXT("Details shows the parameters again after startup"), ShowsParameterCategory(Grammar));
 	return true;
 }
