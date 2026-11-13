@@ -65,6 +65,9 @@ display baked results.
   rendered LOD 0 with the live actor's mesh: every live triangle without such corners pairs with
   one rendered triangle, same winding, each corner within 0.001 cm, and every live vertex has a
   rendered vertex within 0.001 cm.
+- `[Proposed — unconfirmed]` ATS-42 compares the baked skeletal mesh placed in a level, its LOD 0
+  skinned on the CPU at the reference pose (`USkinnedMeshComponent::ComputeSkinnedPositions`),
+  with a live actor placed from the same grammar, in the same way and to the same tolerance.
 - `[Proposed — unconfirmed]` A new slot holds the engine's default surface material
   (`UMaterial::GetDefaultMaterial(MD_Surface)`), as the FBX static mesh importer fills slots
   it has no material for. A slot whose name the existing static mesh already has keeps that
