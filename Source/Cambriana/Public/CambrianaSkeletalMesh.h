@@ -6,6 +6,7 @@
 
 class USkeletalMesh;
 class USkeleton;
+struct FCambrianaBone;
 struct FCambrianaBuildResult;
 struct FCambrianaInfluence;
 
@@ -13,6 +14,9 @@ namespace Cambriana
 {
 	/** The synthetic bone at the origin that parents the build's bone tree (SDD-rigging.md, Bake skeleton). */
 	inline const FName RootBoneName(TEXT("Root"));
+
+	/** A bone's bind pose in component space: at its start, X along the bone and Z up. */
+	CAMBRIANA_API FTransform BoneBindPose(const FCambrianaBone& Bone);
 
 	/**
 	 * The reference skeleton of a build: Root at index 0, then each bone of the build at its index plus one, its roots parented to
