@@ -23,6 +23,7 @@ using Cambriana::Editor::Tests::CloseFromTab;
 using Cambriana::Editor::Tests::CloseGrammarEditor;
 using Cambriana::Editor::Tests::CreateGrammarInPackage;
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
+using Cambriana::Editor::Tests::DestroyActor;
 using Cambriana::Editor::Tests::EditGrammarSides;
 using Cambriana::Editor::Tests::FindGrammarEditor;
 using Cambriana::Editor::Tests::FindStoredValue;
@@ -53,14 +54,6 @@ namespace
 		Toolkit.CommitRulesText(FText::FromString(CountGrammarText));
 		Cambriana::Editor::SetParameterValue(*Toolkit.GetWorkingCopy(), TEXT("count"), 5.0);
 		EditGrammarSides(Toolkit.GetWorkingCopy(), 3);
-	}
-
-	void DestroyActor(ACambrianaLiveActor* Actor)
-	{
-		if (Actor)
-		{
-			Actor->GetWorld()->EditorDestroyActor(Actor, false);
-		}
 	}
 
 	void DeleteSavedPackage(const FString& Filename)

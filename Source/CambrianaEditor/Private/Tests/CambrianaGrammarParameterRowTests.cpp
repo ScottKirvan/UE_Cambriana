@@ -19,7 +19,9 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
+using Cambriana::Editor::Tests::FGrammarChangeCounter;
 using Cambriana::Editor::Tests::FindStoredValue;
+using Cambriana::Editor::Tests::UndoHistoryLength;
 using Cambriana::Editor::Tests::FindWidgetOfType;
 
 namespace
@@ -385,18 +387,16 @@ bool FCambrianaParameterStoreSameValueTest::RunTest(const FString& Parameters)
 	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 	Grammar->GrammarText = FourTierText;
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
-	const int32 HistoryAfterFirst = GEditor->Trans->GetQueueLength();
-	int32 Changes = 0;
-	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, Grammar](const UCambrianaGrammar* Changed) { Changes += Changed == Grammar; });
+	const int32 HistoryAfterFirst = UndoHistoryLength();
+	FGrammarChangeCounter Changes(Grammar);
 
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
-	TestEqual(TEXT("Storing the same value again makes no undo step"), GEditor->Trans->GetQueueLength(), HistoryAfterFirst);
-	TestEqual(TEXT("and is not a change to the grammar"), Changes, 0);
+	TestEqual(TEXT("Storing the same value again makes no undo step"), UndoHistoryLength(), HistoryAfterFirst);
+	TestEqual(TEXT("and is not a change to the grammar"), Changes.Count, 0);
 
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 6.0);
-	TestEqual(TEXT("Storing a different value makes one"), GEditor->Trans->GetQueueLength(), HistoryAfterFirst + 1);
-	TestEqual(TEXT("and is one change to the grammar"), Changes, 1);
-	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
+	TestEqual(TEXT("Storing a different value makes one"), UndoHistoryLength(), HistoryAfterFirst + 1);
+	TestEqual(TEXT("and is one change to the grammar"), Changes.Count, 1);
 	const FCambrianaParameterValue* Stored = FindStoredValue(*Grammar, TEXT("count"));
 	TestTrue(TEXT("The new value replaces the old"), Stored && Stored->Value == 6.0 && Grammar->ParameterValues.Num() == 1);
 	TestTrue(TEXT("Undo restores the first value"), GEditor->UndoTransaction());

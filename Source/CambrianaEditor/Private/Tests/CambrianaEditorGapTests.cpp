@@ -2,7 +2,6 @@
 #include "AssetDefinition_CambrianaGrammar.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
-#include "CambrianaGrammarEditorToolkit.h"
 #include "CambrianaGrammarExporter.h"
 #include "CambrianaGrammarFactory.h"
 #include "CambrianaGrammarWorkingCopy.h"
@@ -25,7 +24,8 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
-using Cambriana::Editor::Tests::EditGrammarSides;
+using Cambriana::Editor::Tests::DestroyActor;
+using Cambriana::Editor::Tests::FGrammarChangeCounter;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
 
 namespace
@@ -114,7 +114,7 @@ bool FCambrianaGapActorFactoryTest::RunTest(const FString& Parameters)
 	}
 	UActorFactoryCambrianaGrammar* Factory = NewObject<UActorFactoryCambrianaGrammar>();
 	TestTrue(TEXT("The factory gives back the actor's grammar"), Factory->GetAssetFromActorInstance(Actor) == Grammar);
-	Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -124,11 +124,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGapAssetColourTest,
 
 bool FCambrianaGapAssetColourTest::RunTest(const FString& Parameters)
 {
-	// Regression pin: no spec gives the colour; the asset's and the editor tab's are the same green (64, 160, 96).
+	// Regression pin: no spec gives the colour, and a grammar editor toolkit cannot be constructed outside an editor host to compare its tab colour.
 	const FLinearColor Asset = GetDefault<UAssetDefinition_CambrianaGrammar>()->GetAssetColor();
 	TestEqual(TEXT("The asset colour"), Asset.ToFColorSRGB(), FColor(64, 160, 96));
-	const TSharedRef<FCambrianaGrammarEditorToolkit> Toolkit = MakeShared<FCambrianaGrammarEditorToolkit>();
-	TestEqual(TEXT("It is the colour the grammar editor's tab uses"), Asset, Toolkit->GetWorldCentricTabColorScale());
 	return true;
 }
 
@@ -153,14 +151,12 @@ bool FCambrianaGapUndoRebuildsActorsTest::RunTest(const FString& Parameters)
 	}
 	Cambriana::Editor::NotifyGrammarChanged(*Grammar);
 	TestEqual(TEXT("The edit rebuilt the actor with 3 sides"), Actor->GetLastBuildInput().Settings.Sides, 3);
-	int32 Changes = 0;
-	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, Grammar](const UCambrianaGrammar* Changed) { Changes += Changed == Grammar; });
+	FGrammarChangeCounter Changes(Grammar);
 	TestTrue(TEXT("The edit can be undone"), GEditor->UndoTransaction());
-	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
-	TestTrue(TEXT("Undo is broadcast as a change to the grammar"), Changes >= 1);
+	TestTrue(TEXT("Undo is broadcast as a change to the grammar"), Changes.Count >= 1);
 	TestEqual(TEXT("Undo restored the grammar's 8 sides"), Grammar->Sides, 8);
 	TestEqual(TEXT("Undo rebuilt the actor with 8 sides"), Actor->GetLastBuildInput().Settings.Sides, 8);
-	Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	DestroyActor(Actor);
 	return true;
 }
 

@@ -14,7 +14,10 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
+using Cambriana::Editor::Tests::DestroyActor;
+using Cambriana::Editor::Tests::FindNode;
 using Cambriana::Editor::Tests::FindWidgetOfType;
+using Cambriana::Editor::Tests::SpawnInlineActor;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
 
 namespace
@@ -27,25 +30,6 @@ namespace
 		UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 		Grammar->GrammarText = Text;
 		return Grammar;
-	}
-
-	TSharedPtr<IDetailTreeNode> FindNode(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
-	{
-		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
-		{
-			const TSharedPtr<IPropertyHandle> Handle = Node->CreatePropertyHandle();
-			if (Handle && Handle->GetProperty() && Handle->GetProperty()->GetFName() == PropertyName)
-			{
-				return Node;
-			}
-			TArray<TSharedRef<IDetailTreeNode>> Children;
-			Node->GetChildren(Children, false);
-			if (TSharedPtr<IDetailTreeNode> Found = FindNode(Children, PropertyName))
-			{
-				return Found;
-			}
-		}
-		return nullptr;
 	}
 
 	TSharedRef<IPropertyRowGenerator> MakeRows(const TArray<UObject*>& Objects)
@@ -62,24 +46,6 @@ namespace
 		return Node ? Node->CreatePropertyHandle() : nullptr;
 	}
 
-	void Destroy(ACambrianaLiveActor* Actor)
-	{
-		if (Actor)
-		{
-			Actor->GetWorld()->EditorDestroyActor(Actor, false);
-		}
-	}
-
-	ACambrianaLiveActor* SpawnInline(const TCHAR* Text)
-	{
-		UWorld* World = GEditor->GetEditorWorldContext().World();
-		ACambrianaLiveActor* Actor = World ? World->SpawnActor<ACambrianaLiveActor>() : nullptr;
-		if (Actor)
-		{
-			Actor->InlineGrammar = Text;
-		}
-		return Actor;
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorSelectionTest,
@@ -89,15 +55,15 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorSelectionTest,
 bool FCambrianaLiveActorSelectionTest::RunTest(const FString& Parameters)
 {
 	const FName Sides = GET_MEMBER_NAME_CHECKED(ACambrianaLiveActor, Sides);
-	ACambrianaLiveActor* Inline = SpawnInline(SidesLeavingText);
+	ACambrianaLiveActor* Inline = SpawnInlineActor(SidesLeavingText);
 	ACambrianaLiveActor* AtStart = PlaceInCurrentLevel(GrammarWithText(SidesStatingText));
 	ACambrianaLiveActor* Moved = PlaceInCurrentLevel(GrammarWithText(SidesStatingText));
 	if (!TestNotNull(TEXT("An inline actor spawns"), Inline) || !TestNotNull(TEXT("An actor is placed from a grammar"), AtStart)
 		|| !TestNotNull(TEXT("A second actor is placed from a grammar"), Moved))
 	{
-		Destroy(Inline);
-		Destroy(AtStart);
-		Destroy(Moved);
+		DestroyActor(Inline);
+		DestroyActor(AtStart);
+		DestroyActor(Moved);
 		return false;
 	}
 	Moved->Sides = 9;
@@ -124,9 +90,9 @@ bool FCambrianaLiveActorSelectionTest::RunTest(const FString& Parameters)
 				Cambriana::Editor::DiffersFromStartingValue(*Handle));
 		}
 	}
-	Destroy(Inline);
-	Destroy(AtStart);
-	Destroy(Moved);
+	DestroyActor(Inline);
+	DestroyActor(AtStart);
+	DestroyActor(Moved);
 	return true;
 }
 
@@ -157,7 +123,7 @@ bool FCambrianaLiveActorResetRebuildsTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("The reset rebuilt the actor once"), Actor->GetBuildCount(), BuildsBefore + 1);
 		TestEqual(TEXT("The rebuild used 3 sides"), Actor->GetLastBuildInput().Settings.Sides, 3);
 	}
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -167,7 +133,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorOverridesHiddenTest,
 
 bool FCambrianaLiveActorOverridesHiddenTest::RunTest(const FString& Parameters)
 {
-	ACambrianaLiveActor* Actor = SpawnInline(SidesLeavingText);
+	ACambrianaLiveActor* Actor = SpawnInlineActor(SidesLeavingText);
 	if (!TestNotNull(TEXT("An inline actor spawns"), Actor))
 	{
 		return false;
@@ -178,7 +144,7 @@ bool FCambrianaLiveActorOverridesHiddenTest::RunTest(const FString& Parameters)
 	{
 		TestNull(FString::Printf(TEXT("%s has no row of its own"), *Override.ToString()), FindNode(Rows->GetRootTreeNodes(), Override).Get());
 	}
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -188,7 +154,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorSeedRowTest,
 
 bool FCambrianaLiveActorSeedRowTest::RunTest(const FString& Parameters)
 {
-	ACambrianaLiveActor* Actor = SpawnInline(SidesLeavingText);
+	ACambrianaLiveActor* Actor = SpawnInlineActor(SidesLeavingText);
 	if (!TestNotNull(TEXT("An inline actor spawns"), Actor))
 	{
 		return false;
@@ -203,7 +169,7 @@ bool FCambrianaLiveActorSeedRowTest::RunTest(const FString& Parameters)
 		StaticCastSharedPtr<SButton>(Button)->SimulateClick();
 		TestNotEqual(TEXT("The button gives the actor a new seed"), Actor->Seed, 1111u);
 	}
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 

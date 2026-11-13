@@ -17,6 +17,8 @@ using Cambriana::Editor::CopyGrammarValues;
 using Cambriana::Editor::DuplicateAsAsset;
 using Cambriana::Editor::DuplicateWorkingCopy;
 using Cambriana::Editor::HoldSameGrammar;
+using Cambriana::Editor::Tests::FGrammarChangeCounter;
+using Cambriana::Editor::Tests::UndoHistoryLength;
 using Cambriana::Editor::NotifyGrammarChanged;
 using Cambriana::Editor::Tests::CreateGrammarInPackage;
 using Cambriana::Editor::Tests::UnloadPackage;
@@ -39,36 +41,6 @@ namespace
 		return Parameter;
 	}
 
-	/** Records each grammar change broadcast, whether an undo transaction was active for it, and, as a listener that edits an object would, modifies the changed grammar. */
-	class FChangeListener
-	{
-	public:
-		FChangeListener()
-		{
-			Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([this](const UCambrianaGrammar* Changed)
-			{
-				++Count;
-				bUndoActive |= GUndo != nullptr;
-				const_cast<UCambrianaGrammar*>(Changed)->Modify();
-			});
-		}
-
-		~FChangeListener() { UCambrianaGrammar::OnGrammarChanged().Remove(Handle); }
-
-		FChangeListener(const FChangeListener&) = delete;
-		FChangeListener& operator=(const FChangeListener&) = delete;
-
-		int32 Count = 0;
-		bool bUndoActive = false;
-
-	private:
-		FDelegateHandle Handle;
-	};
-
-	int32 UndoHistoryLength()
-	{
-		return GEditor->Trans->GetQueueLength();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyDuplicateTest,
@@ -169,7 +141,7 @@ bool FCambrianaWorkingCopyCopyBroadcastTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* To = TransientGrammar(TEXT("axiom F\n"));
 	UCambrianaGrammar* From = CopySource();
-	FChangeListener Listener;
+	FGrammarChangeCounter Listener(nullptr, true);
 	TestTrue(TEXT("Copying a different grammar changes the target"), CopyGrammar(*From, *To));
 	TestEqual(TEXT("The change is broadcast once"), Listener.Count, 1);
 	TestFalse(TEXT("Copying the same grammar again changes nothing"), CopyGrammar(*From, *To));
@@ -187,7 +159,7 @@ bool FCambrianaWorkingCopyCopyUndoTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* To = TransientGrammar(TEXT("axiom F\n"));
 	UCambrianaGrammar* From = CopySource();
-	FChangeListener Listener;
+	FGrammarChangeCounter Listener(nullptr, true);
 	const int32 HistoryBefore = UndoHistoryLength();
 	{
 		const FScopedTransaction Transaction(FText::FromString(TEXT("Copy")));

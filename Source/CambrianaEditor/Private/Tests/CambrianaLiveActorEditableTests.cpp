@@ -12,6 +12,9 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
+using Cambriana::Editor::Tests::DestroyActor;
+using Cambriana::Editor::Tests::FindNode;
+using Cambriana::Editor::Tests::SpawnLiveActor;
 
 namespace CambrianaLiveActorEditableTests
 {
@@ -49,25 +52,6 @@ namespace CambrianaLiveActorEditableTests
 		{
 			OverrideOf(Actor, Setting.Toggle) = bOn;
 		}
-	}
-
-	TSharedPtr<IDetailTreeNode> FindNode(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
-	{
-		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
-		{
-			const TSharedPtr<IPropertyHandle> Handle = Node->CreatePropertyHandle();
-			if (Handle && Handle->GetProperty() && Handle->GetProperty()->GetFName() == PropertyName)
-			{
-				return Node;
-			}
-			TArray<TSharedRef<IDetailTreeNode>> Children;
-			Node->GetChildren(Children, false);
-			if (TSharedPtr<IDetailTreeNode> Found = FindNode(Children, PropertyName))
-			{
-				return Found;
-			}
-		}
-		return nullptr;
 	}
 
 	/** Whether no widget in the tree is disabled; a disabled widget disables everything inside it. */
@@ -189,26 +173,6 @@ namespace CambrianaLiveActorEditableTests
 		return Rows;
 	}
 
-	ACambrianaLiveActor* SpawnActor(UCambrianaGrammar* Grammar, const TCHAR* InlineText)
-	{
-		UWorld* World = GEditor->GetEditorWorldContext().World();
-		ACambrianaLiveActor* Actor = World ? World->SpawnActor<ACambrianaLiveActor>() : nullptr;
-		if (Actor)
-		{
-			Actor->Grammar = Grammar;
-			Actor->InlineGrammar = InlineText;
-		}
-		return Actor;
-	}
-
-	void Destroy(ACambrianaLiveActor* Actor)
-	{
-		if (Actor)
-		{
-			Actor->GetWorld()->EditorDestroyActor(Actor, false);
-		}
-	}
-
 	struct FEditableCase
 	{
 		const TCHAR* Label;
@@ -249,7 +213,7 @@ bool FCambrianaLiveActorDetailsEditableTest::RunTest(const FString& Parameters)
 			Grammar = CreateGrammarWithFactory();
 			Grammar->GrammarText = Case.AssetText;
 		}
-		ACambrianaLiveActor* Actor = SpawnActor(Grammar, Case.InlineText);
+		ACambrianaLiveActor* Actor = SpawnLiveActor(Grammar, Case.InlineText);
 		if (!TestNotNull(FString::Printf(TEXT("%s: a live actor spawns"), Case.Label), Actor))
 		{
 			continue;
@@ -265,7 +229,7 @@ bool FCambrianaLiveActorDetailsEditableTest::RunTest(const FString& Parameters)
 					Case.Editable.Contains(Setting.Value));
 			}
 		}
-		Destroy(Actor);
+		DestroyActor(Actor);
 	}
 	return true;
 }
@@ -278,7 +242,7 @@ bool FCambrianaLiveActorDetailsCheckboxTest::RunTest(const FString& Parameters)
 {
 	for (const TCHAR* InlineText : { LegacyText, LsysStatingSides })
 	{
-		ACambrianaLiveActor* Actor = SpawnActor(nullptr, InlineText);
+		ACambrianaLiveActor* Actor = SpawnLiveActor(nullptr, InlineText);
 		if (!TestNotNull(TEXT("A live actor spawns"), Actor))
 		{
 			continue;
@@ -311,7 +275,7 @@ bool FCambrianaLiveActorDetailsCheckboxTest::RunTest(const FString& Parameters)
 			Box->ToggleCheckedState();
 			TestFalse(Label + TEXT("'s checkbox turns the override off again"), OverrideOf(*Actor, Setting.Toggle));
 		}
-		Destroy(Actor);
+		DestroyActor(Actor);
 	}
 	return true;
 }

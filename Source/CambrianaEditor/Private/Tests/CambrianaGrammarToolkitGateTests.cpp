@@ -15,12 +15,15 @@ using Cambriana::Editor::Tests::CloseFromTab;
 using Cambriana::Editor::Tests::CloseGrammarEditor;
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
 using Cambriana::Editor::Tests::EditGrammarSides;
+using Cambriana::Editor::Tests::FGrammarChangeCounter;
 using Cambriana::Editor::Tests::FindGrammarEditor;
 using Cambriana::Editor::Tests::OpenGrammarEditor;
 using Cambriana::Editor::Tests::PauseTyping;
 using Cambriana::Editor::Tests::RulesTextBoxOf;
 using Cambriana::Editor::Tests::TypedGrammarText;
 using Cambriana::Editor::Tests::TypeOverRules;
+using Cambriana::Editor::Tests::TypeText;
+using Cambriana::Editor::Tests::UndoHistoryLength;
 
 namespace
 {
@@ -41,17 +44,6 @@ namespace
 		bool IsValid(FAutomationTestBase& Test) const { return Test.TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit); }
 	};
 
-	/** Types Text over the whole Rules text in one insertion. */
-	void TypeOtherText(SMultiLineEditableTextBox& Rules, const TCHAR* Text)
-	{
-		Rules.SelectAllText();
-		Rules.InsertTextAtCursor(FString(Text));
-	}
-
-	int32 UndoHistoryLength()
-	{
-		return GEditor->Trans->GetQueueLength();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaToolkitCloseAppliesTypingTest,
@@ -182,11 +174,9 @@ bool FCambrianaToolkitCommitRulesTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	const FString Before = Editor.Toolkit->GetWorkingCopy()->GrammarText;
-	int32 Changes = 0;
-	const UCambrianaGrammar* WorkingCopy = Editor.Toolkit->GetWorkingCopy();
-	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, WorkingCopy](const UCambrianaGrammar* Changed) { Changes += Changed == WorkingCopy; });
+	FGrammarChangeCounter Changes(Editor.Toolkit->GetWorkingCopy());
 	Editor.Toolkit->CommitRulesText(FText::FromString(Before));
-	TestEqual(TEXT("Committing the working copy's own text is not a change to it"), Changes, 0);
+	TestEqual(TEXT("Committing the working copy's own text is not a change to it"), Changes.Count, 0);
 	TestFalse(TEXT("and leaves nothing unsaved"), Editor.Toolkit->HasUnsavedEdits());
 
 	const FString Shouted = Before.Replace(TEXT("A"), TEXT("a"), ESearchCase::CaseSensitive);
@@ -195,8 +185,7 @@ bool FCambrianaToolkitCommitRulesTest::RunTest(const FString& Parameters)
 	TestEqualSensitive(TEXT("Text that differs only in case reaches the working copy"), Editor.Toolkit->GetWorkingCopy()->GrammarText, Shouted);
 	TestEqualSensitive(TEXT("and the Rules text"), Editor.Toolkit->GetRulesText().ToString(), Shouted);
 	TestTrue(TEXT("and is an unsaved edit"), Editor.Toolkit->HasUnsavedEdits());
-	TestEqual(TEXT("and is one change to the working copy"), Changes, 1);
-	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
+	TestEqual(TEXT("and is one change to the working copy"), Changes.Count, 1);
 	return true;
 }
 
@@ -262,26 +251,23 @@ bool FCambrianaToolkitPauseAppliesOnceTest::RunTest(const FString& Parameters)
 	const TSharedPtr<SMultiLineEditableTextBox> Rules = RulesTextBoxOf(*Editor.Toolkit);
 	const float Delay = Editor.Toolkit->RulesApplyDelaySeconds;
 
-	int32 Changes = 0;
-	const UCambrianaGrammar* WorkingCopy = Editor.Toolkit->GetWorkingCopy();
-	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, WorkingCopy](const UCambrianaGrammar* Changed) { Changes += Changed == WorkingCopy; });
+	FGrammarChangeCounter Changes(Editor.Toolkit->GetWorkingCopy());
 	TypeOverRules(*Rules);
 	PauseTyping(Delay);
 	TestEqualSensitive(TEXT("A pause applies the typing"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
-	TestEqual(TEXT("as one change"), Changes, 1);
+	TestEqual(TEXT("as one change"), Changes.Count, 1);
 	PauseTyping(Delay);
-	TestEqual(TEXT("and a second pause with no typing applies nothing more"), Changes, 1);
+	TestEqual(TEXT("and a second pause with no typing applies nothing more"), Changes.Count, 1);
 
 	PauseTyping(Delay * 0.2f);
-	TypeOtherText(*Rules, CountText);
+	TypeText(*Rules, CountText);
 	PauseTyping(Delay * 0.9f);
 	TestEqualSensitive(TEXT("The pause that applied the earlier typing does not apply typing made 0.9 pauses ago"),
 		Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 	TestTrue(TEXT("The new typing is pending"), Editor.Toolkit->HasUnsavedEdits());
 	PauseTyping(Delay * 0.3f);
 	TestEqualSensitive(TEXT("It applies a pause after it was typed"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(CountText));
-	TestEqual(TEXT("as the second change"), Changes, 2);
-	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
+	TestEqual(TEXT("as the second change"), Changes.Count, 2);
 	return true;
 }
 
@@ -299,7 +285,7 @@ bool FCambrianaToolkitCommitCancelsTypingTimerTest::RunTest(const FString& Param
 	const TSharedPtr<SMultiLineEditableTextBox> Rules = RulesTextBoxOf(*Editor.Toolkit);
 	const float Delay = Editor.Toolkit->RulesApplyDelaySeconds;
 
-	TypeOtherText(*Rules, TEXT("axiom F F\n"));
+	TypeText(*Rules, TEXT("axiom F F\n"));
 	PauseTyping(Delay * 0.6f);
 	Editor.Toolkit->CommitRulesText(FText::FromString(CountText));
 	TypeOverRules(*Rules);
@@ -310,17 +296,14 @@ bool FCambrianaToolkitCommitCancelsTypingTimerTest::RunTest(const FString& Param
 	TestEqualSensitive(TEXT("It applies a pause after it was typed"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 
 	// A commit leaves no timer that can fire later: with no further typing a full pause passes and nothing more is applied.
-	int32 Changes = 0;
-	const UCambrianaGrammar* WorkingCopy = Editor.Toolkit->GetWorkingCopy();
-	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, WorkingCopy](const UCambrianaGrammar* Changed) { Changes += Changed == WorkingCopy; });
-	TypeOtherText(*Rules, TEXT("axiom F F\n"));
+	FGrammarChangeCounter Changes(Editor.Toolkit->GetWorkingCopy());
+	TypeText(*Rules, TEXT("axiom F F\n"));
 	PauseTyping(Delay * 0.6f);
 	Editor.Toolkit->CommitRulesText(FText::FromString(CountText));
-	const int32 ChangesAfterCommit = Changes;
+	const int32 ChangesAfterCommit = Changes.Count;
 	PauseTyping(Delay);
-	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
 	TestEqualSensitive(TEXT("After a commit a full pause leaves the committed text"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(CountText));
-	TestEqual(TEXT("and sends no further change"), Changes, ChangesAfterCommit);
+	TestEqual(TEXT("and sends no further change"), Changes.Count, ChangesAfterCommit);
 	TestEqual(TEXT("the commit itself being one change"), ChangesAfterCommit, 1);
 	return true;
 }

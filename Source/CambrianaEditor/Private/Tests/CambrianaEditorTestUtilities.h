@@ -11,6 +11,7 @@
 #include "Containers/Ticker.h"
 #include "CoreMinimal.h"
 #include "Editor.h"
+#include "Editor/Transactor.h"
 #include "Elements/Actor/ActorElementData.h"
 #include "Framework/Docking/TabManager.h"
 #include "IDetailTreeNode.h"
@@ -279,5 +280,104 @@ namespace Cambriana::Editor::Tests
 			Mismatches += !SameBone(A[Index], B[Index]);
 		}
 		return Mismatches;
+	}
+
+	/** The node, or one nested in it, for the property; bIgnoreVisibility also looks in nodes the customization hides. */
+	inline TSharedPtr<IDetailTreeNode> FindNode(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName, bool bIgnoreVisibility = false)
+	{
+		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
+		{
+			const TSharedPtr<IPropertyHandle> Handle = Node->CreatePropertyHandle();
+			if (Handle && Handle->GetProperty() && Handle->GetProperty()->GetFName() == PropertyName)
+			{
+				return Node;
+			}
+			TArray<TSharedRef<IDetailTreeNode>> Children;
+			Node->GetChildren(Children, bIgnoreVisibility);
+			if (TSharedPtr<IDetailTreeNode> Found = FindNode(Children, PropertyName, bIgnoreVisibility))
+			{
+				return Found;
+			}
+		}
+		return nullptr;
+	}
+
+	/** A live actor in the editor world, referencing Grammar and holding InlineText as its inline grammar. */
+	inline ACambrianaLiveActor* SpawnLiveActor(UCambrianaGrammar* Grammar, const TCHAR* InlineText)
+	{
+		UWorld* World = GEditor->GetEditorWorldContext().World();
+		ACambrianaLiveActor* Actor = World ? World->SpawnActor<ACambrianaLiveActor>() : nullptr;
+		if (Actor)
+		{
+			Actor->Grammar = Grammar;
+			Actor->InlineGrammar = InlineText;
+		}
+		return Actor;
+	}
+
+	inline ACambrianaLiveActor* SpawnInlineActor(const TCHAR* InlineText)
+	{
+		return SpawnLiveActor(nullptr, InlineText);
+	}
+
+	inline void DestroyActor(ACambrianaLiveActor* Actor)
+	{
+		if (Actor)
+		{
+			Actor->GetWorld()->EditorDestroyActor(Actor, false);
+		}
+	}
+
+	/** The number of steps in the editor's undo history. */
+	inline int32 UndoHistoryLength()
+	{
+		return GEditor->Trans->GetQueueLength();
+	}
+
+	/**
+	 * Counts the grammar change broadcasts of Watched (of any grammar when null) while it lives, and whether an undo transaction was
+	 * active for any. With bModify it also modifies the changed grammar, as a listener that edits an object would.
+	 */
+	class FGrammarChangeCounter
+	{
+	public:
+		explicit FGrammarChangeCounter(const UCambrianaGrammar* InWatched = nullptr, bool bInModify = false)
+			: Watched(InWatched)
+			, bModify(bInModify)
+		{
+			Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([this](const UCambrianaGrammar* Changed)
+			{
+				if (Watched && Changed != Watched)
+				{
+					return;
+				}
+				++Count;
+				bUndoActive |= GUndo != nullptr;
+				if (bModify)
+				{
+					const_cast<UCambrianaGrammar*>(Changed)->Modify();
+				}
+			});
+		}
+
+		~FGrammarChangeCounter() { UCambrianaGrammar::OnGrammarChanged().Remove(Handle); }
+
+		FGrammarChangeCounter(const FGrammarChangeCounter&) = delete;
+		FGrammarChangeCounter& operator=(const FGrammarChangeCounter&) = delete;
+
+		int32 Count = 0;
+		bool bUndoActive = false;
+
+	private:
+		const UCambrianaGrammar* Watched;
+		bool bModify;
+		FDelegateHandle Handle;
+	};
+
+	/** Types Text over the whole Rules text in one insertion; TypeOverRules types the default text in several, as typing does. */
+	inline void TypeText(SMultiLineEditableTextBox& Rules, const TCHAR* Text)
+	{
+		Rules.SelectAllText();
+		Rules.InsertTextAtCursor(FString(Text));
 	}
 }

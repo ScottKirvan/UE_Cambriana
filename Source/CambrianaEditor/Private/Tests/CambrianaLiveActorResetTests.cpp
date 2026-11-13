@@ -14,7 +14,10 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+using Cambriana::Editor::Tests::DestroyActor;
+using Cambriana::Editor::Tests::FindNode;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
+using Cambriana::Editor::Tests::SpawnInlineActor;
 
 namespace CambrianaLiveActorResetTests
 {
@@ -82,32 +85,13 @@ namespace CambrianaLiveActorResetTests
 			Actor.bOverrideMinThickness);
 	}
 
-	TSharedPtr<IDetailTreeNode> FindNode(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
-	{
-		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
-		{
-			const TSharedPtr<IPropertyHandle> Handle = Node->CreatePropertyHandle();
-			if (Handle && Handle->GetProperty() && Handle->GetProperty()->GetFName() == PropertyName)
-			{
-				return Node;
-			}
-			TArray<TSharedRef<IDetailTreeNode>> Children;
-			Node->GetChildren(Children, true);
-			if (TSharedPtr<IDetailTreeNode> Found = FindNode(Children, PropertyName))
-			{
-				return Found;
-			}
-		}
-		return nullptr;
-	}
-
 	/** A setting's Details row, with its reset-to-default arrow as the details panel draws and clicks it. */
 	class FSettingRow
 	{
 	public:
 		FSettingRow(const IPropertyRowGenerator& Rows, FName PropertyName)
 		{
-			const TSharedPtr<IDetailTreeNode> Node = FindNode(Rows.GetRootTreeNodes(), PropertyName);
+			const TSharedPtr<IDetailTreeNode> Node = FindNode(Rows.GetRootTreeNodes(), PropertyName, true);
 			const TSharedPtr<IDetailPropertyRow> Row = Node ? Node->GetRow() : nullptr;
 			if (Row)
 			{
@@ -167,24 +151,6 @@ namespace CambrianaLiveActorResetTests
 		}
 	}
 
-	ACambrianaLiveActor* SpawnInlineActor(const TCHAR* Text)
-	{
-		UWorld* World = GEditor->GetEditorWorldContext().World();
-		ACambrianaLiveActor* Actor = World ? World->SpawnActor<ACambrianaLiveActor>() : nullptr;
-		if (Actor)
-		{
-			Actor->InlineGrammar = Text;
-		}
-		return Actor;
-	}
-
-	void Destroy(ACambrianaLiveActor* Actor)
-	{
-		if (Actor)
-		{
-			Actor->GetWorld()->EditorDestroyActor(Actor, false);
-		}
-	}
 }
 
 using namespace CambrianaLiveActorResetTests;
@@ -213,7 +179,7 @@ bool FCambrianaLiveActorResetFromAssetTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Recursion, angle and sides are the text's; size, closed form and min thickness the asset's; thickness the default"),
 		DescribeSettings(*Actor), FString(TEXT("recursion 3, angle 40, thickness 50, size Step 10, sides 3, closed no, min thickness 20")));
 	TestEqual(TEXT("Every override checkbox is as it was"), DescribeOverrides(*Actor), Overrides);
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -256,7 +222,7 @@ bool FCambrianaLiveActorResetAtResetTimeTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Recursion is the edited text's"), Actor->Recursion, 5.0);
 	TestEqual(TEXT("Size value is the edited asset's"), Actor->SizeValue, 15.0);
 	TestEqual(TEXT("Min thickness is the edited asset's"), Actor->MinThickness, 30.0);
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -283,7 +249,7 @@ bool FCambrianaLiveActorResetArrowShownTest::RunTest(const FString& Parameters)
 			TestEqual(FString::Printf(TEXT("%s's arrow shows only if it is the changed setting"), *Name.ToString()), Row.IsArrowShown(), Name == SidesName);
 		}
 	}
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -309,7 +275,7 @@ bool FCambrianaLiveActorResetInlineTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Recursion, sides and min thickness are the text's; the rest the defaults, with the core's default size Fit 200 cm"),
 		DescribeSettings(*Actor), FString(TEXT("recursion 3, angle 25, thickness 50, size Fit 200, sides 4, closed yes, min thickness 2")));
 	TestEqual(TEXT("Every override checkbox is as it was"), DescribeOverrides(*Actor), Overrides);
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -340,7 +306,7 @@ bool FCambrianaLiveActorResetUndoTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("The reset can be redone"), GEditor->RedoTransaction());
 		TestEqual(TEXT("Redo resets the sides again"), Actor->Sides, 3);
 	}
-	Destroy(Actor);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -356,8 +322,8 @@ bool FCambrianaLiveActorResetSeveralTest::RunTest(const FString& Parameters)
 	ACambrianaLiveActor* Second = Six ? PlaceInCurrentLevel(Six) : nullptr;
 	if (!TestNotNull(TEXT("First actor placed"), First) || !TestNotNull(TEXT("Second actor placed"), Second))
 	{
-		Destroy(First);
-		Destroy(Second);
+		DestroyActor(First);
+		DestroyActor(Second);
 		return false;
 	}
 	Second->Sides = 9;
@@ -373,8 +339,8 @@ bool FCambrianaLiveActorResetSeveralTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("The second actor takes its text's sides"), Second->Sides, 6);
 		TestFalse(TEXT("The arrow hides when every actor is at its value"), Row.IsArrowShown());
 	}
-	Destroy(First);
-	Destroy(Second);
+	DestroyActor(First);
+	DestroyActor(Second);
 	return true;
 }
 
