@@ -87,6 +87,30 @@ namespace
 		return Path;
 	}
 
+	/** Deletes the files it is given when it goes out of scope, however the test ends. */
+	class FTempFiles
+	{
+	public:
+		FTempFiles(std::initializer_list<FString> InPaths)
+			: Paths(InPaths)
+		{
+		}
+
+		~FTempFiles()
+		{
+			for (const FString& Path : Paths)
+			{
+				IFileManager::Get().Delete(*Path);
+			}
+		}
+
+		FTempFiles(const FTempFiles&) = delete;
+		FTempFiles& operator=(const FTempFiles&) = delete;
+
+	private:
+		TArray<FString> Paths;
+	};
+
 	FString LoadFile(const FString& Path)
 	{
 		FString Text;
@@ -617,6 +641,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaImportUppercaseExtensionTest,
 bool FCambrianaImportUppercaseExtensionTest::RunTest(const FString& Parameters)
 {
 	const FString Path = WriteTemporaryFile(TEXT("upper-case.LS"), FirstLegacyText);
+	const FTempFiles Cleanup({ Path });
 	const FImportedGrammar Imported(Path);
 	UCambrianaGrammar* Grammar = Imported.Grammar();
 	if (!TestNotNull(TEXT("Importing a .LS file creates a grammar asset"), Grammar))
@@ -630,7 +655,6 @@ bool FCambrianaImportUppercaseExtensionTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
 	TestTrue(TEXT("The reimported asset holds .lsys text"), Cambriana::DetectGrammarFormat(Grammar->GrammarText) == ECambrianaGrammarFormat::Cambriana);
 	TestNotEqual(TEXT("The reimport replaced the text"), Grammar->GrammarText, FirstText);
-	IFileManager::Get().Delete(*Path);
 	return true;
 }
 
@@ -641,6 +665,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaReimportEffectsTest,
 bool FCambrianaReimportEffectsTest::RunTest(const FString& Parameters)
 {
 	const FString Path = WriteTemporaryFile(TEXT("reimport-effects.lsys"), FirstLsysText);
+	const FTempFiles Cleanup({ Path });
 	const FImportedGrammar Imported(Path);
 	UCambrianaGrammar* Grammar = Imported.Grammar();
 	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
@@ -669,7 +694,6 @@ bool FCambrianaReimportEffectsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The reimport marked the package dirty"), Grammar->GetPackage()->IsDirty());
 	TestTrue(TEXT("The reimport can be undone"), GEditor->UndoTransaction());
 	TestEqualSensitive(TEXT("Undo restores the text"), Grammar->GrammarText, FString(FirstLsysText));
-	IFileManager::Get().Delete(*Path);
 	return true;
 }
 
@@ -685,6 +709,7 @@ bool FCambrianaReimportPathsTest::RunTest(const FString& Parameters)
 	const FString Path = WriteTemporaryFile(TEXT("reimport-paths.lsys"), FirstLsysText);
 	const FString NewPath = WriteTemporaryFile(TEXT("reimport-paths-moved.lsys"), FirstLsysText);
 	const FString OtherPath = WriteTemporaryFile(TEXT("reimport-paths-other.lsys"), FirstLsysText);
+	const FTempFiles Cleanup({ Path, NewPath, OtherPath });
 	const FImportedGrammar Imported(Path);
 	UCambrianaGrammar* Grammar = Imported.Grammar();
 	if (!TestNotNull(TEXT("Importing the .lsys file creates a grammar asset"), Grammar))
@@ -696,9 +721,6 @@ bool FCambrianaReimportPathsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("A new reimport path becomes the source file"), FPaths::IsSamePath(Grammar->AssetImportData->GetFirstFilename(), NewPath));
 	FReimportManager::Instance()->UpdateReimportPaths(Grammar, { Path, OtherPath });
 	TestTrue(TEXT("Two paths for a one-file asset change nothing"), FPaths::IsSamePath(Grammar->AssetImportData->GetFirstFilename(), NewPath));
-	IFileManager::Get().Delete(*Path);
-	IFileManager::Get().Delete(*NewPath);
-	IFileManager::Get().Delete(*OtherPath);
 	return true;
 }
 
