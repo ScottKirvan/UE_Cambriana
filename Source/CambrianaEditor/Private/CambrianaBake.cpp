@@ -1,12 +1,15 @@
 #include "CambrianaBake.h"
 
+#include "Animation/Skeleton.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "CambrianaBuild.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaLiveActor.h"
+#include "CambrianaSkeletalMesh.h"
 #include "CambrianaStaticMesh.h"
 #include "ContentBrowserMenuContexts.h"
 #include "ContentBrowserModule.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "FileHelpers.h"
 #include "Framework/Application/SlateApplication.h"
@@ -29,9 +32,9 @@ namespace
 		return FPackageName::GetLongPackagePath(Grammar.GetPackage()->GetName()) / Grammar.GetName();
 	}
 
-	FString StaticMeshPackageName(const UCambrianaGrammar& Grammar)
+	FString OutputPackageName(const UCambrianaGrammar& Grammar, const TCHAR* Prefix)
 	{
-		return BakeFolder(Grammar) / (TEXT("SM_") + Grammar.GetName());
+		return BakeFolder(Grammar) / (Prefix + Grammar.GetName());
 	}
 
 	FString StaticMeshPackageName(const ACambrianaLiveActor& Actor)
@@ -98,19 +101,71 @@ namespace
 
 	FCambrianaBakeResult Failed(ECambrianaBakeStatus Status)
 	{
-		return { Status, nullptr };
+		return { Status };
 	}
 
-	/** Builds Input into the static mesh at PackageName and saves it, asking before an existing one is rebuilt; Source names what is baked in the log. */
-	FCambrianaBakeResult BakeStaticMesh(const FCambrianaBuildInput& Input, const FString& PackageName, const FString& Source, const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+	/** An asset a bake writes: its package and class, and the asset already at its name, if any. */
+	struct FOutputToBake
 	{
-		const FString Name = FPackageName::GetShortName(PackageName);
-		UObject* Existing = FindExisting(PackageName, Name);
-		UStaticMesh* ExistingMesh = Cast<UStaticMesh>(Existing);
-		if (Existing && !ExistingMesh)
+		FString PackageName;
+		UClass* Class = nullptr;
+		UObject* Existing = nullptr;
+
+		FString Name() const { return FPackageName::GetShortName(PackageName); }
+
+		/** The existing asset rebuilt in place, or a new one. */
+		template <typename T>
+		T* MakeAsset() const
 		{
-			UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is not a static mesh; nothing is baked"), *Source, *Existing->GetPathName());
-			return Failed(ECambrianaBakeStatus::NameTaken);
+			if (T* Asset = Cast<T>(Existing))
+			{
+				return Asset;
+			}
+			T* Asset = NewObject<T>(CreatePackage(*PackageName), *Name(), RF_Public | RF_Standalone | RF_Transactional);
+			FAssetRegistryModule::AssetCreated(Asset);
+			return Asset;
+		}
+	};
+
+	/** The assets a bake writes: a static mesh, a skeleton and skinned skeletal mesh, or all three. */
+	struct FOutputsToBake
+	{
+		TOptional<FOutputToBake> StaticMesh;
+		TOptional<FOutputToBake> Skeleton;
+		TOptional<FOutputToBake> SkeletalMesh;
+
+		TArray<FOutputToBake*, TInlineAllocator<3>> All()
+		{
+			TArray<FOutputToBake*, TInlineAllocator<3>> Outputs;
+			for (TOptional<FOutputToBake>* Output : { &SkeletalMesh, &Skeleton, &StaticMesh })
+			{
+				if (Output->IsSet())
+				{
+					Outputs.Add(&Output->GetValue());
+				}
+			}
+			return Outputs;
+		}
+	};
+
+	/**
+	 * Builds Input into the outputs and saves them, asking once before any existing output is rebuilt in place; Source names what is
+	 * baked in the log. An asset of another class at an output's name bakes nothing.
+	 */
+	FCambrianaBakeResult BakeOutputs(const FCambrianaBuildInput& Input, FOutputsToBake Outputs, const FString& Source,
+		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+	{
+		const FOutputToBake* FirstExisting = nullptr;
+		for (FOutputToBake* Output : Outputs.All())
+		{
+			Output->Existing = FindExisting(Output->PackageName, Output->Name());
+			if (Output->Existing && !Output->Existing->IsA(Output->Class))
+			{
+				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is not a %s; nothing is baked"), *Source, *Output->Existing->GetPathName(),
+					*FName::NameToDisplayString(Output->Class->GetName(), false).ToLower());
+				return Failed(ECambrianaBakeStatus::NameTaken);
+			}
+			FirstExisting = FirstExisting ? FirstExisting : (Output->Existing ? Output : nullptr);
 		}
 
 		const FCambrianaBuildResult Build = Cambriana::BuildMesh(Input);
@@ -124,36 +179,56 @@ namespace
 			UE_LOG(LogCambrianaBake, Error, TEXT("%s: the grammar builds no triangles; nothing is baked"), *Source);
 			return Failed(ECambrianaBakeStatus::NothingToBuild);
 		}
+		if (Outputs.SkeletalMesh && Cambriana::MakeReferenceSkeleton(Build).GetRawBoneNum() == 0)
+		{
+			UE_LOG(LogCambrianaBake, Error, TEXT("%s: the grammar's bone tree makes no skeleton; nothing is baked"), *Source);
+			return Failed(ECambrianaBakeStatus::NothingToBuild);
+		}
 
-		if (ExistingMesh)
+		if (FirstExisting)
 		{
 			const FText Question = FText::Format(
 				LOCTEXT("Overwrite", "Do you want to overwrite the existing asset?\n\nAn asset already exists at the bake location: {0}"),
-				FText::FromString(PackageName));
+				FText::FromString(FirstExisting->PackageName));
 			if ((AskToOverwrite ? AskToOverwrite(Question) : AskWithDialog(Question)) != EAppReturnType::Yes)
 			{
-				UE_LOG(LogCambrianaBake, Display, TEXT("%s: %s is not overwritten; nothing is baked"), *Source, *ExistingMesh->GetPathName());
+				UE_LOG(LogCambrianaBake, Display, TEXT("%s: %s is not overwritten; nothing is baked"), *Source, *FirstExisting->Existing->GetPathName());
 				return Failed(ECambrianaBakeStatus::OverwriteDeclined);
 			}
 		}
 
-		UStaticMesh* Mesh = ExistingMesh
-			? ExistingMesh
-			: NewObject<UStaticMesh>(CreatePackage(*PackageName), *Name, RF_Public | RF_Standalone | RF_Transactional);
-		Cambriana::SetStaticMeshFromBuild(*Mesh, Build);
-		Mesh->MarkPackageDirty();
-		if (!ExistingMesh)
+		FCambrianaBakeResult Result{ ECambrianaBakeStatus::Baked };
+		TArray<UPackage*> Packages;
+		if (Outputs.SkeletalMesh)
 		{
-			FAssetRegistryModule::AssetCreated(Mesh);
+			Result.Skeleton = Outputs.Skeleton->MakeAsset<USkeleton>();
+			Result.SkeletalMesh = Outputs.SkeletalMesh->MakeAsset<USkeletalMesh>();
+			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build);
+			Packages.Add(Result.SkeletalMesh->GetPackage());
+			Packages.Add(Result.Skeleton->GetPackage());
+		}
+		if (Outputs.StaticMesh)
+		{
+			Result.StaticMesh = Outputs.StaticMesh->MakeAsset<UStaticMesh>();
+			Cambriana::SetStaticMeshFromBuild(*Result.StaticMesh, Build);
+			Packages.Add(Result.StaticMesh->GetPackage());
+		}
+		for (UPackage* Package : Packages)
+		{
+			Package->MarkPackageDirty();
 		}
 
-		if (FEditorFileUtils::PromptForCheckoutAndSave({ Mesh->GetPackage() }, false, false) != FEditorFileUtils::PR_Success)
+		if (FEditorFileUtils::PromptForCheckoutAndSave(Packages, false, false) != FEditorFileUtils::PR_Success)
 		{
-			UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is built but not saved"), *Source, *Mesh->GetPathName());
-			return { ECambrianaBakeStatus::SaveFailed, Mesh };
+			UE_LOG(LogCambrianaBake, Error, TEXT("%s: the baked assets are built but not saved"), *Source);
+			Result.Status = ECambrianaBakeStatus::SaveFailed;
+			return Result;
 		}
-		UE_LOG(LogCambrianaBake, Display, TEXT("%s: baked %s"), *Source, *Mesh->GetPathName());
-		return { ECambrianaBakeStatus::Baked, Mesh };
+		for (UPackage* Package : Packages)
+		{
+			UE_LOG(LogCambrianaBake, Display, TEXT("%s: baked %s"), *Source, *Package->GetName());
+		}
+		return Result;
 	}
 
 	void ExecuteBake(const FToolMenuContext& MenuContext)
@@ -175,18 +250,20 @@ namespace Cambriana::Editor
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, const FAskToOverwrite& AskToOverwrite)
 	{
 		const FString GrammarPath = Grammar.GetPathName();
-		if (!Grammar.Bake.bStaticMesh)
-		{
-			UE_LOG(LogCambrianaBake, Warning, TEXT("%s: no bake output is selected; nothing is baked. Turn on Static Mesh in its Bake settings."), *GrammarPath);
-			return Failed(ECambrianaBakeStatus::NoOutputSelected);
-		}
 		if (!EnsureSaved(Grammar))
 		{
 			UE_LOG(LogCambrianaBake, Warning, TEXT("%s: the grammar is not saved; nothing is baked"), *GrammarPath);
 			return Failed(ECambrianaBakeStatus::GrammarNotSaved);
 		}
 
-		return BakeStaticMesh(ACambrianaLiveActor::MakeBuildInputFor(Grammar), StaticMeshPackageName(Grammar), GrammarPath, AskToOverwrite);
+		FOutputsToBake Outputs;
+		Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SK_")), USkeletalMesh::StaticClass() };
+		Outputs.Skeleton = FOutputToBake{ OutputPackageName(Grammar, TEXT("SKEL_")), USkeleton::StaticClass() };
+		if (Grammar.Bake.bStaticMesh)
+		{
+			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SM_")), UStaticMesh::StaticClass() };
+		}
+		return BakeOutputs(ACambrianaLiveActor::MakeBuildInputFor(Grammar), MoveTemp(Outputs), GrammarPath, AskToOverwrite);
 	}
 
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
@@ -222,7 +299,9 @@ namespace Cambriana::Editor
 			return Failed(ECambrianaBakeStatus::LocationNotChosen);
 		}
 		// The dialog has already asked before replacing an existing static mesh (SAssetDialog, AllowButWarn).
-		return BakeStaticMesh(Actor.MakeBuildInput(), PackageName, ActorPath, [](const FText&) { return EAppReturnType::Yes; });
+		FOutputsToBake Outputs;
+		Outputs.StaticMesh = FOutputToBake{ PackageName, UStaticMesh::StaticClass() };
+		return BakeOutputs(Actor.MakeBuildInput(), MoveTemp(Outputs), ActorPath, [](const FText&) { return EAppReturnType::Yes; });
 	}
 
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result)
@@ -233,8 +312,9 @@ namespace Cambriana::Editor
 			return;
 		}
 		const bool bBaked = Result.Status == ECambrianaBakeStatus::Baked;
-		FNotificationInfo Info(bBaked
-			? FText::Format(LOCTEXT("Baked", "Baked {0}"), FText::FromString(Result.StaticMesh->GetPathName()))
+		const UObject* Baked = Result.SkeletalMesh ? static_cast<const UObject*>(Result.SkeletalMesh) : Result.StaticMesh;
+		FNotificationInfo Info(bBaked && Baked
+			? FText::Format(LOCTEXT("Baked", "Baked {0}"), FText::FromString(Baked->GetPathName()))
 			: FText::Format(LOCTEXT("NotBaked", "{0} was not baked; see the Output Log"), FText::FromString(Source)));
 		Info.ExpireDuration = 5.0f;
 		if (const TSharedPtr<SNotificationItem> Item = FSlateNotificationManager::Get().AddNotification(Info))
@@ -248,7 +328,7 @@ namespace Cambriana::Editor
 		UToolMenu* Menu = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(UCambrianaGrammar::StaticClass());
 		FToolMenuSection& Section = Menu->FindOrAddSection(BakeMenuSection);
 		Section.AddMenuEntry(BakeMenuEntry, LOCTEXT("BakeLabel", "Bake"),
-			LOCTEXT("BakeTooltip", "Writes the grammar's selected bake outputs from its saved state to a folder beside it."), FSlateIcon(),
+			LOCTEXT("BakeTooltip", "Writes a skeletal mesh and skeleton, and a static mesh when selected, from the grammar's saved state to a folder beside it."), FSlateIcon(),
 			FToolMenuExecuteAction::CreateStatic(&ExecuteBake));
 	}
 }

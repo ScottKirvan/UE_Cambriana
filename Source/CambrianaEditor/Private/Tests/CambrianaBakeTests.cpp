@@ -7,6 +7,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "StaticMeshResources.h"
 #include "ToolMenus.h"
 #include "UObject/Package.h"
@@ -27,12 +28,21 @@ namespace
 	// (FMT-legacy-ls: `c` adds 1 to the colour, `[` pushes it), so it has four material IDs, 1 to 4.
 	constexpr int32 SkMaterialIds = 4;
 
+	// SDD-rigging.md: sk.ls has 80 bones; Bake skeleton: one synthetic Root bone parents them.
+	constexpr int32 SkSkeletonBones = 81;
+
 	const TCHAR* const ErrorGrammarText = TEXT("20\n25\n50\n");
 
 	int32 RenderedTriangles(UStaticMesh* Mesh)
 	{
 		const FStaticMeshRenderData* RenderData = Mesh ? Mesh->GetRenderData() : nullptr;
 		return RenderData && RenderData->LODResources.Num() > 0 ? RenderData->LODResources[0].GetNumTriangles() : 0;
+	}
+
+	int32 RenderedTriangles(USkeletalMesh* Mesh)
+	{
+		const FSkeletalMeshRenderData* RenderData = Mesh ? Mesh->GetResourceForRendering() : nullptr;
+		return RenderData && RenderData->LODRenderData.Num() > 0 ? int32(RenderData->LODRenderData[0].GetTotalFaces()) : 0;
 	}
 
 	Cambriana::Editor::FAskToOverwrite Answer(EAppReturnType::Type Reply, int32& Asked)
@@ -67,7 +77,7 @@ bool FCambrianaBakeStaticMeshTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeMenuTest,
-	"Cambriana.Editor.Bake.GrammarRightClickMenuBakeWritesTheStaticMesh",
+	"Cambriana.Editor.Bake.GrammarRightClickMenuBakeWritesTheOutputs",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeMenuTest::RunTest(const FString& Parameters)
@@ -93,24 +103,57 @@ bool FCambrianaBakeMenuTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("Bake from the menu writes SM_BakeFromMenu beside the grammar"), Mesh);
 	TestEqual(TEXT("Triangles"), RenderedTriangles(Mesh), SkTriangles);
 	TestTrue(TEXT("The static mesh is saved to disk"), Fixture.MeshFileExists());
+	TestEqual(TEXT("Bake from the menu writes SK_BakeFromMenu with its triangles"), RenderedTriangles(Fixture.FindSkeletalMesh()), SkTriangles);
+	TestTrue(TEXT("The skeletal mesh and skeleton are saved to disk"), Fixture.SkeletalFilesExist());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSkeletalTest,
+	"Cambriana.Editor.Bake.WritesTheSkeletonAndSkinnedSkeletalMeshBesideTheGrammarWithItsBonesAndSlots",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakeSkeletalTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("BakeSkeletal"));
+	const FCambrianaBakeResult Result = Fixture.Bake();
+
+	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
+	USkeletalMesh* Mesh = Fixture.FindSkeletalMesh();
+	USkeleton* Skeleton = Fixture.FindSkeleton();
+	if (!TestNotNull(TEXT("A skeletal mesh SK_BakeSkeletal is in the folder BakeSkeletal beside the grammar"), Mesh)
+		|| !TestNotNull(TEXT("A skeleton SKEL_BakeSkeletal is in the same folder"), Skeleton))
+	{
+		return false;
+	}
+	TestTrue(TEXT("The result is that skeletal mesh and skeleton"), Result.SkeletalMesh == Mesh && Result.Skeleton == Skeleton);
+	TestTrue(TEXT("The skeletal mesh uses the skeleton"), Mesh->GetSkeleton() == Skeleton);
+	TestTrue(TEXT("Both are saved to disk"), Fixture.SkeletalFilesExist());
+	TestFalse(TEXT("Neither package has unsaved changes"), Mesh->GetPackage()->IsDirty() || Skeleton->GetPackage()->IsDirty());
+	TestEqual(TEXT("The skeletal mesh has sk.ls's 80 bones plus Root"), Mesh->GetRefSkeleton().GetNum(), SkSkeletonBones);
+	TestEqual(TEXT("So has the skeleton"), Skeleton->GetReferenceSkeleton().GetNum(), SkSkeletonBones);
+	TestEqual(TEXT("Its first bone is Root"), Mesh->GetRefSkeleton().GetBoneName(0), FName(TEXT("Root")));
+	TestEqual(TEXT("One material slot per material ID"), Mesh->GetMaterials().Num(), SkMaterialIds);
+	TestEqual(TEXT("Triangles"), RenderedTriangles(Mesh), SkTriangles);
 	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeStaticMeshOffTest,
-	"Cambriana.Editor.Bake.StaticMeshOutputOffWritesNothing",
+	"Cambriana.Editor.Bake.StaticMeshOutputOffWritesOnlyTheSkeletalOutputs",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeStaticMeshOffTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("no bake output is selected"), ELogVerbosity::Warning);
 	FBakeFixture Fixture(TEXT("BakeOff"));
 	Fixture.Grammar->Bake.bStaticMesh = false;
 
 	const FCambrianaBakeResult Result = Fixture.Bake();
 
-	TestTrue(TEXT("The bake reports that no output is selected"), Result.Status == ECambrianaBakeStatus::NoOutputSelected);
+	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
 	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());
 	TestFalse(TEXT("No static mesh is saved"), Fixture.MeshFileExists());
+	TestNotNull(TEXT("The skeletal mesh is written"), Fixture.FindSkeletalMesh());
+	TestNotNull(TEXT("The skeleton is written"), Fixture.FindSkeleton());
+	TestTrue(TEXT("Both are saved to disk"), Fixture.SkeletalFilesExist());
 	return true;
 }
 
@@ -128,6 +171,7 @@ bool FCambrianaBakeErrorsTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	UStaticMesh* Mesh = Fixture.FindMesh();
+	USkeletalMesh* SkeletalMesh = Fixture.FindSkeletalMesh();
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.GrammarText = ErrorGrammarText; });
 
 	int32 Asked = 0;
@@ -137,6 +181,8 @@ bool FCambrianaBakeErrorsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
 	TestTrue(TEXT("The baked mesh is still there"), Fixture.FindMesh() == Mesh);
 	TestEqual(TEXT("The baked mesh keeps its triangles"), RenderedTriangles(Mesh), SkTriangles);
+	TestTrue(TEXT("The baked skeletal mesh is still there"), SkeletalMesh && Fixture.FindSkeletalMesh() == SkeletalMesh);
+	TestEqual(TEXT("The baked skeletal mesh keeps its triangles"), RenderedTriangles(SkeletalMesh), SkTriangles);
 	return true;
 }
 
@@ -155,11 +201,13 @@ bool FCambrianaBakeEmptyTextTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The bake reports nothing to build"), Result.Status == ECambrianaBakeStatus::NothingToBuild);
 	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());
 	TestFalse(TEXT("No static mesh is saved"), Fixture.MeshFileExists());
+	TestNull(TEXT("No skeletal mesh is created"), Fixture.FindSkeletalMesh());
+	TestFalse(TEXT("No skeletal output is saved"), Fixture.AnySkeletalFileExists());
 	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeOverwriteTest,
-	"Cambriana.Editor.Bake.ExistingStaticMeshIsRebuiltInPlaceWhenOverwriteIsAccepted",
+	"Cambriana.Editor.Bake.ExistingOutputsAreRebuiltInPlaceWhenOverwriteIsAccepted",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeOverwriteTest::RunTest(const FString& Parameters)
@@ -172,20 +220,27 @@ bool FCambrianaBakeOverwriteTest::RunTest(const FString& Parameters)
 	}
 	TestEqual(TEXT("A first bake does not ask to overwrite"), Asked, 0);
 	UStaticMesh* Mesh = Fixture.FindMesh();
+	USkeletalMesh* SkeletalMesh = Fixture.FindSkeletalMesh();
+	USkeleton* Skeleton = Fixture.FindSkeleton();
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Sides = 6; });
 
 	const FCambrianaBakeResult Result = Fixture.Bake(Answer(EAppReturnType::Yes, Asked));
 
 	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
-	TestEqual(TEXT("Overwriting is asked once"), Asked, 1);
+	TestEqual(TEXT("Overwriting is asked once for all the outputs"), Asked, 1);
 	TestTrue(TEXT("The same static mesh object is rebuilt, so references to it hold"), Fixture.FindMesh() == Mesh && Result.StaticMesh == Mesh);
 	TestEqual(TEXT("It has the saved grammar's new triangles"), RenderedTriangles(Mesh), SkTrianglesAtSixSides);
 	TestFalse(TEXT("It is saved"), Mesh->GetPackage()->IsDirty());
+	TestTrue(TEXT("The same skeletal mesh object is rebuilt"), SkeletalMesh && Fixture.FindSkeletalMesh() == SkeletalMesh && Result.SkeletalMesh == SkeletalMesh);
+	TestTrue(TEXT("The same skeleton object is kept"), Skeleton && Fixture.FindSkeleton() == Skeleton && Result.Skeleton == Skeleton);
+	TestTrue(TEXT("The skeletal mesh still uses it"), SkeletalMesh && SkeletalMesh->GetSkeleton() == Skeleton);
+	TestEqual(TEXT("The skeletal mesh has the saved grammar's new triangles"), RenderedTriangles(SkeletalMesh), SkTrianglesAtSixSides);
+	TestFalse(TEXT("The skeletal outputs are saved"), !SkeletalMesh || !Skeleton || SkeletalMesh->GetPackage()->IsDirty() || Skeleton->GetPackage()->IsDirty());
 	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeOverwriteDeclinedTest,
-	"Cambriana.Editor.Bake.ExistingStaticMeshIsUnchangedWhenOverwriteIsDeclined",
+	"Cambriana.Editor.Bake.ExistingOutputsAreUnchangedWhenOverwriteIsDeclined",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeOverwriteDeclinedTest::RunTest(const FString& Parameters)
@@ -196,6 +251,7 @@ bool FCambrianaBakeOverwriteDeclinedTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	UStaticMesh* Mesh = Fixture.FindMesh();
+	USkeletalMesh* SkeletalMesh = Fixture.FindSkeletalMesh();
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Sides = 6; });
 
 	int32 Asked = 0;
@@ -206,6 +262,9 @@ bool FCambrianaBakeOverwriteDeclinedTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The static mesh is still there"), Fixture.FindMesh() == Mesh);
 	TestEqual(TEXT("It keeps its triangles"), RenderedTriangles(Mesh), SkTriangles);
 	TestFalse(TEXT("It has no unsaved changes"), Mesh->GetPackage()->IsDirty());
+	TestTrue(TEXT("The skeletal mesh is still there"), SkeletalMesh && Fixture.FindSkeletalMesh() == SkeletalMesh);
+	TestEqual(TEXT("The skeletal mesh keeps its triangles"), RenderedTriangles(SkeletalMesh), SkTriangles);
+	TestFalse(TEXT("The skeletal mesh has no unsaved changes"), !SkeletalMesh || SkeletalMesh->GetPackage()->IsDirty());
 	return true;
 }
 
@@ -228,6 +287,30 @@ bool FCambrianaBakeNameTakenTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The other asset is untouched"), FindObject<UObject>(nullptr, *Fixture.MeshObjectPath()) == Occupant && IsValid(Occupant));
 	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());
 	TestFalse(TEXT("Nothing is saved at the name"), Fixture.MeshFileExists());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSkeletalNameTakenTest,
+	"Cambriana.Editor.Bake.AssetOfAnotherClassWithTheSkeletalMeshNameIsLeftAndNothingIsBaked",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakeSkeletalNameTakenTest::RunTest(const FString& Parameters)
+{
+	AddExpectedMessagePlain(TEXT("is not a skeletal mesh; nothing is baked"), ELogVerbosity::Error);
+	FBakeFixture Fixture(TEXT("BakeSkeletalNameTaken"));
+	UPackage* Package = CreatePackage(*Fixture.SkeletalMeshPackage);
+	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SK_") + Fixture.Name), RF_Public | RF_Standalone);
+
+	int32 Asked = 0;
+	const FCambrianaBakeResult Result = Fixture.Bake(Answer(EAppReturnType::Yes, Asked));
+
+	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
+	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
+	TestTrue(TEXT("The other asset is untouched"),
+		FindObject<UObject>(nullptr, *(Fixture.SkeletalMeshPackage + TEXT(".SK_") + Fixture.Name)) == Occupant && IsValid(Occupant));
+	TestNull(TEXT("No skeleton is created"), Fixture.FindSkeleton());
+	TestNull(TEXT("No static mesh is created either"), Fixture.FindMesh());
+	TestFalse(TEXT("Nothing is saved"), Fixture.MeshFileExists() || Fixture.AnySkeletalFileExists());
 	return true;
 }
 

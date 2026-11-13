@@ -100,3 +100,12 @@ and all descendants; bone indices of the remaining tree are compacted and names 
 - One synthetic `Root` bone parents the generated bone tree.
 - The bind pose is the grammar's own parameter values, until pose parameters
   (M5).
+- `[Proposed — unconfirmed]` `Root` is bone 0, at the origin, unrotated; the core's bone `i`
+  is bone `i + 1`, and the core's roots are `Root`'s children. Each bone's bind pose is at its
+  start, with X along the bone (the frame's Forward) and Z the frame's Up, the axes Control
+  Rig's aim uses by default (`RigUnit_AimBone.h`: primary axis X, secondary Z).
+- `[Proposed — unconfirmed]` The influence limit is the engine's `MAX_TOTAL_INFLUENCES` (12),
+  applied as the engine's skeletal mesh import applies it
+  (`LODUtilities.cpp`, `FLODUtilities::ProcessImportMeshInfluences`): a vertex's weights are
+  normalised, the strongest 12 at or above `BoneWeightThreshold` kept and renormalised. A
+  vertex with no influence is bound to `Root` with weight 1, as that import binds one to bone 0.
