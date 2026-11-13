@@ -97,6 +97,6 @@ and all descendants; bone indices of the remaining tree are compacted and names 
 
 ## Bake skeleton
 
-- **Decided:** one synthetic `Root` bone parents the generated bone tree.
-- **Decided:** the bind pose is the grammar's own parameter values, until pose parameters
+- One synthetic `Root` bone parents the generated bone tree.
+- The bind pose is the grammar's own parameter values, until pose parameters
   (M5).

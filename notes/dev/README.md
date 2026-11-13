@@ -4,7 +4,7 @@
 
 | Marking | Meaning |
 |---|---|
-| **Decided** | Requirement. |
+| Unmarked | Requirement. |
 | `[Proposed — unconfirmed]` | Working assumption until the author confirms or changes it. |
 | **Open** | Needs a decision; listed in [TBD.md](TBD.md). |
 
