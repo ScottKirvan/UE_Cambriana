@@ -69,6 +69,22 @@ bends.
 Physics asset: one capsule per bone (length, radius), mass from volume, stiffness from
 thickness. Consecutive short bones may merge into one capsule.
 
+- `[Proposed — unconfirmed]` A chain is a maximal run of drawn-segment bones in which each bone
+  after the first is the only drawn child of the bone before it and has no chain break before
+  it (the core's `chain_break_before`: after `]`, `f`, `z`, `g`, as for tubes in
+  [SDD-surfacing.md](SDD-surfacing.md)). A fork ends a chain: each branch, the continuing one
+  included, starts its own. `sk.ls` has 4 chains of 20 bones.
+- `[Proposed — unconfirmed]` The physics asset has one body per chain, on the chain's first bone,
+  holding one capsule per bone of the chain: centred on the bone, along it, with the bone's
+  radius and length. Bones in no chain (undrawn bones and `Root`) have no body. Mass comes from
+  the capsules' volume, the engine's default for a body.
+- `[Proposed — unconfirmed]` Each body is constrained to the body of the nearest bone above it
+  that has one, with the parameters of the FBX skeletal mesh import's physics asset
+  (`FPhysAssetCreateParams` defaults: limited angular motion, collision between bodies off),
+  as `FPhysicsAssetUtils::CreateFromSkeletalMesh` joins a body to its parent's
+  (`PhysicsAssetUtils.cpp`). A body with none above it, such as each of `sk.ls`'s four, is
+  unconstrained.
+
 ## Rig controls
 
 - Rig hints ([FMT-grammar.md](FMT-grammar.md)) are carried on bones by the core and stored in

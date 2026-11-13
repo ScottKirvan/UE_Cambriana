@@ -23,6 +23,7 @@ public class CambrianaEditor : ModuleRules
 			"InputCore",
 			"Engine",
 			"MessageLog",
+			"PhysicsUtilities",
 			"PlacementMode",
 			"Projects",
 			"PropertyEditor",

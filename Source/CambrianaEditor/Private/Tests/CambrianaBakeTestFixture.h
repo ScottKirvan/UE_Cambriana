@@ -8,6 +8,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "HAL/FileManager.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #include "UObject/Package.h"
 
 namespace Cambriana::Editor::Tests
@@ -26,6 +27,7 @@ namespace Cambriana::Editor::Tests
 			// SDD-unreal.md: the skeletal mesh and skeleton are SK_ and SKEL_ plus the grammar asset's name, in the same folder.
 			, SkeletalMeshPackage(FString(BakeTestRoot) / InName / (TEXT("SK_") + FString(InName)))
 			, SkeletonPackage(FString(BakeTestRoot) / InName / (TEXT("SKEL_") + FString(InName)))
+			, PhysicsAssetPackage(FString(BakeTestRoot) / InName / (TEXT("PHYS_") + FString(InName)))
 		{
 			Remove();
 			Grammar = CreateGrammarInPackage(*GrammarPackage);
@@ -57,6 +59,10 @@ namespace Cambriana::Editor::Tests
 				&& IFileManager::Get().FileExists(*PackageFilename(*SkeletonPackage));
 		}
 
+		UPhysicsAsset* FindPhysicsAsset() const { return FindObject<UPhysicsAsset>(nullptr, *(PhysicsAssetPackage + TEXT(".PHYS_") + Name)); }
+
+		bool PhysicsAssetFileExists() const { return IFileManager::Get().FileExists(*PackageFilename(*PhysicsAssetPackage)); }
+
 		bool AnySkeletalFileExists() const
 		{
 			return IFileManager::Get().FileExists(*PackageFilename(*SkeletalMeshPackage))
@@ -83,12 +89,13 @@ namespace Cambriana::Editor::Tests
 		const FString MeshPackage;
 		const FString SkeletalMeshPackage;
 		const FString SkeletonPackage;
+		const FString PhysicsAssetPackage;
 		UCambrianaGrammar* Grammar = nullptr;
 
 	private:
 		void Remove()
 		{
-			for (const FString& PackageName : { MeshPackage, SkeletalMeshPackage, SkeletonPackage, GrammarPackage })
+			for (const FString& PackageName : { MeshPackage, SkeletalMeshPackage, SkeletonPackage, PhysicsAssetPackage, GrammarPackage })
 			{
 				if (UPackage* Package = FindPackage(nullptr, *PackageName))
 				{
