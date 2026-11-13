@@ -58,6 +58,14 @@ display baked results.
   and generates lightmap UVs into UV3, after UV0 to UV2 (SDD-surfacing.md, Data channels). In
   the editor the mesh is stored as the static mesh's source model; outside the editor it is
   built with `UStaticMesh::BuildFromMeshDescriptions`.
+- `[Proposed — unconfirmed]` The static mesh's build keeps sliver triangles: degenerate removal
+  is off (`bRemoveDegenerates`), as Geometry Script's `CopyMeshToStaticMesh` leaves it by
+  default (`FGeometryScriptCopyMeshToAssetOptions::bEnableRemoveDegenerates`). The engine's
+  static mesh build still drops a triangle with two corners at one single-precision point
+  (`StaticMeshBuilder.cpp`, `BuildVertexBuffer`); it has no area. ATS-46 and ATS-47 compare the
+  rendered LOD 0 with the live actor's mesh: every live triangle without such corners pairs with
+  one rendered triangle, same winding, each corner within 0.001 cm, and every live vertex has a
+  rendered vertex within 0.001 cm.
 - `[Proposed — unconfirmed]` A new slot holds the engine's default surface material
   (`UMaterial::GetDefaultMaterial(MD_Surface)`), as the FBX static mesh importer fills slots
   it has no material for. A slot whose name the existing static mesh already has keeps that
