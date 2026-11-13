@@ -20,13 +20,6 @@ namespace
 		return FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::AutomationTransientDir(), TEXT("CambrianaExport"), FileName));
 	}
 
-	FString LoadFile(const FString& Path)
-	{
-		FString Text;
-		FFileHelper::LoadFileToString(Text, *Path);
-		return Text;
-	}
-
 	TOptional<FString> LoadUtf8File(const FString& Path)
 	{
 		TArray<uint8> Bytes;

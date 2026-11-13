@@ -26,6 +26,8 @@ using Cambriana::Editor::Tests::FindWidgetOfType;
 using Cambriana::Editor::Tests::OpenGrammarEditor;
 using Cambriana::Editor::Tests::PreviewVertexCount;
 using Cambriana::Editor::Tests::TubeVertices;
+using Cambriana::Editor::Tests::FindCategory;
+using Cambriana::Editor::Tests::MakeRows;
 
 namespace
 {
@@ -41,26 +43,6 @@ namespace
 	const FName StructureCategory(TEXT("Structure Parameters"));
 	const FName UntieredCategory(TEXT("Parameters"));
 	const FName ParameterCategories[] = { PoseCategory, ShapeCategory, StructureCategory, UntieredCategory };
-
-	TSharedRef<IPropertyRowGenerator> DetailsOf(UCambrianaGrammar* Grammar)
-	{
-		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-		Rows->SetObjects({ Grammar });
-		return Rows;
-	}
-
-	TSharedPtr<IDetailTreeNode> FindCategory(const IPropertyRowGenerator& Rows, FName Category)
-	{
-		for (const TSharedRef<IDetailTreeNode>& Node : Rows.GetRootTreeNodes())
-		{
-			if (Node->GetNodeType() == EDetailNodeType::Category && Node->GetNodeName() == Category)
-			{
-				return Node;
-			}
-		}
-		return nullptr;
-	}
 
 	/** Row names of each parameter category shown, in row order. */
 	TMap<FName, TArray<FString>> ParameterRows(const IPropertyRowGenerator& Rows)
@@ -105,16 +87,7 @@ namespace
 	/** The number a parameter row's value field shows; NaN, which equals nothing, without the row or a numeric field. */
 	double ShownValue(const IPropertyRowGenerator& Rows, const TCHAR* Name)
 	{
-		const TSharedPtr<IDetailTreeNode> Row = FindParameterRow(Rows, Name);
-		const TSharedPtr<SWidget> Value = Row ? Row->CreateNodeWidgets().ValueWidget : nullptr;
-		if (Value)
-		{
-			// Bound Slate attributes refresh in the prepass of each frame, which a widget outside a window never gets.
-			Value->SlatePrepass(1.0f);
-		}
-		const TSharedPtr<SWidget> Field = Value ? FindWidgetOfType(Value.ToSharedRef(), TEXT("SEditableText")) : nullptr;
-		const FString Text = Field ? StaticCastSharedPtr<SEditableText>(Field)->GetText().ToString() : FString();
-		return Text.IsNumeric() ? FCString::Atod(*Text) : std::numeric_limits<double>::quiet_NaN();
+		return Cambriana::Editor::Tests::ShownValue(FindParameterRow(Rows, Name));
 	}
 
 	FCambrianaGrammarEditorToolkit* OpenWithText(UCambrianaGrammar* Grammar, const FString& Text)
@@ -133,7 +106,7 @@ bool FCambrianaGrammarParametersShownTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 	Grammar->GrammarText = ParameterGrammar();
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Grammar });
 
 	const TMap<FName, TArray<FString>> Shown = ParameterRows(*Rows);
 	TestEqual(TEXT("Four tier groups"), Shown.Num(), 4);
@@ -157,7 +130,7 @@ bool FCambrianaGrammarParametersOrderTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 	Grammar->GrammarText = TEXT("structure param zeta = 1\nstructure param alpha = 2\nstructure param mid = 3\n\naxiom F\n");
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Grammar });
 	TestTrue(TEXT("Structure Parameters lists zeta, alpha, mid"),
 		ParameterRows(*Rows).FindRef(StructureCategory) == TArray<FString>{ TEXT("zeta"), TEXT("alpha"), TEXT("mid") });
 	return true;
@@ -176,7 +149,7 @@ bool FCambrianaGrammarParametersEditTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Toolkit->GetWorkingCopy() });
 	TestEqual(TEXT("The text's count of 3: 3 segments at 8 sides"), PreviewVertexCount(*Toolkit), TubeVertices(3, 8));
 	const int32 BuildsBefore = Toolkit->GetPreview().GetBuildCount();
 
@@ -243,11 +216,11 @@ bool FCambrianaGrammarParametersLegacyTest::RunTest(const FString& Parameters)
 	Stored.Name = TEXT("count");
 	Stored.Value = 5.0;
 	Grammar->ParameterValues.Add(Stored);
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Grammar });
 	TestEqual(TEXT("No parameter group is shown"), ParameterRows(*Rows).Num(), 0);
 
 	Grammar->GrammarText = ParameterGrammar();
-	TestEqual(TEXT("The same asset with .lsys text shows its parameter groups"), ParameterRows(*DetailsOf(Grammar)).Num(), 4);
+	TestEqual(TEXT("The same asset with .lsys text shows its parameter groups"), ParameterRows(*MakeRows({ Grammar })).Num(), 4);
 	return true;
 }
 
@@ -264,7 +237,7 @@ bool FCambrianaGrammarParametersTextValueTest::RunTest(const FString& Parameters
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Toolkit->GetWorkingCopy() });
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(4)));
 	TestEqual(TEXT("Unchanged count follows the text to 4 segments"), PreviewVertexCount(*Toolkit), TubeVertices(4, 8));
@@ -293,7 +266,7 @@ bool FCambrianaGrammarParametersRenameTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Toolkit->GetWorkingCopy() });
 	Cambriana::Editor::SetParameterValue(*Toolkit->GetWorkingCopy(), TEXT("count"), 5.0);
 
 	Toolkit->CommitRulesText(FText::FromString(ParameterGrammar(3, TEXT("count"), TEXT("structure param extra = 2\n"))));
@@ -356,7 +329,7 @@ bool FCambrianaGrammarTypedSeedTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Toolkit->GetWorkingCopy() });
 	const TSharedPtr<IPropertyHandle> Seed = FindPropertyHandle(Rows->GetRootTreeNodes(), GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed));
 	if (!TestTrue(TEXT("Details shows the seed"), Seed.IsValid()))
 	{
@@ -388,7 +361,7 @@ bool FCambrianaGrammarNewSeedButtonTest::RunTest(const FString& Parameters)
 		CloseGrammarEditor(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Toolkit->GetWorkingCopy());
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Toolkit->GetWorkingCopy() });
 	const TSharedPtr<SButton> NewSeed = NewSeedButtonOf(*Rows);
 	if (!TestTrue(TEXT("The seed row has a new-seed button"), NewSeed.IsValid()))
 	{

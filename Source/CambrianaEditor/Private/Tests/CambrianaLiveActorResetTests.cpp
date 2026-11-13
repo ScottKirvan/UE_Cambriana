@@ -18,6 +18,7 @@ using Cambriana::Editor::Tests::DestroyActor;
 using Cambriana::Editor::Tests::FindNode;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
 using Cambriana::Editor::Tests::SpawnInlineActor;
+using Cambriana::Editor::Tests::MakeRows;
 
 namespace CambrianaLiveActorResetTests
 {
@@ -127,14 +128,6 @@ namespace CambrianaLiveActorResetTests
 		TSharedPtr<IPropertyHandle> Handle;
 		TOptional<FResetToDefaultOverride> Reset;
 	};
-
-	TSharedRef<IPropertyRowGenerator> MakeRows(const TArray<UObject*>& Objects)
-	{
-		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-		Rows->SetObjects(Objects);
-		return Rows;
-	}
 
 	void ResetEverySetting(FAutomationTestBase& Test, const IPropertyRowGenerator& Rows)
 	{

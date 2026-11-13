@@ -23,6 +23,10 @@ using Cambriana::Editor::Tests::FGrammarChangeCounter;
 using Cambriana::Editor::Tests::FindStoredValue;
 using Cambriana::Editor::Tests::UndoHistoryLength;
 using Cambriana::Editor::Tests::FindWidgetOfType;
+using Cambriana::Editor::Tests::FindCategory;
+using Cambriana::Editor::Tests::MakeRows;
+using Cambriana::Editor::Tests::ShownValue;
+using Cambriana::Editor::Tests::SetGrammarText;
 
 namespace
 {
@@ -154,26 +158,6 @@ namespace
 		return nullptr;
 	}
 
-	TSharedRef<IPropertyRowGenerator> DetailsOf(UCambrianaGrammar* Grammar)
-	{
-		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-		Rows->SetObjects({ Grammar });
-		return Rows;
-	}
-
-	TSharedPtr<IDetailTreeNode> FindCategory(const IPropertyRowGenerator& Rows, FName Category)
-	{
-		for (const TSharedRef<IDetailTreeNode>& Node : Rows.GetRootTreeNodes())
-		{
-			if (Node->GetNodeType() == EDetailNodeType::Category && Node->GetNodeName() == Category)
-			{
-				return Node;
-			}
-		}
-		return nullptr;
-	}
-
 	/** The rows of one parameter category, in row order. */
 	TArray<TSharedRef<IDetailTreeNode>> RowsOf(const IPropertyRowGenerator& Rows, FName Category)
 	{
@@ -186,32 +170,10 @@ namespace
 	}
 
 	/** The number a row's value field shows; NaN, which equals nothing, without a numeric field. */
-	double ShownValue(const TSharedRef<IDetailTreeNode>& Row)
-	{
-		const TSharedPtr<SWidget> Value = Row->CreateNodeWidgets().ValueWidget;
-		if (Value)
-		{
-			// Bound Slate attributes refresh in the prepass of each frame, which a widget outside a window never gets.
-			Value->SlatePrepass(1.0f);
-		}
-		const TSharedPtr<SWidget> Field = Value ? FindWidgetOfType(Value.ToSharedRef(), TEXT("SEditableText")) : nullptr;
-		const FString Text = Field ? StaticCastSharedPtr<SEditableText>(Field)->GetText().ToString() : FString();
-		return Text.IsNumeric() ? FCString::Atod(*Text) : std::numeric_limits<double>::quiet_NaN();
-	}
-
 	double ShownValue(const IPropertyRowGenerator& Rows, FName Category, int32 Index)
 	{
 		const TArray<TSharedRef<IDetailTreeNode>> Children = RowsOf(Rows, Category);
 		return Children.IsValidIndex(Index) ? ShownValue(Children[Index]) : std::numeric_limits<double>::quiet_NaN();
-	}
-
-	void SetGrammarText(UCambrianaGrammar* Grammar, const TCHAR* Text)
-	{
-		FProperty* Property = UCambrianaGrammar::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText));
-		Grammar->PreEditChange(Property);
-		Grammar->GrammarText = Text;
-		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
-		Grammar->PostEditChangeProperty(Event);
 	}
 
 	/** Counts the times the generator rebuilds its rows. */
@@ -315,7 +277,7 @@ bool FCambrianaParameterCategoryOrderTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 	Grammar->GrammarText = FourTierText;
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Grammar });
 	TArray<FName> Shown;
 	for (const TSharedRef<IDetailTreeNode>& Node : Rows->GetRootTreeNodes())
 	{
@@ -339,7 +301,7 @@ bool FCambrianaParameterRowsRefreshTest::RunTest(const FString& Parameters)
 	Grammar->GrammarText = TEXT("pose param a = 1\nstructure param count = 3\n\naxiom repeat count { F }\n");
 	UCambrianaGrammar* Other = CreateGrammarWithFactory();
 	Other->GrammarText = TEXT("structure param other = 1\n\naxiom F\n");
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Grammar });
 	FRefreshCounter Refreshes(*Rows);
 
 	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
@@ -368,7 +330,7 @@ bool FCambrianaParameterRowsCaseTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 	Grammar->GrammarText = TEXT("structure param Count = 7\nstructure param count = 3\n\naxiom repeat count { F }\n");
-	const TSharedRef<IPropertyRowGenerator> Rows = DetailsOf(Grammar);
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ Grammar });
 	if (!TestEqual(TEXT("Both parameters have a row"), RowsOf(*Rows, StructureCategory).Num(), 2))
 	{
 		return false;

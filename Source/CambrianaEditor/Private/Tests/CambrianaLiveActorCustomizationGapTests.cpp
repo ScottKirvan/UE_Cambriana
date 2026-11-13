@@ -19,6 +19,7 @@ using Cambriana::Editor::Tests::FindNode;
 using Cambriana::Editor::Tests::FindWidgetOfType;
 using Cambriana::Editor::Tests::SpawnInlineActor;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
+using Cambriana::Editor::Tests::MakeRows;
 
 namespace
 {
@@ -30,14 +31,6 @@ namespace
 		UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
 		Grammar->GrammarText = Text;
 		return Grammar;
-	}
-
-	TSharedRef<IPropertyRowGenerator> MakeRows(const TArray<UObject*>& Objects)
-	{
-		FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-		const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-		Rows->SetObjects(Objects);
-		return Rows;
 	}
 
 	TSharedPtr<IPropertyHandle> HandleOf(const IPropertyRowGenerator& Rows, FName PropertyName)
