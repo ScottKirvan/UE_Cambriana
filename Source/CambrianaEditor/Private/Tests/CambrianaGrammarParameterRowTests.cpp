@@ -2,6 +2,7 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarCustomization.h"
 #include "Editor.h"
+#include "Editor/Transactor.h"
 #include "IDetailTreeNode.h"
 #include "IDetailsView.h"
 #include "IPropertyRowGenerator.h"
@@ -335,6 +336,30 @@ bool FCambrianaParameterRowsCaseTest::RunTest(const FString& Parameters)
 	}
 	TestEqual(TEXT("Count shows its 7"), ShownValue(*Rows, StructureCategory, 0), 7.0);
 	TestEqual(TEXT("count shows its 3"), ShownValue(*Rows, StructureCategory, 1), 3.0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaParameterStoreSameValueTest,
+	"Cambriana.Editor.GrammarParameterRows.StoringTheValueAlreadyStoredMakesNoUndoStepAndANewValueMakesOne",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaParameterStoreSameValueTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	Grammar->GrammarText = FourTierText;
+	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
+	const int32 HistoryAfterFirst = GEditor->Trans->GetQueueLength();
+
+	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 5.0);
+	TestEqual(TEXT("Storing the same value again makes no undo step"), GEditor->Trans->GetQueueLength(), HistoryAfterFirst);
+
+	Cambriana::Editor::SetParameterValue(*Grammar, TEXT("count"), 6.0);
+	TestEqual(TEXT("Storing a different value makes one"), GEditor->Trans->GetQueueLength(), HistoryAfterFirst + 1);
+	const FCambrianaParameterValue* Stored = FindStoredValue(*Grammar, TEXT("count"));
+	TestTrue(TEXT("The new value replaces the old"), Stored && Stored->Value == 6.0 && Grammar->ParameterValues.Num() == 1);
+	TestTrue(TEXT("Undo restores the first value"), GEditor->UndoTransaction());
+	Stored = FindStoredValue(*Grammar, TEXT("count"));
+	TestTrue(TEXT("The first value is back"), Stored && Stored->Value == 5.0);
 	return true;
 }
 
