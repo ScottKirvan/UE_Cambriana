@@ -8,7 +8,20 @@
 
 class UAssetImportData;
 
-/** Interim grammar asset: grammar text (.lsys, or legacy .ls), a seed, parameter values, size and surfacer settings and, when imported, its source file. */
+/** What Bake writes besides the skeletal mesh, skeleton and physics asset. */
+USTRUCT()
+struct FCambrianaBakeSettings
+{
+	GENERATED_BODY()
+
+	/** Also write a static mesh, SM_<grammar asset name>. */
+	UPROPERTY(EditAnywhere, Category = "Bake")
+	bool bStaticMesh = false;
+
+	bool operator==(const FCambrianaBakeSettings&) const = default;
+};
+
+/** Interim grammar asset: grammar text (.lsys, or legacy .ls), a seed, parameter values, size, surfacer and bake settings and, when imported, its source file. */
 UCLASS(BlueprintType)
 class CAMBRIANA_API UCambrianaGrammar : public UObject
 {
@@ -41,6 +54,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Surfacer", meta = (ClampMin = "0", Units = "Centimeters"))
 	double MinThickness = 0.0;
+
+	UPROPERTY(EditAnywhere, Category = "Bake", meta = (ShowOnlyInnerProperties))
+	FCambrianaBakeSettings Bake;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere, Instanced, Category = "Import")

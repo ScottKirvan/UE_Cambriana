@@ -28,6 +28,7 @@ public class CambrianaEditor : ModuleRules
 			"PropertyEditor",
 			"Slate",
 			"SlateCore",
+			"ToolMenus",
 			"UnrealEd",
 		});
 	}
