@@ -37,9 +37,8 @@ display baked results.
   `SK_`, `SKEL_`, `PHYS_` and `SM_`.
 - `[Proposed — unconfirmed]` The bake settings are one struct on the grammar asset
   (`FCambrianaBakeSettings`, Details category Bake) holding the static mesh output, off by
-  default. The skeletal mesh, skeleton and physics asset need no setting. Until skeletal mesh
-  bake exists (M3 step 5), Bake writes the static mesh only; with static mesh output off it
-  writes nothing and logs a warning.
+  default. The skeletal mesh, skeleton and physics asset need no setting: Bake always writes
+  the skeletal mesh and skeleton, and the static mesh as well when static mesh output is on.
 - `[Proposed — unconfirmed]` The folder beside the grammar asset is named after it: a grammar
   `/Game/Trees/Fern` bakes `/Game/Trees/Fern/SM_Fern`.
 - `[Proposed — unconfirmed]` Bake is the `Bake` entry in the asset actions section of the
@@ -49,7 +48,7 @@ display baked results.
   changes or was never saved) is first offered to the engine's save prompt
   (`FEditorFileUtils::PromptForCheckoutAndSave`); when it is not saved, nothing is baked.
   Unsaved grammar editor edits are in the working copy, not the asset, and are not baked. The
-  baked static mesh's package is saved without a prompt.
+  baked assets' packages are saved without a prompt.
 - `[Proposed — unconfirmed]` The static mesh is built in the runtime module
   (`Cambriana::SetStaticMeshFromBuild`) from the result of `Cambriana::BuildMesh` with the
   build input of a live actor referencing the grammar with every override off and the
@@ -70,13 +69,32 @@ display baked results.
   (`UMaterial::GetDefaultMaterial(MD_Surface)`), as the FBX static mesh importer fills slots
   it has no material for. A slot whose name the existing static mesh already has keeps that
   slot's material, as an FBX reimport keeps materials by slot name.
-- `[Proposed — unconfirmed]` When `SM_<name>` already exists as a static mesh, Bake asks
-  "Do you want to overwrite the existing asset?" (Yes/No), as the engine's import does when
-  its target exists. Yes rebuilds the same object in place, so references to it stay valid;
-  No bakes nothing. An asset of another class at that name is left alone, an error is logged
-  and nothing is baked.
+- `[Proposed — unconfirmed]` When any output it writes already exists as an asset of its class,
+  Bake asks once "Do you want to overwrite the existing asset?" (Yes/No), naming the first
+  existing one in the order `SK_`, `SKEL_`, `SM_`, as the engine's import asks once per imported
+  file (`AssetTools.cpp`, `ImportObjectAlreadyExists_SameClass`). Yes rebuilds every existing
+  output as the same object in place, so references to it stay valid; No bakes nothing. An asset
+  of another class at any output's name is left alone, an error is logged and nothing is baked.
+- `[Proposed — unconfirmed]` The skeletal mesh is built in the runtime module
+  (`Cambriana::SetSkeletalMeshFromBuild`) from the same build result as the static mesh, in the
+  sequence of Geometry Script's `CopyMeshToSkeletalMesh` with a new reference skeleton
+  (`MeshAssetFunctions.cpp`): the mesh description of LOD 0 converted from the build's mesh
+  with its bones and skin weights (`FDynamicMeshToMeshDescription`), the reference skeleton
+  set and committed, then `PostEditChange`. It has one LOD and the static mesh's slots and slot
+  names, keeping materials by slot name; the build's normals are kept, tangents computed,
+  degenerate removal off and UVs at full precision, as for the static mesh. Vertex colours are
+  converted without the static mesh's sRGB-to-linear transform: the skeletal mesh build stores
+  them linear (`SkeletalMeshLODImporterData.cpp`; `StaticToSkeletalMeshConverter.cpp` undoes the
+  transform when it turns a static mesh into a skeletal one). Its mesh description is
+  editor-only, so it is built in the editor only; the run-time construction path is M4
+  (Run-time generation, below).
+- `[Proposed — unconfirmed]` The skeleton is set on the skeletal mesh and its bone tree is
+  recreated from the mesh (`USkeleton::RecreateBoneTree`), as the procedural vegetation export
+  does for the skeleton it writes (`PVExportHelper.cpp`). A rebake rebuilds an existing skeleton
+  in place the same way, so its tree follows a changed bone tree.
 - `[Proposed — unconfirmed]` A grammar with errors, or one that builds no triangles (empty
-  text included), bakes nothing and leaves an existing baked mesh unchanged; after the
+  text included), or whose bone tree makes no reference skeleton (a parent after its child, or
+  two bones of one name), bakes nothing and leaves an existing baked mesh unchanged; after the
   build's diagnostics an error naming the grammar is logged, as a failed import creates no
   asset.
 - `[Proposed — unconfirmed]` The live actor's Details Bake is a `Bake` button on its own row at

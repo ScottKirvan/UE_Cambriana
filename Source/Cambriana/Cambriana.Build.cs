@@ -22,6 +22,7 @@ public class Cambriana : ModuleRules
 			"MeshConversion",
 			"MeshDescription",
 			"Projects",
+			"RenderCore",
 			"SkeletalMeshDescription",
 			"StaticMeshDescription",
 		});
