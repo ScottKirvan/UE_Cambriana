@@ -349,4 +349,40 @@ bool FCambrianaBuildUvZeroTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBuildAttributeColoursTest,
+	"Cambriana.Build.VertexColourGreenBlueAndAlphaHoldTheFirstThreeUserAttributes",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBuildAttributeColoursTest::RunTest(const FString& Parameters)
+{
+	// SDD-surfacing.md, Data channels: vertex colour G, B, A are the first three user attributes. grammar-spec.md: an attribute
+	// applies to the bones created while it is set and to their vertices, and columns are in first-use order. So every vertex
+	// of the one segment has wet 0.25 in G, age 0.5 in B and heat 0.75 in A, and the fourth attribute is in no slot. Its one
+	// segment at full thickness makes R (thickness / maximum thickness) 1.
+	FCambrianaBuildInput Input;
+	Input.GrammarText = TEXT("axiom attr(wet, 0.25) attr(age, 0.5) attr(heat, 0.75) attr(extra, 0.9) F\n");
+	const FCambrianaBuildResult Result = Cambriana::BuildMesh(Input);
+	const UE::Geometry::FDynamicMeshColorOverlay* Colours = Result.Mesh.HasAttributes() ? Result.Mesh.Attributes()->PrimaryColors() : nullptr;
+	if (!TestNotNull(TEXT("Vertex colours present"), Colours) || !TestTrue(TEXT("The segment has triangles"), Result.Mesh.TriangleCount() > 0))
+	{
+		return false;
+	}
+	int32 Wrong = 0;
+	FVector4f FirstWrong;
+	for (const int32 Tid : Result.Mesh.TriangleIndicesItr())
+	{
+		const UE::Geometry::FIndex3i Elements = Colours->GetTriangle(Tid);
+		for (int32 Corner = 0; Corner < 3; ++Corner)
+		{
+			const FVector4f Colour = Colours->GetElement(Elements[Corner]);
+			if (!Colour.Equals(FVector4f(1.0f, 0.25f, 0.5f, 0.75f), 1e-6f) && Wrong++ == 0)
+			{
+				FirstWrong = Colour;
+			}
+		}
+	}
+	TestEqual(FString::Printf(TEXT("Corners whose colour is not (1, 0.25, 0.5, 0.75); first %s"), *FirstWrong.ToString()), Wrong, 0);
+	return true;
+}
+
 #endif
