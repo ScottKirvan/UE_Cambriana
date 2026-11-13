@@ -1,5 +1,6 @@
 #include "CambrianaGrammarImportFactory.h"
 
+#include "CambrianaConversionLog.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarConversion.h"
 #include "CambrianaSeed.h"
@@ -18,30 +19,6 @@ namespace
 		TOptional<uint32> Seed;
 	};
 
-	TOptional<FString> ConvertLegacyFile(const FString& Filename, const FString& FileText, FFeedbackContext* Warn)
-	{
-		const FCambrianaLegacyConversion Conversion = Cambriana::ConvertLegacyGrammar(FileText);
-		if (Conversion.bCoreUnavailable)
-		{
-			Warn->Logf(ELogVerbosity::Error, TEXT("%s: CambrianaCore is unavailable, so the file cannot be converted"), *Filename);
-			return {};
-		}
-		for (const FCambrianaDiagnostic& Diagnostic : Conversion.Diagnostics)
-		{
-			const ELogVerbosity::Type Verbosity = Diagnostic.Severity == ECambrianaDiagnosticSeverity::Error ? ELogVerbosity::Error : ELogVerbosity::Warning;
-			Warn->Logf(Verbosity, TEXT("%s: %s"), *Filename, *Diagnostic.Describe());
-		}
-		if (!Conversion.GrammarText)
-		{
-			if (Conversion.Diagnostics.IsEmpty())
-			{
-				Warn->Logf(ELogVerbosity::Error, TEXT("%s: the file could not be converted"), *Filename);
-			}
-			return {};
-		}
-		return *Conversion.GrammarText;
-	}
-
 	TOptional<FSourceGrammar> ReadSourceGrammar(const FString& Filename, FFeedbackContext* Warn)
 	{
 		FString FileText;
@@ -52,7 +29,7 @@ namespace
 		}
 		if (FPaths::GetExtension(Filename).Equals(TEXT("ls"), ESearchCase::IgnoreCase))
 		{
-			TOptional<FString> Converted = ConvertLegacyFile(Filename, FileText, Warn);
+			TOptional<FString> Converted = Cambriana::Editor::ReportLegacyConversion(Cambriana::ConvertLegacyGrammar(FileText), Filename, TEXT("file"), *Warn);
 			return Converted ? FSourceGrammar{ MoveTemp(*Converted), {} } : TOptional<FSourceGrammar>();
 		}
 		const TOptional<uint32> Seed = Cambriana::GrammarSeed(FileText);
