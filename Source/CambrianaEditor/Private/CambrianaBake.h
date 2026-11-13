@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
 
+class ACambrianaLiveActor;
 class UCambrianaGrammar;
 class UStaticMesh;
 
@@ -43,6 +44,14 @@ namespace Cambriana::Editor
 	 * to the engine's save prompt. AskToOverwrite is asked before an existing static mesh is rebuilt; unset, a message dialog asks.
 	 */
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, const FAskToOverwrite& AskToOverwrite = nullptr);
+
+	/**
+	 * Bakes a static mesh from the live actor's own build input, overrides included, and saves it. An actor with a grammar asset
+	 * writes SM_<grammar asset name>_<actor label> into the grammar's bake folder, first offering a grammar without saved state to
+	 * the engine's save prompt; one without writes SM_<actor label> at the project's content root. AskToOverwrite is asked
+	 * before an existing static mesh is rebuilt; unset, a message dialog asks.
+	 */
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToOverwrite& AskToOverwrite = nullptr);
 
 	/** Adds Bake to the grammar asset's right-click menu in the Content Browser, owned by the current tool menu owner. */
 	void AddBakeMenuEntry();
