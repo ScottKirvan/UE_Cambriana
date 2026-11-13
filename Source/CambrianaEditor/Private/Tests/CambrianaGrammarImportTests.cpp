@@ -650,6 +650,11 @@ bool FCambrianaImportUppercaseExtensionTest::RunTest(const FString& Parameters)
 	}
 	TestTrue(TEXT("The asset holds .lsys text"), Cambriana::DetectGrammarFormat(Grammar->GrammarText) == ECambrianaGrammarFormat::Cambriana);
 	const FString FirstText = Grammar->GrammarText;
+	// FMT-grammar.md, Conversion: the header numbers become settings and the rule a `grow` rule; whitespace between tokens is not compared.
+	TArray<FString> Tokens;
+	FirstText.ParseIntoArrayWS(Tokens);
+	TestEqual(TEXT("The converted text is the legacy file's header and rule written as .lsys"), FString::Join(Tokens, TEXT(" ")),
+		FString(TEXT("generations 3 angle 25 thickness 50% axiom A grow { A -> + F ' A }")));
 
 	WriteTemporaryFile(TEXT("upper-case.LS"), SecondLegacyText);
 	TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
