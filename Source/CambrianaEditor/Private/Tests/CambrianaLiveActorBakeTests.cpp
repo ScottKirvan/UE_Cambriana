@@ -4,6 +4,7 @@
 #include "CambrianaLiveActor.h"
 #include "CambrianaMeshComparison.h"
 #include "Components/DynamicMeshComponent.h"
+#include "IContentBrowserSingleton.h"
 #include "IDetailTreeNode.h"
 #include "Misc/AutomationTest.h"
 #include "Widgets/Input/SButton.h"
@@ -50,11 +51,15 @@ namespace
 		return nullptr;
 	}
 
-	/** Expected location, from SDD-unreal.md: an actor with a grammar asset bakes SM_<grammar name>_<actor label> into the grammar's bake folder. */
-	FString ExpectedActorMeshPath(const FBakeFixture& Fixture, const ACambrianaLiveActor& Actor)
+	/** Expected dialog default, from SDD-unreal.md: an actor with a grammar asset bakes SM_<grammar name>_<actor label> into the grammar's bake folder. */
+	FString ExpectedActorMeshPackage(const FBakeFixture& Fixture, const ACambrianaLiveActor& Actor)
 	{
-		const FString Name = TEXT("SM_") + Fixture.Name + TEXT("_") + Actor.GetActorLabel();
-		return FString(BakeTestRoot) / Fixture.Name / Name + TEXT(".") + Name;
+		return FString(BakeTestRoot) / Fixture.Name / (TEXT("SM_") + Fixture.Name + TEXT("_") + Actor.GetActorLabel());
+	}
+
+	FString ObjectPathOf(const FString& PackageName)
+	{
+		return PackageName + TEXT(".") + FPackageName::GetShortName(PackageName);
 	}
 
 	/** A live actor placed from the fixture's grammar, its recursion and sides overridden. */
@@ -72,9 +77,8 @@ namespace
 		return Actor;
 	}
 
-	void RemoveBakedMesh(const FString& ObjectPath)
+	void RemoveBakedMesh(const FString& PackageName)
 	{
-		const FString PackageName = FPackageName::ObjectPathToPackageName(ObjectPath);
 		if (UPackage* Package = FindPackage(nullptr, *PackageName))
 		{
 			UnloadPackage(Package);
@@ -82,9 +86,40 @@ namespace
 		IFileManager::Get().Delete(*PackageFilename(*PackageName));
 	}
 
-	Cambriana::Editor::FAskToOverwrite CountAnswers(EAppReturnType::Type Reply, int32& Asked)
+	/** Answers the Bake location dialog while in scope, recording each default it is shown; Choose gives the answer, empty to cancel. */
+	class FAnswerBakeLocation
 	{
-		return [Reply, &Asked](const FText&) { ++Asked; return Reply; };
+	public:
+		explicit FAnswerBakeLocation(TFunction<FString(const FString&)> Choose)
+		{
+			Previous = Cambriana::Editor::SetBakeLocationPrompt([this, Choose = MoveTemp(Choose)](const FString& Default)
+			{
+				Defaults.Add(Default);
+				return Choose(Default);
+			});
+		}
+
+		~FAnswerBakeLocation() { Cambriana::Editor::SetBakeLocationPrompt(MoveTemp(Previous)); }
+
+		FAnswerBakeLocation(const FAnswerBakeLocation&) = delete;
+		FAnswerBakeLocation& operator=(const FAnswerBakeLocation&) = delete;
+
+		TArray<FString> Defaults;
+
+	private:
+		Cambriana::Editor::FBakeLocationPrompt Previous;
+	};
+
+	FString AcceptDefault(const FString& Default)
+	{
+		return Default;
+	}
+
+	FCambrianaBakeResult BakeWithoutSavePrompt(ACambrianaLiveActor& Actor)
+	{
+		FCambrianaBakeResult Result;
+		RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeLiveActor(Actor); });
+		return Result;
 	}
 }
 
@@ -103,23 +138,24 @@ bool FCambrianaLiveActorDetailsBakeTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	ON_SCOPE_EXIT { DestroyActor(Actor); };
-	const FString MeshPath = ExpectedActorMeshPath(Fixture, *Actor);
-	ON_SCOPE_EXIT { RemoveBakedMesh(MeshPath); };
+	const FString MeshPackage = ExpectedActorMeshPackage(Fixture, *Actor);
+	ON_SCOPE_EXIT { RemoveBakedMesh(MeshPackage); };
 
 	const TSharedPtr<SButton> Bake = FindDetailsButton(Actor, TEXT("Bake"));
 	if (!TestNotNull(TEXT("The live actor's Details has a Bake button in its Cambriana category"), Bake.Get()))
 	{
 		return false;
 	}
+	FAnswerBakeLocation Answer(&AcceptDefault);
 	RunWithoutSavePrompt([&] { Bake->SimulateClick(); });
 
-	UStaticMesh* Mesh = FindObject<UStaticMesh>(nullptr, *MeshPath);
-	if (!TestNotNull(FString::Printf(TEXT("Bake writes %s"), *MeshPath), Mesh))
+	TestEqual(TEXT("Bake asks for the location once, defaulting to the grammar's bake folder"), Answer.Defaults, TArray<FString>{ MeshPackage });
+	UStaticMesh* Mesh = FindObject<UStaticMesh>(nullptr, *ObjectPathOf(MeshPackage));
+	if (!TestNotNull(FString::Printf(TEXT("Bake writes %s"), *MeshPackage), Mesh))
 	{
 		return false;
 	}
-	TestTrue(TEXT("The static mesh is saved to disk"),
-		IFileManager::Get().FileExists(*PackageFilename(*FPackageName::ObjectPathToPackageName(MeshPath))) && !Mesh->GetPackage()->IsDirty());
+	TestTrue(TEXT("The static mesh is saved to disk"), IFileManager::Get().FileExists(*PackageFilename(*MeshPackage)) && !Mesh->GetPackage()->IsDirty());
 	const FTriangleMatch Match = MatchTriangles(*Actor->GetDynamicMeshComponent()->GetMesh(), *Mesh);
 	TestTrue(FString::Printf(TEXT("The baked mesh's rendered triangles and vertices match the actor's within 0.001 cm (%s)"), *Match.Describe()), Match.Matches());
 	TestEqual(TEXT("It has the overridden recursion and sides"), Match.RenderedTriangles, OverriddenTriangles);
@@ -127,49 +163,96 @@ bool FCambrianaLiveActorDetailsBakeTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeOverwriteTest,
-	"Cambriana.Editor.Bake.LiveActorBakeAsksBeforeRebuildingItsStaticMeshInPlace",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeDialogTest,
+	"Cambriana.Editor.Bake.LiveActorBakeLocationDialogIsTheEngineSaveAssetDialogForAStaticMeshWarningBeforeReplacing",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FCambrianaLiveActorBakeOverwriteTest::RunTest(const FString& Parameters)
+bool FCambrianaLiveActorBakeDialogTest::RunTest(const FString& Parameters)
 {
-	FBakeFixture Fixture(TEXT("ActorBakeOverwrite"));
+	const FSaveAssetDialogConfig Config = Cambriana::Editor::MakeBakeLocationDialogConfig(TEXT("/Game/Trees/Fern/SM_Fern_Fern2"));
+	TestEqual(TEXT("Default folder"), Config.DefaultPath, FString(TEXT("/Game/Trees/Fern")));
+	TestEqual(TEXT("Default name"), Config.DefaultAssetName, FString(TEXT("SM_Fern_Fern2")));
+	TestTrue(TEXT("Static meshes only"), Config.AssetClassNames == TArray<FTopLevelAssetPath>{ UStaticMesh::StaticClass()->GetClassPathName() });
+	// Under this policy SAssetDialog asks "<name> already exists. Do you want to replace it?" for an existing asset of the class.
+	TestEqual(TEXT("An existing static mesh may be chosen after the dialog's own warning"), int32(Config.ExistingAssetPolicy),
+		int32(ESaveAssetDialogExistingAssetPolicy::AllowButWarn));
+	TestFalse(TEXT("The dialog has a title"), Config.DialogTitleOverride.IsEmpty());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeRebakeTest,
+	"Cambriana.Editor.Bake.LiveActorBakeRebuildsTheChosenStaticMeshInPlaceWithoutASecondQuestionAndCancelBakesNothing",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorBakeRebakeTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("ActorBakeRebake"));
 	ACambrianaLiveActor* Actor = PlaceOverriddenActor(Fixture);
 	if (!TestNotNull(TEXT("A live actor is placed from the grammar"), Actor))
 	{
 		return false;
 	}
 	ON_SCOPE_EXIT { DestroyActor(Actor); };
-	const FString MeshPath = ExpectedActorMeshPath(Fixture, *Actor);
-	ON_SCOPE_EXIT { RemoveBakedMesh(MeshPath); };
+	const FString MeshPackage = ExpectedActorMeshPackage(Fixture, *Actor);
+	ON_SCOPE_EXIT { RemoveBakedMesh(MeshPackage); };
 
-	int32 Asked = 0;
 	FCambrianaBakeResult First;
-	RunWithoutSavePrompt([&] { First = Cambriana::Editor::BakeLiveActor(*Actor, CountAnswers(EAppReturnType::Yes, Asked)); });
+	{
+		FAnswerBakeLocation Answer(&AcceptDefault);
+		First = BakeWithoutSavePrompt(*Actor);
+	}
 	if (!TestTrue(TEXT("The first bake succeeds"), First.Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
-	TestEqual(TEXT("A first bake does not ask to overwrite"), Asked, 0);
 
 	Actor->Sides = 7;
 	Actor->Rebuild();
-	FCambrianaBakeResult Declined;
-	RunWithoutSavePrompt([&] { Declined = Cambriana::Editor::BakeLiveActor(*Actor, CountAnswers(EAppReturnType::No, Asked)); });
-	TestTrue(TEXT("Declining the overwrite bakes nothing"), Declined.Status == ECambrianaBakeStatus::OverwriteDeclined);
+	{
+		FAnswerBakeLocation Cancel([](const FString&) { return FString(); });
+		const FCambrianaBakeResult Cancelled = BakeWithoutSavePrompt(*Actor);
+		TestTrue(TEXT("Cancelling the location dialog bakes nothing"), Cancelled.Status == ECambrianaBakeStatus::LocationNotChosen);
+		TestEqual(TEXT("The dialog was shown"), Cancel.Defaults.Num(), 1);
+	}
 	TestEqual(TEXT("The static mesh keeps its triangles"), RenderedTrianglesOf(*First.StaticMesh).Num(), OverriddenTriangles);
 
-	FCambrianaBakeResult Accepted;
-	RunWithoutSavePrompt([&] { Accepted = Cambriana::Editor::BakeLiveActor(*Actor, CountAnswers(EAppReturnType::Yes, Asked)); });
-	TestTrue(TEXT("Accepting the overwrite bakes"), Accepted.Status == ECambrianaBakeStatus::Baked);
-	TestEqual(TEXT("Overwriting is asked once per later bake"), Asked, 2);
-	TestTrue(TEXT("The same static mesh object is rebuilt, so references to it hold"), Accepted.StaticMesh == First.StaticMesh);
-	TestTrue(TEXT("It matches the actor's new sides"), MatchTriangles(*Actor->GetDynamicMeshComponent()->GetMesh(), *Accepted.StaticMesh).Matches());
+	// The dialog has already confirmed replacing the existing asset; unattended, any further question would answer No.
+	FAnswerBakeLocation Answer(&AcceptDefault);
+	const FCambrianaBakeResult Rebaked = BakeWithoutSavePrompt(*Actor);
+	TestTrue(TEXT("Choosing the existing static mesh bakes without asking again"), Rebaked.Status == ECambrianaBakeStatus::Baked);
+	TestTrue(TEXT("The same static mesh object is rebuilt, so references to it hold"), Rebaked.StaticMesh == First.StaticMesh);
+	TestTrue(TEXT("It matches the actor's new sides"), MatchTriangles(*Actor->GetDynamicMeshComponent()->GetMesh(), *First.StaticMesh).Matches());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeChosenLocationTest,
+	"Cambriana.Editor.Bake.LiveActorBakeWritesWhereTheDialogSays",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorBakeChosenLocationTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("ActorBakeChosen"));
+	ACambrianaLiveActor* Actor = PlaceOverriddenActor(Fixture);
+	if (!TestNotNull(TEXT("A live actor is placed from the grammar"), Actor))
+	{
+		return false;
+	}
+	ON_SCOPE_EXIT { DestroyActor(Actor); };
+	const FString Chosen = FString(BakeTestRoot) / TEXT("ActorBakeChosen") / TEXT("SM_Chosen");
+	ON_SCOPE_EXIT { RemoveBakedMesh(Chosen); };
+
+	FAnswerBakeLocation Answer([Chosen](const FString&) { return Chosen; });
+	const FCambrianaBakeResult Result = BakeWithoutSavePrompt(*Actor);
+
+	TestTrue(TEXT("The bake succeeds"), Result.Status == ECambrianaBakeStatus::Baked);
+	UStaticMesh* Mesh = FindObject<UStaticMesh>(nullptr, *ObjectPathOf(Chosen));
+	TestTrue(TEXT("The static mesh is at the chosen location"), Mesh && Result.StaticMesh == Mesh);
+	TestNull(TEXT("Nothing is written at the default location"), FindObject<UStaticMesh>(nullptr, *ObjectPathOf(ExpectedActorMeshPackage(Fixture, *Actor))));
 	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaInlineLiveActorBakeTest,
-	"Cambriana.Editor.Bake.InlineLiveActorBakeWritesItsStaticMeshAtTheContentRoot",
+	"Cambriana.Editor.Bake.InlineLiveActorBakeDefaultsToTheContentRoot",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaInlineLiveActorBakeTest::RunTest(const FString& Parameters)
@@ -182,17 +265,18 @@ bool FCambrianaInlineLiveActorBakeTest::RunTest(const FString& Parameters)
 	ON_SCOPE_EXIT { DestroyActor(Actor); };
 	Actor->SetActorLabel(TEXT("InlineBakeTestActor"));
 	Actor->Rebuild();
-	// Expected location, from SDD-unreal.md: without a grammar asset, SM_<actor label> at the project's content root.
-	const FString MeshPath = TEXT("/Game/SM_InlineBakeTestActor.SM_InlineBakeTestActor");
-	RemoveBakedMesh(MeshPath);
-	ON_SCOPE_EXIT { RemoveBakedMesh(MeshPath); };
+	// Expected dialog default, from SDD-unreal.md: without a grammar asset, SM_<actor label> at the project's content root.
+	const FString MeshPackage = TEXT("/Game/SM_InlineBakeTestActor");
+	RemoveBakedMesh(MeshPackage);
+	ON_SCOPE_EXIT { RemoveBakedMesh(MeshPackage); };
 
-	FCambrianaBakeResult Result;
-	RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeLiveActor(*Actor); });
+	FAnswerBakeLocation Answer(&AcceptDefault);
+	const FCambrianaBakeResult Result = BakeWithoutSavePrompt(*Actor);
 
+	TestEqual(TEXT("The dialog defaults to the content root"), Answer.Defaults, TArray<FString>{ MeshPackage });
 	TestTrue(TEXT("The bake succeeds"), Result.Status == ECambrianaBakeStatus::Baked);
-	UStaticMesh* Mesh = FindObject<UStaticMesh>(nullptr, *MeshPath);
-	if (!TestNotNull(FString::Printf(TEXT("Bake writes %s"), *MeshPath), Mesh))
+	UStaticMesh* Mesh = FindObject<UStaticMesh>(nullptr, *ObjectPathOf(MeshPackage));
+	if (!TestNotNull(FString::Printf(TEXT("Bake writes %s"), *MeshPackage), Mesh))
 	{
 		return false;
 	}
@@ -215,13 +299,14 @@ bool FCambrianaLiveActorBakeUnsavedGrammarTest::RunTest(const FString& Parameter
 		return false;
 	}
 	ON_SCOPE_EXIT { DestroyActor(Actor); };
-	const FString MeshPath = ExpectedActorMeshPath(Fixture, *Actor);
+	FAnswerBakeLocation Answer(&AcceptDefault);
 
 	// With -unattended the engine's save prompt cancels.
 	const FCambrianaBakeResult Result = Cambriana::Editor::BakeLiveActor(*Actor);
 
 	TestTrue(TEXT("The bake reports the grammar not saved"), Result.Status == ECambrianaBakeStatus::GrammarNotSaved);
-	TestNull(TEXT("No static mesh is created"), FindObject<UStaticMesh>(nullptr, *MeshPath));
+	TestEqual(TEXT("The location is not asked for"), Answer.Defaults.Num(), 0);
+	TestNull(TEXT("No static mesh is created"), FindObject<UStaticMesh>(nullptr, *ObjectPathOf(ExpectedActorMeshPackage(Fixture, *Actor))));
 	return true;
 }
 
