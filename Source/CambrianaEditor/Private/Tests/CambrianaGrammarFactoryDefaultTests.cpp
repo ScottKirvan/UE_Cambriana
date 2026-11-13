@@ -92,4 +92,26 @@ bool FCambrianaNewAssetSettingsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaNewAssetStartsFromTextTest,
+	"Cambriana.Editor.GrammarFactory.NewAssetSizeAndSurfacerSettingsStartFromTheTextTheFactoryGives",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaNewAssetStartsFromTextTest::RunTest(const FString& Parameters)
+{
+	// SDD-unreal.md: a grammar asset's size and surfacer settings start from its grammar text, for each setting the text states.
+	const TGuardValue<const TCHAR*> StatingText(UCambrianaGrammarFactory::DefaultGrammarText,
+		TEXT("sides 3\nsurface blocks\nminthickness 2cm\nsize 50cm\naxiom F\n"));
+	UCambrianaGrammarFactory* Factory = NewObject<UCambrianaGrammarFactory>();
+	const UCambrianaGrammar* Grammar = Cast<UCambrianaGrammar>(Factory->FactoryCreateNew(UCambrianaGrammar::StaticClass(),
+		GetTransientPackage(), MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional,
+		nullptr, nullptr));
+	if (!TestNotNull(TEXT("New asset created"), Grammar))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Each setting the text states is the asset's"), DescribeSizeAndSurfacer(*Grammar),
+		FString(TEXT("size Fit 50, sides 3, surface blocks, min thickness 2")));
+	return true;
+}
+
 #endif
