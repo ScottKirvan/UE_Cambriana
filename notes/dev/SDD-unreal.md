@@ -17,14 +17,14 @@ display baked results.
 | Growth animation | Standard animation sequence; optional |
 | Control Rig | Shared rig shipped in the plugin's `Content/`; standalone copies written on request |
 
-- Baked assets are written to a folder beside the grammar asset.
+- **Decided:** baked assets are written to a folder beside the grammar asset.
 - **Decided:** Bake writes from the grammar asset's saved state. With unsaved edits in the
   grammar editor, Bake asks to save first.
 - **Decided:** Bake writes a skeletal mesh, skeleton and physics asset. Static mesh output is
   a bake setting on the grammar asset.
 - **Decided:** Bake is offered on the grammar asset's right-click menu and in the grammar
   editor. The live actor's Details Bake writes a static mesh only, from the actor's own build
-  input [Proposed — unconfirmed].
+  input.
 - **Decided:** the physics asset merges capsules along chains.
 - **Decided:** **Reimport** is the standard right-click Reimport on a baked skeletal or static
   mesh, with the grammar asset recorded as its source. It rebuilds the asset in place from the
@@ -32,9 +32,9 @@ display baked results.
   definition is updated. A change to the bone tree replaces the skeleton in place.
 - **Decided:** **Detach** is a right-click item on a baked mesh that removes its link to its
   grammar. A detached mesh is not offered Reimport and is not listed in the grammar's
-  outputs [Proposed — unconfirmed].
-- Baked asset names: the grammar asset's name with `SK_`, `SKEL_`, `PHYS_` and `SM_`
-  prefixes [Proposed — unconfirmed].
+  outputs.
+- **Decided:** baked asset names are the grammar asset's name with the Unreal style prefixes
+  `SK_`, `SKEL_`, `PHYS_` and `SM_`.
 - Each variant (seed, axiom) gets its own skeleton.
 - The pose component drives any variant from its per-bone metadata, independent of bone names.
 
