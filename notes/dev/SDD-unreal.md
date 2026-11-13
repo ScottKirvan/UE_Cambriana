@@ -79,6 +79,33 @@ display baked results.
   text included), bakes nothing and leaves an existing baked mesh unchanged; after the
   build's diagnostics an error naming the grammar is logged, as a failed import creates no
   asset.
+- `[Proposed — unconfirmed]` The live actor's Details Bake is a `Bake` button on its own row at
+  the end of the Cambriana category, as the procedural mesh component's Details places its
+  Create StaticMesh button (`ProceduralMeshComponentDetails.cpp`). It bakes each selected
+  placed live actor, shows a notification for each, and is disabled for class defaults and
+  archetypes.
+- `[Proposed — unconfirmed]` The live actor's Details Bake asks where to write the static mesh
+  in the engine's save-asset dialog (`IContentBrowserSingleton::CreateModalSaveAssetDialog`,
+  static meshes only), as Merge Actors asks for its merged mesh
+  (`MergeActors/Private/MergeProxyUtils/Utils.cpp`, `GetPackageNameForMergeAction`). Cancel
+  bakes nothing. The dialog allows an existing static mesh after its own question ("<name>
+  already exists. Do you want to replace it?", `ESaveAssetDialogExistingAssetPolicy::AllowButWarn`,
+  `ContentBrowser/Private/SAssetDialog.cpp`); Bake then rebuilds that object in place without
+  asking again. Tests answer the dialog through `Cambriana::Editor::SetBakeLocationPrompt`.
+- `[Proposed — unconfirmed]` The dialog defaults, for a live actor with a grammar asset, to
+  `SM_<grammar asset name>_<actor label>` in that grammar's bake folder: a grammar
+  `/Game/Trees/Fern` and an actor labelled `Fern2` default to `/Game/Trees/Fern/SM_Fern_Fern2`.
+  For one with inline text and no grammar asset it defaults to `SM_<actor label>` at the
+  project's content root (`/Game`). Merge Actors likewise defaults to `SM_` plus a name made from
+  the actor at the content root (`MeshMergingTool.cpp`, `GetDefaultPackageName`;
+  `MeshMergeUtilities.cpp`). The label is sanitised as an object name
+  (`ObjectTools::SanitizeObjectName`).
+- `[Proposed — unconfirmed]` The live actor's Details Bake shares the grammar Bake's refusal of
+  an asset of another class, nothing baked for errors or no triangles, and saving without a
+  prompt. A grammar asset without a saved state is first offered to the engine's save prompt;
+  when it is not saved, nothing is baked and the dialog does not show. The grammar's own bake
+  settings do not apply. The grammar right-click Bake keeps its fixed location and its own
+  overwrite question.
 - Each variant (seed, axiom) gets its own skeleton.
 - The pose component drives any variant from its per-bone metadata, independent of bone names.
 

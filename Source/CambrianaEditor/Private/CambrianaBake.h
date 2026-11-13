@@ -1,8 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "IContentBrowserSingleton.h"
 #include "Misc/MessageDialog.h"
 
+class ACambrianaLiveActor;
 class UCambrianaGrammar;
 class UStaticMesh;
 
@@ -18,6 +20,8 @@ enum class ECambrianaBakeStatus : uint8
 	/** An asset that is not a static mesh holds the static mesh's name. */
 	NameTaken,
 	OverwriteDeclined,
+	/** The save-asset dialog for the static mesh's location was cancelled. */
+	LocationNotChosen,
 	/** The static mesh was built but its package did not save. */
 	SaveFailed,
 };
@@ -34,6 +38,15 @@ namespace Cambriana::Editor
 	/** Asks whether to overwrite an existing asset; given the question, answers Yes or No. */
 	using FAskToOverwrite = TFunction<EAppReturnType::Type(const FText& Question)>;
 
+	/** Asks where to write a live actor's static mesh, given the default package name; answers the chosen package name, or nothing to cancel. */
+	using FBakeLocationPrompt = TFunction<FString(const FString& DefaultPackageName)>;
+
+	/** The save-asset dialog's settings for a live actor's static mesh, defaulting to DefaultPackageName. */
+	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName);
+
+	/** Answers the live actor Bake's location dialog instead of showing it, for tests; unset, the dialog shows. Returns the previous prompt. */
+	FBakeLocationPrompt SetBakeLocationPrompt(FBakeLocationPrompt Prompt);
+
 	inline const FName BakeMenuSection(TEXT("GetAssetActions"));
 	inline const FName BakeMenuEntry(TEXT("CambrianaGrammar_Bake"));
 
@@ -43,6 +56,17 @@ namespace Cambriana::Editor
 	 * to the engine's save prompt. AskToOverwrite is asked before an existing static mesh is rebuilt; unset, a message dialog asks.
 	 */
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, const FAskToOverwrite& AskToOverwrite = nullptr);
+
+	/**
+	 * Bakes a static mesh from the live actor's own build input, overrides included, and saves it where the engine's save-asset
+	 * dialog says, which asks itself before an existing static mesh is replaced. The dialog defaults to SM_<grammar asset
+	 * name>_<actor label> in the grammar's bake folder, first offering a grammar without saved state to the engine's save prompt,
+	 * or for an actor without a grammar asset to SM_<actor label> at the project's content root.
+	 */
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor);
+
+	/** Shows a notification of a bake's result; Source names what was baked. A declined overwrite or cancelled location shows nothing. */
+	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result);
 
 	/** Adds Bake to the grammar asset's right-click menu in the Content Browser, owned by the current tool menu owner. */
 	void AddBakeMenuEntry();
