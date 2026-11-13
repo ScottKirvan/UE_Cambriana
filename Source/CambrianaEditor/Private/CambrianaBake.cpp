@@ -6,6 +6,7 @@
 #include "CambrianaLiveActor.h"
 #include "CambrianaStaticMesh.h"
 #include "ContentBrowserMenuContexts.h"
+#include "ContentBrowserModule.h"
 #include "Engine/StaticMesh.h"
 #include "FileHelpers.h"
 #include "Framework/Application/SlateApplication.h"
@@ -75,6 +76,24 @@ namespace
 	EAppReturnType::Type AskWithDialog(const FText& Question)
 	{
 		return FMessageDialog::Open(EAppMsgType::YesNo, EAppReturnType::No, Question);
+	}
+
+	Cambriana::Editor::FBakeLocationPrompt& BakeLocationPrompt()
+	{
+		static Cambriana::Editor::FBakeLocationPrompt Prompt;
+		return Prompt;
+	}
+
+	/** The package the live actor's static mesh goes to, from the engine's save-asset dialog; empty when it is cancelled. */
+	FString AskForBakeLocation(const FString& DefaultPackageName)
+	{
+		if (BakeLocationPrompt())
+		{
+			return BakeLocationPrompt()(DefaultPackageName);
+		}
+		const FContentBrowserModule& ContentBrowser = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+		const FString ObjectPath = ContentBrowser.Get().CreateModalSaveAssetDialog(Cambriana::Editor::MakeBakeLocationDialogConfig(DefaultPackageName));
+		return ObjectPath.IsEmpty() ? FString() : FPackageName::ObjectPathToPackageName(ObjectPath);
 	}
 
 	FCambrianaBakeResult Failed(ECambrianaBakeStatus Status)
@@ -172,12 +191,20 @@ namespace Cambriana::Editor
 
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
 	{
-		return FSaveAssetDialogConfig();
+		FSaveAssetDialogConfig Config;
+		Config.DialogTitleOverride = LOCTEXT("BakeLocationTitle", "Bake Static Mesh");
+		Config.DefaultPath = FPackageName::GetLongPackagePath(DefaultPackageName);
+		Config.DefaultAssetName = FPackageName::GetShortName(DefaultPackageName);
+		Config.AssetClassNames = { UStaticMesh::StaticClass()->GetClassPathName() };
+		Config.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+		return Config;
 	}
 
 	FBakeLocationPrompt SetBakeLocationPrompt(FBakeLocationPrompt Prompt)
 	{
-		return nullptr;
+		FBakeLocationPrompt Previous = MoveTemp(BakeLocationPrompt());
+		BakeLocationPrompt() = MoveTemp(Prompt);
+		return Previous;
 	}
 
 	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor)
@@ -188,12 +215,20 @@ namespace Cambriana::Editor
 			UE_LOG(LogCambrianaBake, Warning, TEXT("%s: the grammar is not saved; nothing is baked"), *ActorPath);
 			return Failed(ECambrianaBakeStatus::GrammarNotSaved);
 		}
-		return BakeStaticMesh(Actor.MakeBuildInput(), StaticMeshPackageName(Actor), ActorPath, nullptr);
+		const FString PackageName = AskForBakeLocation(StaticMeshPackageName(Actor));
+		if (PackageName.IsEmpty())
+		{
+			UE_LOG(LogCambrianaBake, Display, TEXT("%s: no location is chosen; nothing is baked"), *ActorPath);
+			return Failed(ECambrianaBakeStatus::LocationNotChosen);
+		}
+		// The dialog has already asked before replacing an existing static mesh (SAssetDialog, AllowButWarn).
+		return BakeStaticMesh(Actor.MakeBuildInput(), PackageName, ActorPath, [](const FText&) { return EAppReturnType::Yes; });
 	}
 
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result)
 	{
-		if (Result.Status == ECambrianaBakeStatus::OverwriteDeclined || !FSlateApplication::IsInitialized())
+		if (Result.Status == ECambrianaBakeStatus::OverwriteDeclined || Result.Status == ECambrianaBakeStatus::LocationNotChosen
+			|| !FSlateApplication::IsInitialized())
 		{
 			return;
 		}
