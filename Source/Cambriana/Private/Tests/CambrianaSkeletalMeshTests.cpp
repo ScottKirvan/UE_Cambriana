@@ -10,6 +10,7 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+using Cambriana::Tests::ComponentSpacePose;
 using Cambriana::Tests::LoadFixture;
 
 namespace
@@ -37,19 +38,6 @@ namespace
 		Input.GrammarText = LoadFixture(TEXT("sk.ls"));
 		Input.Seed = 12345;
 		return Cambriana::BuildMesh(Input);
-	}
-
-	TArray<FTransform> ComponentSpacePose(const FReferenceSkeleton& Skeleton)
-	{
-		const TArray<FTransform>& Local = Skeleton.GetRefBonePose();
-		TArray<FTransform> Component;
-		Component.SetNum(Local.Num());
-		for (int32 Bone = 0; Bone < Local.Num(); ++Bone)
-		{
-			const int32 Parent = Skeleton.GetParentIndex(Bone);
-			Component[Bone] = Parent == INDEX_NONE ? Local[Bone] : Local[Bone] * Component[Parent];
-		}
-		return Component;
 	}
 
 	double DistanceToSegment(const FVector3d& Point, const FVector3d& Start, const FVector3d& End)
