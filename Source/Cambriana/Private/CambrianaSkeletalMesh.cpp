@@ -48,12 +48,6 @@ namespace
 		return true;
 	}
 
-	/** The bone's bind pose in component space: at its start, X along the bone and Z up, as Control Rig's aim aims X with Z secondary. */
-	FTransform BindPose(const FCambrianaBone& Bone)
-	{
-		return FTransform(FRotationMatrix::MakeFromXZ(Bone.Forward, Bone.Up).ToQuat(), Bone.Start);
-	}
-
 	/** Each bone's bind pose relative to its parent in the reference skeleton, Root first. */
 	TArray<FTransform> LocalBindPoses(TConstArrayView<FCambrianaBone> Bones)
 	{
@@ -64,7 +58,7 @@ namespace
 		Local.Add(FTransform::Identity);
 		for (const FCambrianaBone& Bone : Bones)
 		{
-			const FTransform& Pose = Component.Add_GetRef(BindPose(Bone));
+			const FTransform& Pose = Component.Add_GetRef(Cambriana::BoneBindPose(Bone));
 			Local.Add(Bone.Parent == INDEX_NONE ? Pose : Pose.GetRelativeTransform(Component[Bone.Parent]));
 		}
 		return Local;
@@ -152,6 +146,12 @@ namespace
 		Lod.LODMaterialMap.Reset();
 	}
 #endif
+}
+
+FTransform Cambriana::BoneBindPose(const FCambrianaBone& Bone)
+{
+	// X along the bone with Z secondary, as Control Rig's aim aims a bone by default (RigUnit_AimBone.h).
+	return FTransform(FRotationMatrix::MakeFromXZ(Bone.Forward, Bone.Up).ToQuat(), Bone.Start);
 }
 
 FReferenceSkeleton Cambriana::MakeReferenceSkeleton(const FCambrianaBuildResult& Result)

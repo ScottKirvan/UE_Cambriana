@@ -5,6 +5,7 @@
 #include "CambrianaBuild.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaLiveActor.h"
+#include "CambrianaPhysicsAsset.h"
 #include "CambrianaSkeletalMesh.h"
 #include "CambrianaStaticMesh.h"
 #include "ContentBrowserMenuContexts.h"
@@ -16,6 +17,7 @@
 #include "Framework/Notifications/NotificationManager.h"
 #include "Misc/PackageName.h"
 #include "ObjectTools.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #include "ToolMenus.h"
 #include "UObject/Package.h"
 #include "Widgets/Notifications/SNotificationList.h"
@@ -127,17 +129,18 @@ namespace
 		}
 	};
 
-	/** The assets a bake writes: a static mesh, a skeleton and skinned skeletal mesh, or all three. */
+	/** The assets a bake writes: a static mesh, a skeletal mesh with its skeleton and physics asset, or all four. */
 	struct FOutputsToBake
 	{
 		TOptional<FOutputToBake> StaticMesh;
 		TOptional<FOutputToBake> Skeleton;
 		TOptional<FOutputToBake> SkeletalMesh;
+		TOptional<FOutputToBake> PhysicsAsset;
 
-		TArray<FOutputToBake*, TInlineAllocator<3>> All()
+		TArray<FOutputToBake*, TInlineAllocator<4>> All()
 		{
-			TArray<FOutputToBake*, TInlineAllocator<3>> Outputs;
-			for (TOptional<FOutputToBake>* Output : { &SkeletalMesh, &Skeleton, &StaticMesh })
+			TArray<FOutputToBake*, TInlineAllocator<4>> Outputs;
+			for (TOptional<FOutputToBake>* Output : { &SkeletalMesh, &Skeleton, &PhysicsAsset, &StaticMesh })
 			{
 				if (Output->IsSet())
 				{
@@ -204,8 +207,11 @@ namespace
 			Result.Skeleton = Outputs.Skeleton->MakeAsset<USkeleton>();
 			Result.SkeletalMesh = Outputs.SkeletalMesh->MakeAsset<USkeletalMesh>();
 			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build);
+			Result.PhysicsAsset = Outputs.PhysicsAsset->MakeAsset<UPhysicsAsset>();
+			Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build);
 			Packages.Add(Result.SkeletalMesh->GetPackage());
 			Packages.Add(Result.Skeleton->GetPackage());
+			Packages.Add(Result.PhysicsAsset->GetPackage());
 		}
 		if (Outputs.StaticMesh)
 		{
@@ -259,6 +265,7 @@ namespace Cambriana::Editor
 		FOutputsToBake Outputs;
 		Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SK_")), USkeletalMesh::StaticClass() };
 		Outputs.Skeleton = FOutputToBake{ OutputPackageName(Grammar, TEXT("SKEL_")), USkeleton::StaticClass() };
+		Outputs.PhysicsAsset = FOutputToBake{ OutputPackageName(Grammar, TEXT("PHYS_")), UPhysicsAsset::StaticClass() };
 		if (Grammar.Bake.bStaticMesh)
 		{
 			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SM_")), UStaticMesh::StaticClass() };
@@ -328,7 +335,7 @@ namespace Cambriana::Editor
 		UToolMenu* Menu = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(UCambrianaGrammar::StaticClass());
 		FToolMenuSection& Section = Menu->FindOrAddSection(BakeMenuSection);
 		Section.AddMenuEntry(BakeMenuEntry, LOCTEXT("BakeLabel", "Bake"),
-			LOCTEXT("BakeTooltip", "Writes a skeletal mesh and skeleton, and a static mesh when selected, from the grammar's saved state to a folder beside it."), FSlateIcon(),
+			LOCTEXT("BakeTooltip", "Writes a skeletal mesh, skeleton and physics asset, and a static mesh when selected, from the grammar's saved state to a folder beside it."), FSlateIcon(),
 			FToolMenuExecuteAction::CreateStatic(&ExecuteBake));
 	}
 }
