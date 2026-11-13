@@ -647,6 +647,10 @@ bool FCambrianaReimportEffectsTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
+	if (!TestEqual(TEXT("The import recorded one source file"), Grammar->AssetImportData->GetSourceData().SourceFiles.Num(), 1))
+	{
+		return false;
+	}
 	const FMD5Hash HashBefore = Grammar->AssetImportData->GetSourceData().SourceFiles[0].FileHash;
 	TestTrue(TEXT("The import recorded the first file's hash"), HashBefore == FMD5Hash::HashFile(*Path));
 	Grammar->GetPackage()->SetDirtyFlag(false);
@@ -655,6 +659,10 @@ bool FCambrianaReimportEffectsTest::RunTest(const FString& Parameters)
 	{
 		const FScopedTransaction Transaction(FText::FromString(TEXT("Reimport")));
 		TestTrue(TEXT("The reimport succeeds"), Reimport(Grammar));
+	}
+	if (!TestEqual(TEXT("The reimport kept one source file"), Grammar->AssetImportData->GetSourceData().SourceFiles.Num(), 1))
+	{
+		return false;
 	}
 	TestTrue(TEXT("The reimport recorded the changed file's hash"), Grammar->AssetImportData->GetSourceData().SourceFiles[0].FileHash == FMD5Hash::HashFile(*Path));
 	TestTrue(TEXT("The hash changed"), Grammar->AssetImportData->GetSourceData().SourceFiles[0].FileHash != HashBefore);
