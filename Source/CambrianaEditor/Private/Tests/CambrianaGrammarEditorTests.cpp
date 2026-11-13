@@ -47,6 +47,7 @@ using Cambriana::Editor::Tests::TubeVertices;
 using Cambriana::Editor::Tests::TypedGrammarText;
 using Cambriana::Editor::Tests::TypeOverRules;
 using Cambriana::Editor::Tests::UnloadPackage;
+using Cambriana::Editor::Tests::MakeRows;
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorOpensWithTabsTest,
 	"Cambriana.Editor.GrammarEditor.OpeningAGrammarOpensTheGrammarEditorWithRulesViewportDetailsAndOutputsTabs",
@@ -869,9 +870,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorHidesImportDataTest,
 bool FCambrianaGrammarEditorHidesImportDataTest::RunTest(const FString& Parameters)
 {
 	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
-	FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-	const TSharedRef<IPropertyRowGenerator> AssetRows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-	AssetRows->SetObjects({ Grammar });
+	const TSharedRef<IPropertyRowGenerator> AssetRows = MakeRows({ Grammar });
 	// Details shows the import data's source file (UAssetImportData::SourceData) in its own File Path category.
 	TestTrue(TEXT("The asset's own Details shows its import data"), AssetRows->GetRootTreeNodes().ContainsByPredicate([](const TSharedRef<IDetailTreeNode>& Node)
 	{

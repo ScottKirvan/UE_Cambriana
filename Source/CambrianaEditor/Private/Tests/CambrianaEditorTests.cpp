@@ -20,18 +20,8 @@
 using Cambriana::Editor::Tests::CreateGrammarWithFactory;
 using Cambriana::Editor::Tests::FindPropertyHandle;
 using Cambriana::Editor::Tests::PlaceInCurrentLevel;
-
-namespace
-{
-	void EditProperty(UObject* Object, FName PropertyName, TFunctionRef<void()> Change)
-	{
-		FProperty* Property = Object->GetClass()->FindPropertyByName(PropertyName);
-		Object->PreEditChange(Property);
-		Change();
-		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
-		Object->PostEditChangeProperty(Event);
-	}
-}
+using Cambriana::Editor::Tests::MakeRows;
+using Cambriana::Editor::Tests::EditProperty;
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarFactoryNewAssetTest,
 	"Cambriana.Editor.GrammarFactory.NewAssetHasDefaultGrammarAndGeneratedSeed",
@@ -212,9 +202,7 @@ bool FCambrianaNewSeedButtonTest::RunTest(const FString& Parameters)
 	First->Seed = 1;
 	Second->Seed = 1;
 
-	FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-	const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-	Rows->SetObjects({ First, Second });
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ First, Second });
 	const TSharedPtr<IPropertyHandle> SeedHandle = FindPropertyHandle(Rows->GetRootTreeNodes(), GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed));
 	if (!TestTrue(TEXT("Seed property found"), SeedHandle.IsValid()))
 	{
