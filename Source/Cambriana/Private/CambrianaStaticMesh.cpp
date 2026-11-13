@@ -65,6 +65,8 @@ void Cambriana::SetStaticMeshFromBuild(UStaticMesh& StaticMesh, const FCambriana
 	FMeshBuildSettings& BuildSettings = StaticMesh.GetSourceModel(0).BuildSettings;
 	BuildSettings.bRecomputeNormals = false;
 	BuildSettings.bRecomputeTangents = true;
+	// Keeps the build's sliver triangles, as Geometry Script's CopyMeshToStaticMesh does by default (bEnableRemoveDegenerates).
+	BuildSettings.bRemoveDegenerates = false;
 	BuildSettings.bGenerateLightmapUVs = true;
 	BuildSettings.SrcLightmapIndex = 0;
 	BuildSettings.DstLightmapIndex = LightmapUVChannel;
