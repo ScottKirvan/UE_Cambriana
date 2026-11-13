@@ -2,6 +2,7 @@
 
 #include "Algo/BinarySearch.h"
 #include "CambrianaBuildInternal.h"
+#include "CambrianaCoreGrammar.h"
 #include "CambrianaCoreLoader.h"
 #include "CambrianaGrammarFormat.h"
 #include "CambrianaModule.h"
@@ -185,98 +186,23 @@ namespace
 		}
 	}
 
-	ECambrianaParameterTier ToParameterTier(int32 Tier)
-	{
-		switch (Tier)
-		{
-		case CAMBRIANA_TIER_POSE: return ECambrianaParameterTier::Pose;
-		case CAMBRIANA_TIER_SHAPE: return ECambrianaParameterTier::Shape;
-		case CAMBRIANA_TIER_STRUCTURE: return ECambrianaParameterTier::Structure;
-		default: return ECambrianaParameterTier::None;
-		}
-	}
-
-	/** Cambriana grammar text as a core model; legacy text has none. */
-	class FGrammarModel
-	{
-	public:
-		FGrammarModel(const FTCHARToUTF8& Text, ECambrianaGrammarFormat Format)
-		{
-			if (Format == ECambrianaGrammarFormat::Cambriana)
-			{
-				cambriana_grammar_parse(Text.Get(), static_cast<size_t>(Text.Length()), &Grammar);
-			}
-		}
-		~FGrammarModel() { cambriana_grammar_destroy(Grammar); }
-		FGrammarModel(const FGrammarModel&) = delete;
-		FGrammarModel& operator=(const FGrammarModel&) = delete;
-
-		const cambriana_grammar* Get() const { return Grammar; }
-
-		/** The value the grammar states for Setting, unless the caller overrides it. */
-		TOptional<double> GetSetting(int32 Setting, bool bOverridden) const
-		{
-			double Value = 0.0;
-			const bool bStated = !bOverridden && Grammar && cambriana_grammar_get_setting(Grammar, Setting, &Value) == CAMBRIANA_OK;
-			return bStated ? TOptional<double>(Value) : TOptional<double>();
-		}
-
-		/** Sets each declared parameter to its stored value; the core ignores undeclared names and a null grammar. */
-		void ApplyParameterValues(TConstArrayView<FCambrianaParameterValue> Values)
-		{
-			for (const FCambrianaParameterValue& Value : Values)
-			{
-				cambriana_grammar_set_parameter(Grammar, FTCHARToUTF8(*Value.Name).Get(), Value.Value);
-			}
-		}
-
-		/** The declared parameters in file order, each with the model's value in Value. */
-		TArray<FCambrianaParameter> ReadParameters() const
-		{
-			TArray<FCambrianaParameter> Parameters;
-			const uint64 Count = Grammar ? cambriana_grammar_parameter_count(Grammar) : 0;
-			for (uint64 Index = 0; Index < Count; ++Index)
-			{
-				const char* Name = nullptr;
-				int32_t Tier = CAMBRIANA_TIER_NONE;
-				double Value = 0.0;
-				if (cambriana_grammar_parameter(Grammar, Index, &Name, &Tier, &Value) == CAMBRIANA_OK && Name)
-				{
-					FCambrianaParameter& Parameter = Parameters.AddDefaulted_GetRef();
-					Parameter.Name = UTF8_TO_TCHAR(Name);
-					Parameter.Tier = ToParameterTier(Tier);
-					Parameter.Value = Value;
-				}
-			}
-			return Parameters;
-		}
-
-	private:
-		cambriana_grammar* Grammar = nullptr;
-	};
-
-	void ReadSettingsUsed(const FGrammarModel& Stated, const FCambrianaBuildSettings& Settings, const cambriana_build_settings& Core,
+	/** The size and surfacer settings a build used: the text's, unless the settings override them, else the settings' own. */
+	void ReadSettingsUsed(const FCambrianaStatedSettings& Stated, const FCambrianaBuildSettings& Settings, const cambriana_build_settings& Core,
 		FCambrianaBuildReport& Report)
 	{
-		int32 Mode = Core.size_mode;
-		double FitSize = Core.fit_size;
-		if (const TOptional<double> Size = Stated.GetSetting(CAMBRIANA_SETTING_SIZE, Settings.bOverrideGrammarSize))
+		const bool bStatedSize = !Settings.bOverrideGrammarSize && Stated.SizeMode.IsSet();
+		Report.SizeMode = bStatedSize ? *Stated.SizeMode : (Core.size_mode == CAMBRIANA_SIZE_FIT ? ECambrianaSizeMode::Fit : ECambrianaSizeMode::Step);
+		if (Report.SizeMode == ECambrianaSizeMode::Fit)
 		{
-			Mode = CAMBRIANA_SIZE_FIT;
-			FitSize = *Size;
+			Report.SizeValue = bStatedSize ? *Stated.SizeValue : Core.fit_size;
 		}
-		else if (Stated.GetSetting(CAMBRIANA_SETTING_STEP, Settings.bOverrideGrammarSize))
+		else
 		{
-			Mode = CAMBRIANA_SIZE_STEP;
+			Report.SizeValue = Report.StepLength;
 		}
-		Report.SizeMode = Mode == CAMBRIANA_SIZE_FIT ? ECambrianaSizeMode::Fit : ECambrianaSizeMode::Step;
-		Report.SizeValue = Mode == CAMBRIANA_SIZE_FIT ? FitSize : Report.StepLength;
-
-		const TOptional<double> Sides = Stated.GetSetting(CAMBRIANA_SETTING_SIDES, Settings.bOverrideGrammarSides);
-		Report.Sides = Sides ? FMath::RoundToInt32(*Sides) : Settings.Sides;
-		const TOptional<double> Surface = Stated.GetSetting(CAMBRIANA_SETTING_SURFACE, Settings.bOverrideGrammarSurface);
-		Report.bClosedForm = Surface ? *Surface != 0.0 : Settings.bClosedForm;
-		Report.MinThickness = Stated.GetSetting(CAMBRIANA_SETTING_MIN_THICKNESS, Settings.bOverrideGrammarMinThickness).Get(Settings.MinThickness);
+		Report.Sides = Settings.bOverrideGrammarSides ? Settings.Sides : Stated.Sides.Get(Settings.Sides);
+		Report.bClosedForm = Settings.bOverrideGrammarSurface ? Settings.bClosedForm : Stated.bClosedForm.Get(Settings.bClosedForm);
+		Report.MinThickness = Settings.bOverrideGrammarMinThickness ? Settings.MinThickness : Stated.MinThickness.Get(Settings.MinThickness);
 	}
 
 	/** A legacy build with no production budget parses the header and stops before rewriting. */
@@ -546,7 +472,11 @@ namespace Cambriana
 		const ECambrianaGrammarFormat Format = DetectGrammarFormat(Input.GrammarText);
 		const cambriana_build_settings Settings = ToCoreSettings(Input, Format);
 		const FTCHARToUTF8 Text(*Input.GrammarText);
-		FGrammarModel Model(Text, Format);
+		FCoreGrammar Model;
+		if (Format == ECambrianaGrammarFormat::Cambriana)
+		{
+			Model.Parse(Text);
+		}
 		cambriana_result* RawResult = nullptr;
 		cambriana_status Status;
 		if (Format == ECambrianaGrammarFormat::Legacy)
@@ -566,7 +496,7 @@ namespace Cambriana
 		}
 
 		ReadReport(Result.Get(), Out.Report);
-		ReadSettingsUsed(Model, Input.Settings, Settings, Out.Report);
+		ReadSettingsUsed(Model.GetStatedSettings(), Input.Settings, Settings, Out.Report);
 		LogBuildReport(Out.Report);
 		if (!Out.Report.bHasErrors)
 		{
@@ -583,10 +513,11 @@ namespace Cambriana
 			return {};
 		}
 		const FTCHARToUTF8 Text(*GrammarText);
-		FGrammarModel Applied(Text, Format);
-		Applied.ApplyParameterValues(StoredValues);
-		TArray<FCambrianaParameter> Parameters = Applied.ReadParameters();
-		const TArray<FCambrianaParameter> InText = FGrammarModel(Text, Format).ReadParameters();
+		FCoreGrammar Model;
+		Model.Parse(Text);
+		const TArray<FCambrianaParameter> InText = Model.ReadParameters();
+		Model.ApplyParameterValues(StoredValues);
+		TArray<FCambrianaParameter> Parameters = Model.ReadParameters();
 		for (int32 Index = 0; Index < Parameters.Num(); ++Index)
 		{
 			FCambrianaParameter& Parameter = Parameters[Index];
@@ -614,30 +545,9 @@ namespace Cambriana
 			return Out;
 		}
 
-		const FGrammarModel Stated(Text, Format);
-		Out.Recursion = Stated.GetSetting(CAMBRIANA_SETTING_GENERATIONS, false);
-		Out.BasicAngle = Stated.GetSetting(CAMBRIANA_SETTING_ANGLE, false);
-		Out.Thickness = Stated.GetSetting(CAMBRIANA_SETTING_THICKNESS, false);
-		if (const TOptional<double> Size = Stated.GetSetting(CAMBRIANA_SETTING_SIZE, false))
-		{
-			Out.SizeMode = ECambrianaSizeMode::Fit;
-			Out.SizeValue = Size;
-		}
-		else if (const TOptional<double> Step = Stated.GetSetting(CAMBRIANA_SETTING_STEP, false))
-		{
-			Out.SizeMode = ECambrianaSizeMode::Step;
-			Out.SizeValue = Step;
-		}
-		if (const TOptional<double> Sides = Stated.GetSetting(CAMBRIANA_SETTING_SIDES, false))
-		{
-			Out.Sides = FMath::RoundToInt32(*Sides);
-		}
-		if (const TOptional<double> Surface = Stated.GetSetting(CAMBRIANA_SETTING_SURFACE, false))
-		{
-			Out.bClosedForm = *Surface != 0.0;
-		}
-		Out.MinThickness = Stated.GetSetting(CAMBRIANA_SETTING_MIN_THICKNESS, false);
-		return Out;
+		FCoreGrammar Model;
+		Model.Parse(Text);
+		return Model.GetStatedSettings();
 	}
 
 	int32 PreviewPaletteIndex(int64 MaterialId)

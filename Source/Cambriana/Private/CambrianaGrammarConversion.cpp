@@ -1,23 +1,10 @@
 #include "CambrianaGrammarConversion.h"
 
 #include "CambrianaBuildInternal.h"
+#include "CambrianaCoreGrammar.h"
 #include "CambrianaModule.h"
 
 #include <cambriana/cambriana.h>
-
-namespace
-{
-	class FCoreGrammar
-	{
-	public:
-		FCoreGrammar() = default;
-		~FCoreGrammar() { cambriana_grammar_destroy(Grammar); }
-		FCoreGrammar(const FCoreGrammar&) = delete;
-		FCoreGrammar& operator=(const FCoreGrammar&) = delete;
-
-		cambriana_grammar* Grammar = nullptr;
-	};
-}
 
 namespace Cambriana
 {
@@ -32,13 +19,13 @@ namespace Cambriana
 
 		const FTCHARToUTF8 Utf8(LegacyText.GetData(), LegacyText.Len());
 		FCoreGrammar Core;
-		if (cambriana_grammar_convert_legacy(Utf8.Get(), static_cast<size_t>(Utf8.Length()), &Core.Grammar) != CAMBRIANA_OK || !Core.Grammar)
+		if (!Core.ConvertLegacy(Utf8))
 		{
 			return Conversion;
 		}
 
 		uint64_t Count = 0;
-		const cambriana_diagnostic* Diagnostics = cambriana_grammar_diagnostics(Core.Grammar, &Count);
+		const cambriana_diagnostic* Diagnostics = cambriana_grammar_diagnostics(Core.Get(), &Count);
 		bool bRejected = false;
 		for (uint64_t Index = 0; Diagnostics && Index < Count; ++Index)
 		{
@@ -51,7 +38,7 @@ namespace Cambriana
 		}
 
 		size_t Length = 0;
-		if (const char* Text = cambriana_grammar_serialise(Core.Grammar, CAMBRIANA_STYLE_GLYPHS, &Length))
+		if (const char* Text = cambriana_grammar_serialise(Core.Get(), CAMBRIANA_STYLE_GLYPHS, &Length))
 		{
 			const FUTF8ToTCHAR Converted(Text, static_cast<int32>(Length));
 			Conversion.GrammarText = FString::ConstructFromPtrSize(Converted.Get(), Converted.Length());
@@ -68,12 +55,12 @@ namespace Cambriana
 
 		const FTCHARToUTF8 Utf8(GrammarText.GetData(), GrammarText.Len());
 		FCoreGrammar Core;
-		double Seed = 0.0;
-		if (cambriana_grammar_parse(Utf8.Get(), static_cast<size_t>(Utf8.Length()), &Core.Grammar) != CAMBRIANA_OK || !Core.Grammar
-			|| cambriana_grammar_get_setting(Core.Grammar, CAMBRIANA_SETTING_SEED, &Seed) != CAMBRIANA_OK)
+		const TOptional<double> Stated = Core.Parse(Utf8) ? Core.GetSetting(CAMBRIANA_SETTING_SEED) : TOptional<double>();
+		if (!Stated)
 		{
 			return {};
 		}
+		const double Seed = *Stated;
 		if (!FMath::IsFinite(Seed) || Seed < 0.0 || Seed > static_cast<double>(MAX_uint32) || FMath::Frac(Seed) != 0.0)
 		{
 			return {};
