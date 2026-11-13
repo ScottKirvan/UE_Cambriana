@@ -5,6 +5,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "ReferenceSkeleton.h"
 #include "UObject/Object.h"
 #include "UObject/UnrealType.h"
 
@@ -25,6 +26,20 @@ namespace Cambriana::Tests
 	constexpr int32 TubeVertices(int32 Segments, int32 Sides)
 	{
 		return (Segments + 1) * Sides;
+	}
+
+	/** Each bone's reference pose in component space. */
+	inline TArray<FTransform> ComponentSpacePose(const FReferenceSkeleton& Skeleton)
+	{
+		const TArray<FTransform>& Local = Skeleton.GetRefBonePose();
+		TArray<FTransform> Component;
+		Component.SetNum(Local.Num());
+		for (int32 Bone = 0; Bone < Local.Num(); ++Bone)
+		{
+			const int32 Parent = Skeleton.GetParentIndex(Bone);
+			Component[Bone] = Parent == INDEX_NONE ? Local[Bone] : Local[Bone] * Component[Parent];
+		}
+		return Component;
 	}
 
 	inline UCambrianaGrammar* MakeGrammar(const FString& Text)

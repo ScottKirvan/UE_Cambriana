@@ -6,6 +6,7 @@
 
 class ACambrianaLiveActor;
 class UCambrianaGrammar;
+class UPhysicsAsset;
 class USkeletalMesh;
 class USkeleton;
 class UStaticMesh;
@@ -34,6 +35,8 @@ struct FCambrianaBakeResult
 	/** The skeletal mesh and skeleton written, or those that did not save. */
 	USkeletalMesh* SkeletalMesh = nullptr;
 	USkeleton* Skeleton = nullptr;
+	/** The physics asset written, or the one that did not save. */
+	UPhysicsAsset* PhysicsAsset = nullptr;
 };
 
 namespace Cambriana::Editor
