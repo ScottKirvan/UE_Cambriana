@@ -182,9 +182,11 @@ bool FCambrianaToolkitCommitRulesTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	const FString Before = Editor.Toolkit->GetWorkingCopy()->GrammarText;
-	const int32 HistoryBefore = UndoHistoryLength();
+	int32 Changes = 0;
+	const UCambrianaGrammar* WorkingCopy = Editor.Toolkit->GetWorkingCopy();
+	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, WorkingCopy](const UCambrianaGrammar* Changed) { Changes += Changed == WorkingCopy; });
 	Editor.Toolkit->CommitRulesText(FText::FromString(Before));
-	TestEqual(TEXT("Committing the working copy's own text makes no undo step"), UndoHistoryLength(), HistoryBefore);
+	TestEqual(TEXT("Committing the working copy's own text is not a change to it"), Changes, 0);
 	TestFalse(TEXT("and leaves nothing unsaved"), Editor.Toolkit->HasUnsavedEdits());
 
 	const FString Shouted = Before.Replace(TEXT("A"), TEXT("a"), ESearchCase::CaseSensitive);
@@ -193,6 +195,8 @@ bool FCambrianaToolkitCommitRulesTest::RunTest(const FString& Parameters)
 	TestEqualSensitive(TEXT("Text that differs only in case reaches the working copy"), Editor.Toolkit->GetWorkingCopy()->GrammarText, Shouted);
 	TestEqualSensitive(TEXT("and the Rules text"), Editor.Toolkit->GetRulesText().ToString(), Shouted);
 	TestTrue(TEXT("and is an unsaved edit"), Editor.Toolkit->HasUnsavedEdits());
+	TestEqual(TEXT("and is one change to the working copy"), Changes, 1);
+	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
 	return true;
 }
 
@@ -241,12 +245,34 @@ bool FCambrianaToolkitTypingTimerTest::RunTest(const FString& Parameters)
 	PauseTyping(Delay * 0.6f);
 	TestEqualSensitive(TEXT("A pause after the last typing applies it"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaToolkitPauseAppliesOnceTest,
+	"Cambriana.Editor.GrammarEditorGates.APauseAppliesItsTypingOnceAndDoesNotApplyTheNextTypingEarly",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaToolkitPauseAppliesOnceTest::RunTest(const FString& Parameters)
+{
+	const FOpenEditor Editor;
+	if (!Editor.IsValid(*this))
+	{
+		return false;
+	}
+	const TSharedPtr<SMultiLineEditableTextBox> Rules = RulesTextBoxOf(*Editor.Toolkit);
+	const float Delay = Editor.Toolkit->RulesApplyDelaySeconds;
+
+	TypeOverRules(*Rules);
 	PauseTyping(Delay);
+	TestEqualSensitive(TEXT("A pause applies the typing"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
+
+	PauseTyping(Delay * 0.2f);
 	TypeOtherText(*Rules, CountText);
-	PauseTyping(Delay * 0.6f);
-	TestEqualSensitive(TEXT("A pause that has applied its typing does not apply the next typing early"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
+	PauseTyping(Delay * 0.9f);
+	TestEqualSensitive(TEXT("The pause that applied the earlier typing does not apply typing made 0.9 pauses ago"),
+		Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
 	TestTrue(TEXT("The new typing is pending"), Editor.Toolkit->HasUnsavedEdits());
-	PauseTyping(Delay * 0.6f);
+	PauseTyping(Delay * 0.3f);
 	TestEqualSensitive(TEXT("It applies a pause after it was typed"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(CountText));
 	return true;
 }
