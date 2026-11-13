@@ -130,17 +130,25 @@ bool FCambrianaWorkingCopyHoldSameTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyCopyTest,
-	"Cambriana.Editor.WorkingCopy.CopyingGrammarValuesChangesTheTargetOnceDirtiesItsPackageAndLeavesTheUndoHistoryAlone",
+namespace
+{
+	UCambrianaGrammar* CopySource()
+	{
+		UCambrianaGrammar* From = TransientGrammar(TEXT("axiom F F\n"), 5);
+		From->Sides = 3;
+		From->ParameterValues.Add(Stored(TEXT("count"), 2.0));
+		return From;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyCopyDirtiesTest,
+	"Cambriana.Editor.WorkingCopy.CopyingADifferentGrammarChangesTheTargetAndDirtiesItsPackage",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FCambrianaWorkingCopyCopyTest::RunTest(const FString& Parameters)
+bool FCambrianaWorkingCopyCopyDirtiesTest::RunTest(const FString& Parameters)
 {
-	const TCHAR* PackageName = TEXT("/Game/CambrianaWorkingCopyTests/CopyTarget");
-	UCambrianaGrammar* To = CreateGrammarInPackage(PackageName);
-	UCambrianaGrammar* From = TransientGrammar(TEXT("axiom F F\n"), 5);
-	From->Sides = 3;
-	From->ParameterValues.Add(Stored(TEXT("count"), 2.0));
+	UCambrianaGrammar* To = CreateGrammarInPackage(TEXT("/Game/CambrianaWorkingCopyTests/CopyTarget"));
+	UCambrianaGrammar* From = CopySource();
 	UPackage* Package = To->GetPackage();
 	Package->SetDirtyFlag(false);
 
@@ -149,32 +157,54 @@ bool FCambrianaWorkingCopyCopyTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The target's package is dirty"), Package->IsDirty());
 	TestFalse(TEXT("Copying the same grammar changes nothing"), CopyGrammar(*From, *To));
 	TestFalse(TEXT("Copying values of the same grammar changes nothing"), CopyGrammarValues(*From, *To));
-
-	{
-		FChangeListener Listener;
-		From->Seed = 6;
-		const int32 HistoryBefore = UndoHistoryLength();
-		{
-			const FScopedTransaction Transaction(FText::FromString(TEXT("Copy")));
-			TestTrue(TEXT("Copying inside a transaction changes the target"), CopyGrammar(*From, *To));
-		}
-		TestEqual(TEXT("The change is broadcast once"), Listener.Count, 1);
-		TestFalse(TEXT("The change is broadcast outside the undo transaction"), Listener.bUndoActive);
-		TestEqual(TEXT("A copy and its listeners write nothing into the undo history"), UndoHistoryLength(), HistoryBefore);
-
-		TestFalse(TEXT("Copying the same grammar again changes nothing"), CopyGrammar(*From, *To));
-		TestEqual(TEXT("and broadcasts nothing"), Listener.Count, 1);
-
-		{
-			const FScopedTransaction Transaction(FText::FromString(TEXT("Notify")));
-			NotifyGrammarChanged(*To);
-		}
-		TestEqual(TEXT("A change notification is broadcast"), Listener.Count, 2);
-		TestFalse(TEXT("outside the undo transaction"), Listener.bUndoActive);
-		TestEqual(TEXT("and its listeners write nothing into the undo history"), UndoHistoryLength(), HistoryBefore);
-	}
-
 	UnloadPackage(Package);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyCopyBroadcastTest,
+	"Cambriana.Editor.WorkingCopy.ACopyBroadcastsOneChangeAndCopyingTheSameGrammarBroadcastsNone",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopyCopyBroadcastTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* To = TransientGrammar(TEXT("axiom F\n"));
+	UCambrianaGrammar* From = CopySource();
+	FChangeListener Listener;
+	TestTrue(TEXT("Copying a different grammar changes the target"), CopyGrammar(*From, *To));
+	TestEqual(TEXT("The change is broadcast once"), Listener.Count, 1);
+	TestFalse(TEXT("Copying the same grammar again changes nothing"), CopyGrammar(*From, *To));
+	TestEqual(TEXT("and broadcasts nothing"), Listener.Count, 1);
+	NotifyGrammarChanged(*To);
+	TestEqual(TEXT("A change notification is one more broadcast"), Listener.Count, 2);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyCopyUndoTest,
+	"Cambriana.Editor.WorkingCopy.ACopyAndItsListenersWriteNothingIntoTheUndoHistory",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopyCopyUndoTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* To = TransientGrammar(TEXT("axiom F\n"));
+	UCambrianaGrammar* From = CopySource();
+	FChangeListener Listener;
+	const int32 HistoryBefore = UndoHistoryLength();
+	{
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Copy")));
+		TestTrue(TEXT("Copying inside a transaction changes the target"), CopyGrammar(*From, *To));
+	}
+	TestFalse(TEXT("The change is broadcast outside the undo transaction"), Listener.bUndoActive);
+	TestEqual(TEXT("A copy and its listeners write nothing into the undo history"), UndoHistoryLength(), HistoryBefore);
+
+	From->Seed = 6;
+	Listener.bUndoActive = false;
+	{
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Notify")));
+		NotifyGrammarChanged(*To);
+	}
+	TestEqual(TEXT("A change notification is broadcast"), Listener.Count, 2);
+	TestFalse(TEXT("outside the undo transaction"), Listener.bUndoActive);
+	TestEqual(TEXT("and its listeners write nothing into the undo history"), UndoHistoryLength(), HistoryBefore);
 	return true;
 }
 
