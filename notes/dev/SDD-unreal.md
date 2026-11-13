@@ -18,9 +18,23 @@ display baked results.
 | Control Rig | Shared rig shipped in the plugin's `Content/`; standalone copies written on request |
 
 - Baked assets are written to a folder beside the grammar asset.
-- **Regenerate** rebuilds a baked asset in place from its stored grammar and parameter
-  snapshot; references to it remain valid.
-- **Detach** removes a baked asset's link to its grammar.
+- **Decided:** Bake writes from the grammar asset's saved state. With unsaved edits in the
+  grammar editor, Bake asks to save first.
+- **Decided:** Bake writes a skeletal mesh, skeleton and physics asset. Static mesh output is
+  a bake setting on the grammar asset.
+- **Decided:** Bake is offered on the grammar asset's right-click menu and in the grammar
+  editor. The live actor's Details Bake writes a static mesh only, from the actor's own build
+  input [Proposed — unconfirmed].
+- **Decided:** the physics asset merges capsules along chains.
+- **Decided:** **Reimport** is the standard right-click Reimport on a baked skeletal or static
+  mesh, with the grammar asset recorded as its source. It rebuilds the asset in place from the
+  grammar's current saved state; references to it remain valid, and the mesh's stored
+  definition is updated. A change to the bone tree replaces the skeleton in place.
+- **Decided:** **Detach** is a right-click item on a baked mesh that removes its link to its
+  grammar. A detached mesh is not offered Reimport and is not listed in the grammar's
+  outputs [Proposed — unconfirmed].
+- Baked asset names: the grammar asset's name with `SK_`, `SKEL_`, `PHYS_` and `SM_`
+  prefixes [Proposed — unconfirmed].
 - Each variant (seed, axiom) gets its own skeleton.
 - The pose component drives any variant from its per-bone metadata, independent of bone names.
 
@@ -66,7 +80,7 @@ Standalone asset editor, opened from the grammar asset.
 | Rules | Text editor; syntax colouring; warnings and errors at line and column |
 | Viewport | Transient live result; skeleton overlay; pose and growth scrubbing; blob primitive placement and editing |
 | Details | Settings and parameters grouped by tier; seed field and new-seed button; size mode and target |
-| Outputs | Baked assets; Bake, Regenerate, Detach |
+| Outputs | Baked assets; Bake |
 
 - The editor layout reserves space for a variant grid (AR-01).
 - **Decided:** the grammar asset editor is a non-destructive playground: it edits a working
@@ -305,7 +319,7 @@ Requirement: FR-18 ([SRS.md](SRS.md)).
 
 ## Scripting
 
-- An editor subsystem exposes create, import, bake, regenerate and detach to Blueprint and
+- An editor subsystem exposes create, import, bake, reimport and detach to Blueprint and
   Python.
 - A runtime function library exposes pose and growth control.
 

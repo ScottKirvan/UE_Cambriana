@@ -64,8 +64,8 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | FR-09 | Default overall object size about 2 m. Size modes Fit and Step ([SDD-architecture.md](SDD-architecture.md)). | US-04 |
 | FR-10 | Dragging a grammar asset into a level places a live actor that references it and updates when the grammar changes. | US-05 |
 | FR-11 | A live actor accepts inline grammar text without a grammar asset. | US-05 |
-| FR-12 | Bake produces a skeletal mesh, skeleton and physics asset; static mesh output is selectable. | US-06 |
-| FR-13 | Regenerate rebuilds baked assets in place with references intact; Detach unlinks a baked asset from its grammar. | US-07 |
+| FR-12 | Bake produces a skeletal mesh, skeleton and physics asset; static mesh output is selectable. Bake is offered on the grammar asset's right-click menu and in the grammar editor; the live actor's Details Bake produces a static mesh. | US-06 |
+| FR-13 | Reimport, on a baked mesh's right-click menu, rebuilds it in place from its grammar's saved state with references intact; Detach, on the same menu, unlinks a baked asset from its grammar. | US-07 |
 | FR-14 | Pose parameters are editable on placed baked meshes. As Details properties, keyframeable in Sequencer, settable from Blueprint and C++. | US-08, US-09 |
 | FR-15 | Pose parameter values are per instance. | US-09, US-11 |
 | FR-16 | A growth parameter animates a baked mesh from nothing to full growth, in Sequencer and at run time. | US-10 |
@@ -74,7 +74,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | FR-19 | Generated meshes carry data channels for materials ([SDD-surfacing.md](SDD-surfacing.md)). | US-15 |
 | FR-20 | Baking produces a physics asset with one body per bone or merged chain. | US-16 |
 | FR-21 | Blob skins and a blob API with a variety of distance-field primitives. Blob primitives are placed and edited in the grammar editor viewport and combine with grown parts into one skinned mesh. | US-14 |
-| FR-22 | Generation, baking and regeneration are callable from Blueprint, Python and C++. | US-17 |
+| FR-22 | Generation, baking and reimport are callable from Blueprint, Python and C++. | US-17 |
 | FR-23 | The plugin credits Lparser by Laurens Lapré. Text in description and About: "Reads Lparser `.ls` files. Lparser by Laurens Lapré." | |
 | FR-24 | Grammars are in the Cambriana grammar format, file extension `.lsys` ([FMT-grammar.md](FMT-grammar.md)); the legacy dialect (core repo, `notes/dev/FMT-legacy-ls.md`) is read only for conversion. Until conversion exists (M2), live actors and grammar assets read legacy text directly. | US-02, US-03 |
 | FR-25 | A creature definition (grammar, seed, parameter values) serialises to a compact, versioned form; regenerating from it on any supported platform reproduces the creature exactly. | US-19 |
