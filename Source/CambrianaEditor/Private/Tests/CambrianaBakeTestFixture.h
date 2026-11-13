@@ -1,9 +1,11 @@
 #pragma once
 
+#include "Animation/Skeleton.h"
 #include "CambrianaBake.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "CoreMinimal.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "HAL/FileManager.h"
 #include "UObject/Package.h"
@@ -21,6 +23,9 @@ namespace Cambriana::Editor::Tests
 			, GrammarPackage(FString(BakeTestRoot) / InName)
 			// Expected location, from SDD-unreal.md: a folder beside the grammar asset, the asset named SM_<grammar asset name>.
 			, MeshPackage(FString(BakeTestRoot) / InName / (TEXT("SM_") + FString(InName)))
+			// SDD-unreal.md: the skeletal mesh and skeleton are SK_ and SKEL_ plus the grammar asset's name, in the same folder.
+			, SkeletalMeshPackage(FString(BakeTestRoot) / InName / (TEXT("SK_") + FString(InName)))
+			, SkeletonPackage(FString(BakeTestRoot) / InName / (TEXT("SKEL_") + FString(InName)))
 		{
 			Remove();
 			Grammar = CreateGrammarInPackage(*GrammarPackage);
@@ -38,6 +43,25 @@ namespace Cambriana::Editor::Tests
 		UStaticMesh* FindMesh() const { return FindObject<UStaticMesh>(nullptr, *MeshObjectPath()); }
 
 		bool MeshFileExists() const { return IFileManager::Get().FileExists(*PackageFilename(*MeshPackage)); }
+
+		USkeletalMesh* FindSkeletalMesh() const
+		{
+			return FindObject<USkeletalMesh>(nullptr, *(SkeletalMeshPackage + TEXT(".SK_") + Name));
+		}
+
+		USkeleton* FindSkeleton() const { return FindObject<USkeleton>(nullptr, *(SkeletonPackage + TEXT(".SKEL_") + Name)); }
+
+		bool SkeletalFilesExist() const
+		{
+			return IFileManager::Get().FileExists(*PackageFilename(*SkeletalMeshPackage))
+				&& IFileManager::Get().FileExists(*PackageFilename(*SkeletonPackage));
+		}
+
+		bool AnySkeletalFileExists() const
+		{
+			return IFileManager::Get().FileExists(*PackageFilename(*SkeletalMeshPackage))
+				|| IFileManager::Get().FileExists(*PackageFilename(*SkeletonPackage));
+		}
 
 		/** Bakes with the engine's save prompts saving without asking, as for an unattended script. */
 		FCambrianaBakeResult Bake(const Cambriana::Editor::FAskToOverwrite& AskToOverwrite = nullptr) const
@@ -57,12 +81,14 @@ namespace Cambriana::Editor::Tests
 		const FString Name;
 		const FString GrammarPackage;
 		const FString MeshPackage;
+		const FString SkeletalMeshPackage;
+		const FString SkeletonPackage;
 		UCambrianaGrammar* Grammar = nullptr;
 
 	private:
 		void Remove()
 		{
-			for (const FString& PackageName : { MeshPackage, GrammarPackage })
+			for (const FString& PackageName : { MeshPackage, SkeletalMeshPackage, SkeletonPackage, GrammarPackage })
 			{
 				if (UPackage* Package = FindPackage(nullptr, *PackageName))
 				{
