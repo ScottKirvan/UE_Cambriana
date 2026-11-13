@@ -48,6 +48,9 @@ using Cambriana::Editor::Tests::TypedGrammarText;
 using Cambriana::Editor::Tests::TypeOverRules;
 using Cambriana::Editor::Tests::UnloadPackage;
 using Cambriana::Editor::Tests::MakeRows;
+using Cambriana::Editor::Tests::DestroyActor;
+using Cambriana::Editor::Tests::DiscardGrammar;
+using Cambriana::Editor::Tests::DiscardGrammarAndActor;
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorOpensWithTabsTest,
 	"Cambriana.Editor.GrammarEditor.OpeningAGrammarOpensTheGrammarEditorWithRulesViewportDetailsAndOutputsTabs",
@@ -113,10 +116,7 @@ bool FCambrianaGrammarEditorRulesEditTest::RunTest(const FString& Parameters)
 	if (!TestNotNull(TEXT("A live actor was placed"), Actor) || !TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
 		CloseGrammarEditor(Grammar);
-		if (Actor)
-		{
-			Actor->GetWorld()->EditorDestroyActor(Actor, false);
-		}
+		DestroyActor(Actor);
 		return false;
 	}
 
@@ -133,7 +133,7 @@ bool FCambrianaGrammarEditorRulesEditTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The actor did not rebuild for the undo"), Actor->GetBuildCount(), BuildsBeforeEdit);
 
 	CloseGrammarEditor(Grammar);
-	Actor->GetWorld()->EditorDestroyActor(Actor, false);
+	DestroyActor(Actor);
 	return true;
 }
 
@@ -176,12 +176,7 @@ bool FCambrianaGrammarEditorTypingTest::RunTest(const FString& Parameters)
 	const TSharedPtr<SMultiLineEditableTextBox> Rules = Toolkit ? RulesTextBoxOf(*Toolkit) : nullptr;
 	if (!TestNotNull(TEXT("A live actor was placed"), Actor) || !TestTrue(TEXT("The grammar editor shows Rules"), Rules.IsValid()))
 	{
-		CloseGrammarEditor(Grammar);
-		if (Actor)
-		{
-			Actor->GetWorld()->EditorDestroyActor(Actor, false);
-		}
-		UnloadPackage(Grammar->GetPackage());
+		DiscardGrammarAndActor(Grammar, Actor);
 		return false;
 	}
 	Grammar->GetPackage()->SetDirtyFlag(false);
@@ -204,9 +199,7 @@ bool FCambrianaGrammarEditorTypingTest::RunTest(const FString& Parameters)
 	TestEqualSensitive(TEXT("Undo restores the Rules text"), Toolkit->GetRulesText().ToString(), OldText);
 	TestFalse(TEXT("Undoing back to the grammar's text leaves no unsaved edit"), Toolkit->HasUnsavedEdits());
 
-	CloseGrammarEditor(Grammar);
-	Actor->GetWorld()->EditorDestroyActor(Actor, false);
-	UnloadPackage(Grammar->GetPackage());
+	DiscardGrammarAndActor(Grammar, Actor);
 	return true;
 }
 
@@ -346,8 +339,7 @@ bool FCambrianaGrammarPreviewDefaultTest::RunTest(const FString& Parameters)
 	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
 	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
-		CloseGrammarEditor(Grammar);
-		UnloadPackage(Grammar->GetPackage());
+		DiscardGrammar(Grammar);
 		return false;
 	}
 	const FCambrianaGrammarPreview& Preview = Toolkit->GetPreview();
@@ -362,8 +354,7 @@ bool FCambrianaGrammarPreviewDefaultTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The preview built once"), Preview.GetBuildCount(), 1);
 	TestEqualSensitive(TEXT("The preview builds the asset's text"), Preview.GetLastBuildInput().GrammarText, Grammar->GrammarText);
 	TestEqual(TEXT("The preview builds with the asset's seed"), Preview.GetLastBuildInput().Seed, Grammar->Seed);
-	CloseGrammarEditor(Grammar);
-	UnloadPackage(Grammar->GetPackage());
+	DiscardGrammar(Grammar);
 	return true;
 }
 

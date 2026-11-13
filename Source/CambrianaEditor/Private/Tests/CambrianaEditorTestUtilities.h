@@ -385,6 +385,33 @@ namespace Cambriana::Editor::Tests
 		}
 	}
 
+	/** Closes the grammar's editor, destroys its actor and unloads its package. */
+	inline void DiscardGrammarAndActor(UCambrianaGrammar* Grammar, ACambrianaLiveActor* Actor)
+	{
+		CloseGrammarEditor(Grammar);
+		DestroyActor(Actor);
+		UnloadPackage(Grammar->GetPackage());
+	}
+
+	/** Closes the grammar's editor and unloads its package. */
+	inline void DiscardGrammar(UCambrianaGrammar* Grammar)
+	{
+		CloseGrammarEditor(Grammar);
+		UnloadPackage(Grammar->GetPackage());
+	}
+
+	/** Answers the toolkit's unsaved-edits question with Answer, counting the times it is asked. */
+	inline void AnswerUnsavedEdits(FCambrianaGrammarEditorToolkit& Toolkit, EAppReturnType::Type Answer, int32& Asked)
+	{
+		Toolkit.SetUnsavedEditsPrompt([&Asked, Answer](EAppMsgType::Type, const FText&) { ++Asked; return Answer; });
+	}
+
+	/** Answers the toolkit's Save As dialog with PackageName (empty cancels), counting the times it is asked. */
+	inline void AnswerSaveAs(FCambrianaGrammarEditorToolkit& Toolkit, const FString& PackageName, int32& Asked)
+	{
+		Toolkit.SetSaveAsPrompt([&Asked, PackageName](const UCambrianaGrammar&) { ++Asked; return PackageName; });
+	}
+
 	/** The number of steps in the editor's undo history. */
 	inline int32 UndoHistoryLength()
 	{
