@@ -1,5 +1,7 @@
 #include "CambrianaLiveActorCustomization.h"
 
+#include "CambrianaBake.h"
+#include "DetailCategoryBuilder.h"
 #include "CambrianaLiveActor.h"
 #include "CambrianaSeedCustomization.h"
 #include "DetailLayoutBuilder.h"
@@ -7,9 +9,11 @@
 #include "IDetailPropertyRow.h"
 #include "PropertyHandle.h"
 #include "ScopedTransaction.h"
+#include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "CambrianaEditor"
 
@@ -106,6 +110,52 @@ namespace Cambriana::Editor
 		}
 	}
 
+	/** The placed live actors being customized; class defaults and archetypes have nothing to bake. */
+	TArray<ACambrianaLiveActor*> PlacedLiveActors(const TArray<TWeakObjectPtr<UObject>>& Objects)
+	{
+		TArray<ACambrianaLiveActor*> Actors;
+		for (const TWeakObjectPtr<UObject>& Object : Objects)
+		{
+			ACambrianaLiveActor* Actor = Cast<ACambrianaLiveActor>(Object.Get());
+			if (Actor && !Actor->IsTemplate())
+			{
+				Actors.Add(Actor);
+			}
+		}
+		return Actors;
+	}
+
+	void AddBakeRow(IDetailLayoutBuilder& DetailBuilder)
+	{
+		const FText BakeText = LOCTEXT("LiveActorBake", "Bake");
+		const TArray<TWeakObjectPtr<UObject>> Objects = DetailBuilder.GetSelectedObjects();
+		DetailBuilder.EditCategory(TEXT("Cambriana")).AddCustomRow(BakeText, false)
+			.NameContent()
+			[
+				SNullWidget::NullWidget
+			]
+			.ValueContent()
+			.VAlign(VAlign_Center)
+			.MaxDesiredWidth(250.0f)
+			[
+				SNew(SButton)
+				.VAlign(VAlign_Center)
+				.ToolTipText(LOCTEXT("LiveActorBakeTooltip", "Writes a static mesh from this actor's own settings, overrides included. Does not modify the actor."))
+				.IsEnabled_Lambda([Objects] { return !PlacedLiveActors(Objects).IsEmpty(); })
+				.OnClicked_Lambda([Objects]
+				{
+					for (ACambrianaLiveActor* Actor : PlacedLiveActors(Objects))
+					{
+						NotifyBakeResult(Actor->GetActorLabel(), BakeLiveActor(*Actor));
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(STextBlock).Text(BakeText)
+				]
+			];
+	}
+
 	bool UsesOwnValue(const IPropertyHandle& SettingHandle)
 	{
 		const FName Name = PropertyNameOf(SettingHandle);
@@ -159,6 +209,7 @@ void FCambrianaLiveActorCustomization::CustomizeDetails(IDetailLayoutBuilder& De
 			}
 		}
 	}
+	Cambriana::Editor::AddBakeRow(DetailBuilder);
 }
 
 #undef LOCTEXT_NAMESPACE
