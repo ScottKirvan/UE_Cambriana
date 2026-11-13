@@ -170,7 +170,17 @@ namespace Cambriana::Editor
 		return BakeStaticMesh(ACambrianaLiveActor::MakeBuildInputFor(Grammar), StaticMeshPackageName(Grammar), GrammarPath, AskToOverwrite);
 	}
 
-	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToOverwrite& AskToOverwrite)
+	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
+	{
+		return FSaveAssetDialogConfig();
+	}
+
+	FBakeLocationPrompt SetBakeLocationPrompt(FBakeLocationPrompt Prompt)
+	{
+		return nullptr;
+	}
+
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor)
 	{
 		const FString ActorPath = Actor.GetPathName();
 		if (Actor.Grammar && !EnsureSaved(*Actor.Grammar))
@@ -178,7 +188,7 @@ namespace Cambriana::Editor
 			UE_LOG(LogCambrianaBake, Warning, TEXT("%s: the grammar is not saved; nothing is baked"), *ActorPath);
 			return Failed(ECambrianaBakeStatus::GrammarNotSaved);
 		}
-		return BakeStaticMesh(Actor.MakeBuildInput(), StaticMeshPackageName(Actor), ActorPath, AskToOverwrite);
+		return BakeStaticMesh(Actor.MakeBuildInput(), StaticMeshPackageName(Actor), ActorPath, nullptr);
 	}
 
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result)
