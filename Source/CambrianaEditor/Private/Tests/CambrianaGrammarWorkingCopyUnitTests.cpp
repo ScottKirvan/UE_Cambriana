@@ -72,7 +72,7 @@ namespace
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyDuplicateTest,
-	"Cambriana.Editor.WorkingCopy.ADuplicateIsTransientTransactionalNotAnAssetAndHoldsTheGrammarExceptItsImportData",
+	"Cambriana.Editor.WorkingCopy.ADuplicateIsTransientTransactionalAndHoldsTheGrammarExceptItsImportData",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaWorkingCopyDuplicateTest::RunTest(const FString& Parameters)
@@ -105,7 +105,7 @@ bool FCambrianaWorkingCopyDuplicateTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyHoldSameTest,
-	"Cambriana.Editor.WorkingCopy.GrammarsHoldTheSameGrammarOnlyWhenTextAndParameterNamesMatchInCaseAndValuesMatch",
+	"Cambriana.Editor.WorkingCopy.GrammarsAreTheSameOnlyWhenTextNamesAndValuesMatchIncludingCase",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaWorkingCopyHoldSameTest::RunTest(const FString& Parameters)

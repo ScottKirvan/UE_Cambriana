@@ -75,7 +75,7 @@ bool FCambrianaToolkitCloseAppliesTypingTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaToolkitCloseReasonsTest,
-	"Cambriana.Editor.GrammarEditorGates.ACloseThatCannotBeStoppedNeverCancelsAndAForceDeleteDoesNotAsk",
+	"Cambriana.Editor.GrammarEditorGates.AForceDeleteDoesNotAskAndACloseWithoutACancelButtonDiscardsEvenWhenThePromptCancels",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaToolkitCloseReasonsTest::RunTest(const FString& Parameters)
@@ -96,7 +96,7 @@ bool FCambrianaToolkitCloseReasonsTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("A close that cannot be stopped closes although the prompt cancels"), Editor.Toolkit->OnRequestClose(EAssetEditorCloseReason::CloseAllAssetEditors));
 	TestEqual(TEXT("It asked once"), Asked, 1);
 	TestTrue(TEXT("offering Yes and No only"), Offered == EAppMsgType::YesNo);
-	TestTrue(TEXT("Asking again about discarded edits is not needed"), Editor.Toolkit->OnRequestClose(EAssetEditorCloseReason::CloseAllAssetEditors));
+	TestTrue(TEXT("A second request to close after discarding closes"), Editor.Toolkit->OnRequestClose(EAssetEditorCloseReason::CloseAllAssetEditors));
 	TestEqual(TEXT("Discarded edits are not asked about again"), Asked, 1);
 	return true;
 }
@@ -222,7 +222,7 @@ bool FCambrianaToolkitGrammarChangeDuringTypingTest::RunTest(const FString& Para
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaToolkitTypingTimerTest,
-	"Cambriana.Editor.GrammarEditorGates.TypingRestartsThePauseAndEachPauseAppliesOnce",
+	"Cambriana.Editor.GrammarEditorGates.TypingAgainRestartsThePause",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaToolkitTypingTimerTest::RunTest(const FString& Parameters)
@@ -262,9 +262,15 @@ bool FCambrianaToolkitPauseAppliesOnceTest::RunTest(const FString& Parameters)
 	const TSharedPtr<SMultiLineEditableTextBox> Rules = RulesTextBoxOf(*Editor.Toolkit);
 	const float Delay = Editor.Toolkit->RulesApplyDelaySeconds;
 
+	int32 Changes = 0;
+	const UCambrianaGrammar* WorkingCopy = Editor.Toolkit->GetWorkingCopy();
+	const FDelegateHandle Handle = UCambrianaGrammar::OnGrammarChanged().AddLambda([&Changes, WorkingCopy](const UCambrianaGrammar* Changed) { Changes += Changed == WorkingCopy; });
 	TypeOverRules(*Rules);
 	PauseTyping(Delay);
 	TestEqualSensitive(TEXT("A pause applies the typing"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(TypedGrammarText));
+	TestEqual(TEXT("as one change"), Changes, 1);
+	PauseTyping(Delay);
+	TestEqual(TEXT("and a second pause with no typing applies nothing more"), Changes, 1);
 
 	PauseTyping(Delay * 0.2f);
 	TypeOtherText(*Rules, CountText);
@@ -274,6 +280,8 @@ bool FCambrianaToolkitPauseAppliesOnceTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The new typing is pending"), Editor.Toolkit->HasUnsavedEdits());
 	PauseTyping(Delay * 0.3f);
 	TestEqualSensitive(TEXT("It applies a pause after it was typed"), Editor.Toolkit->GetWorkingCopy()->GrammarText, FString(CountText));
+	TestEqual(TEXT("as the second change"), Changes, 2);
+	UCambrianaGrammar::OnGrammarChanged().Remove(Handle);
 	return true;
 }
 

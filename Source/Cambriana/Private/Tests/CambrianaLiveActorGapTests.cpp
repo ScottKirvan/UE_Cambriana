@@ -57,7 +57,7 @@ namespace CambrianaLiveActorGapTests
 using namespace CambrianaLiveActorGapTests;
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorUsesOwnValueTest,
-	"Cambriana.LiveActor.TheBuildUsesTheActorsOwnValueOfASettingExactlyWhenItsOverrideIsOnOrNothingElseGivesIt",
+	"Cambriana.LiveActor.UsesOwnValueIsTrueExactlyWhenTheOverrideIsOnOrNothingElseGivesTheSetting",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaLiveActorUsesOwnValueTest::RunTest(const FString& Parameters)
