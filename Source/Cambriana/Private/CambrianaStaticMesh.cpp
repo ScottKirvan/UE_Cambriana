@@ -18,7 +18,12 @@ namespace
 		FMeshDescription Description;
 		FStaticMeshAttributes Attributes(Description);
 		Attributes.Register();
-		FDynamicMeshToMeshDescription Converter(FConversionToMeshDescriptionOptions{});
+		// The static mesh build stores vertex colours as sRGB-encoded bytes. Converting the channel values sRGB to linear first
+		// cancels that, so a material's Vertex Color reads the values themselves, as mesh paint does
+		// (FDynamicMeshToMeshDescription::ApplyVertexColorTransform).
+		FConversionToMeshDescriptionOptions Options;
+		Options.bTransformVtxColorsSRGBToLinear = true;
+		FDynamicMeshToMeshDescription Converter(Options);
 		Converter.Convert(&Result.Mesh, Description);
 
 		// The converter makes polygon group N for material ID N, and each triangle's material ID is its slot index.
@@ -67,6 +72,9 @@ void Cambriana::SetStaticMeshFromBuild(UStaticMesh& StaticMesh, const FCambriana
 	BuildSettings.bRecomputeTangents = true;
 	// Keeps the build's sliver triangles, as Geometry Script's CopyMeshToStaticMesh does by default (bEnableRemoveDegenerates).
 	BuildSettings.bRemoveDegenerates = false;
+	// UV2's root distance is in cm, which half precision holds at 200 cm only to 0.125 cm. Datasmith's static mesh import and
+	// the groom deformer builder, which also carry data in UVs, store them at full precision too.
+	BuildSettings.bUseFullPrecisionUVs = true;
 	BuildSettings.bGenerateLightmapUVs = true;
 	BuildSettings.SrcLightmapIndex = 0;
 	BuildSettings.DstLightmapIndex = LightmapUVChannel;
