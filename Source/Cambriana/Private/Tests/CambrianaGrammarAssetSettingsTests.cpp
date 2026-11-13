@@ -11,6 +11,7 @@
 
 using UE::Geometry::FDynamicMesh3;
 using Cambriana::Tests::LoadFixture;
+using Cambriana::Tests::MakeGrammar;
 
 namespace
 {
@@ -66,13 +67,6 @@ namespace
 			cambriana_result_destroy(Result);
 		}
 		return Positions;
-	}
-
-	UCambrianaGrammar* MakeGrammar(const FString& Text)
-	{
-		UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(GetTransientPackage());
-		Grammar->GrammarText = Text;
-		return Grammar;
 	}
 
 	ACambrianaLiveActor* SpawnActor(UWorld* World)

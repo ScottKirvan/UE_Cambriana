@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CambrianaGrammar.h"
 #include "CoreMinimal.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/FileHelper.h"
@@ -24,6 +25,13 @@ namespace Cambriana::Tests
 	constexpr int32 TubeVertices(int32 Segments, int32 Sides)
 	{
 		return (Segments + 1) * Sides;
+	}
+
+	inline UCambrianaGrammar* MakeGrammar(const FString& Text)
+	{
+		UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(GetTransientPackage());
+		Grammar->GrammarText = Text;
+		return Grammar;
 	}
 
 	inline FString SimpleGrammar(int32 Recursion)
