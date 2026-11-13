@@ -1,4 +1,3 @@
-#include "AssetRegistry/AssetRegistryModule.h"
 #include "CambrianaBake.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
@@ -91,14 +90,6 @@ namespace
 			{
 				if (UPackage* Package = FindPackage(nullptr, *PackageName))
 				{
-					ForEachObjectWithPackage(Package, [](UObject* Object)
-					{
-						if (Object->IsAsset())
-						{
-							FAssetRegistryModule::AssetDeleted(Object);
-						}
-						return true;
-					});
 					if (UCambrianaGrammar* Loaded = FindObject<UCambrianaGrammar>(Package, *Name))
 					{
 						CloseGrammarEditor(Loaded);
@@ -152,7 +143,7 @@ bool FCambrianaBakeMenuTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakeFromMenu"));
 
-	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu(Cambriana::Editor::GrammarAssetContextMenu);
+	UToolMenu* Menu = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(UCambrianaGrammar::StaticClass());
 	FToolMenuSection* Section = Menu ? Menu->FindSection(Cambriana::Editor::BakeMenuSection) : nullptr;
 	FToolMenuEntry* Entry = Section ? Section->FindEntry(Cambriana::Editor::BakeMenuEntry) : nullptr;
 	if (!TestNotNull(TEXT("The grammar asset's right-click menu has Bake"), Entry))

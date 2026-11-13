@@ -18,7 +18,10 @@ public class Cambriana : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"CambrianaCore",
+			"MeshConversion",
+			"MeshDescription",
 			"Projects",
+			"StaticMeshDescription",
 		});
 	}
 }
