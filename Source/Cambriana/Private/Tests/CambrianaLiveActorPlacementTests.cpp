@@ -1,5 +1,6 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaLiveActor.h"
+#include "CambrianaTestUtilities.h"
 #include "CambrianaTestWorld.h"
 #include "Misc/AutomationTest.h"
 
@@ -43,8 +44,7 @@ namespace CambrianaLiveActorPlacementTests
 
 	UCambrianaGrammar* MakeGrammar(const FString& Text, ECambrianaSizeMode SizeMode, double SizeValue, int32 Sides, bool bClosedForm, double MinThickness)
 	{
-		UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(GetTransientPackage());
-		Grammar->GrammarText = Text;
+		UCambrianaGrammar* Grammar = Cambriana::Tests::MakeGrammar(Text);
 		Grammar->SizeMode = SizeMode;
 		Grammar->SizeValue = SizeValue;
 		Grammar->Sides = Sides;
