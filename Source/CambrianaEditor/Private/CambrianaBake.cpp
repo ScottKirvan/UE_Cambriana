@@ -172,6 +172,11 @@ namespace Cambriana::Editor
 		return { ECambrianaBakeStatus::Baked, Mesh };
 	}
 
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToOverwrite& AskToOverwrite)
+	{
+		return Failed(ECambrianaBakeStatus::NothingToBuild);
+	}
+
 	void AddBakeMenuEntry()
 	{
 		UToolMenu* Menu = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(UCambrianaGrammar::StaticClass());
