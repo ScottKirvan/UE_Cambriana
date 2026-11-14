@@ -136,6 +136,8 @@ namespace
 		TOptional<FOutputToBake> Skeleton;
 		TOptional<FOutputToBake> SkeletalMesh;
 		TOptional<FOutputToBake> PhysicsAsset;
+		/** The physics asset's overall stiffness (FCambrianaBakeSettings::PhysicsStiffness). */
+		float PhysicsStiffness = 0.0f;
 
 		TArray<FOutputToBake*, TInlineAllocator<4>> All()
 		{
@@ -208,7 +210,7 @@ namespace
 			Result.SkeletalMesh = Outputs.SkeletalMesh->MakeAsset<USkeletalMesh>();
 			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build);
 			Result.PhysicsAsset = Outputs.PhysicsAsset->MakeAsset<UPhysicsAsset>();
-			Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build);
+			Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build, Outputs.PhysicsStiffness);
 			Packages.Add(Result.SkeletalMesh->GetPackage());
 			Packages.Add(Result.Skeleton->GetPackage());
 			Packages.Add(Result.PhysicsAsset->GetPackage());
@@ -266,6 +268,7 @@ namespace Cambriana::Editor
 		Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SK_")), USkeletalMesh::StaticClass() };
 		Outputs.Skeleton = FOutputToBake{ OutputPackageName(Grammar, TEXT("SKEL_")), USkeleton::StaticClass() };
 		Outputs.PhysicsAsset = FOutputToBake{ OutputPackageName(Grammar, TEXT("PHYS_")), UPhysicsAsset::StaticClass() };
+		Outputs.PhysicsStiffness = Grammar.Bake.PhysicsStiffness;
 		if (Grammar.Bake.bStaticMesh)
 		{
 			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SM_")), UStaticMesh::StaticClass() };

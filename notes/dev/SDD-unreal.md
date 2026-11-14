@@ -37,7 +37,8 @@ display baked results.
   `SK_`, `SKEL_`, `PHYS_` and `SM_`.
 - `[Proposed — unconfirmed]` The bake settings are one struct on the grammar asset
   (`FCambrianaBakeSettings`, Details category Bake) holding the static mesh output, off by
-  default. The skeletal mesh, skeleton and physics asset need no setting: Bake always writes
+  default, and the physics asset's overall stiffness `PhysicsStiffness` (SDD-rigging.md,
+  Physics). The skeletal mesh, skeleton and physics asset need no setting: Bake always writes
   the skeletal mesh and skeleton, and the static mesh as well when static mesh output is on.
 - `[Proposed — unconfirmed]` The folder beside the grammar asset is named after it: a grammar
   `/Game/Trees/Fern` bakes `/Game/Trees/Fern/SM_Fern`.
