@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.1](https://github.com/ScottKirvan/UE_Cambriana/compare/v0.0.0...v0.0.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* add Dependabot config for monthly grouped dependency updates ([42493d2](https://github.com/ScottKirvan/UE_Cambriana/commit/42493d242d7c79225347f94578cd6d9d09eea400))
+
 ## 0.0.0 (2026-11-05)
 
 
