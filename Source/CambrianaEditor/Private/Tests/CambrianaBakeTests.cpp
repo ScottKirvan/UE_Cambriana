@@ -339,8 +339,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSettingSaveTest,
 bool FCambrianaBakeSettingSaveTest::RunTest(const FString& Parameters)
 {
 	TestFalse(TEXT("Static mesh output is off by default"), GetDefault<UCambrianaGrammar>()->Bake.bStaticMesh);
+	TestEqual(TEXT("Physics stiffness is 25000 by default (SDD-rigging.md, Physics)"), GetDefault<UCambrianaGrammar>()->Bake.PhysicsStiffness, 25000.0f);
 
 	FBakeFixture Fixture(TEXT("BakeSettingSave"));
+	Fixture.Grammar->Bake.PhysicsStiffness = 1234.5f;
 	UPackage* Package = Fixture.Grammar->GetPackage();
 	FSavePackageArgs SaveArgs;
 	SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
@@ -356,6 +358,7 @@ bool FCambrianaBakeSettingSaveTest::RunTest(const FString& Parameters)
 	if (TestNotNull(TEXT("The grammar asset loads again"), Reloaded))
 	{
 		TestTrue(TEXT("Static mesh output is still on"), Reloaded->Bake.bStaticMesh);
+		TestEqual(TEXT("Physics stiffness is still 1234.5"), Reloaded->Bake.PhysicsStiffness, 1234.5f);
 	}
 	return true;
 }
