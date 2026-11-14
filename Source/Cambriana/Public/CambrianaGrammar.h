@@ -18,6 +18,8 @@ struct FCambrianaBakeSettings
 	UPROPERTY(EditAnywhere, Category = "Bake")
 	bool bStaticMesh = false;
 
+	float PhysicsStiffness = 25000.0f;
+
 	bool operator==(const FCambrianaBakeSettings&) const = default;
 };
 
