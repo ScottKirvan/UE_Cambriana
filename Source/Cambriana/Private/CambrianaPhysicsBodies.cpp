@@ -93,12 +93,25 @@ TArray<FCambrianaPhysicsBody> Cambriana::MakePhysicsBodies(const FCambrianaBuild
 		}
 
 		const FTransform BodyPose = BoneBindPose(Bones[First]);
+		double Compliance = 0.0;
+		bool bHasThinBone = false;
 		for (const int32 Index : Chain)
 		{
 			const FCambrianaBone& Bone = Bones[Index];
-			FKSphylElem& Capsule = Body.Capsules.Emplace_GetRef(float(Bone.Radius), float(FVector3d::Distance(Bone.Start, Bone.End)));
+			const double Length = FVector3d::Distance(Bone.Start, Bone.End);
+			FKSphylElem& Capsule = Body.Capsules.Emplace_GetRef(float(Bone.Radius), float(Length));
 			Capsule.SetTransform(CapsulePose(Bone).GetRelativeTransform(BodyPose));
+			if (Bone.Radius > 0.0)
+			{
+				Compliance += Length / FMath::Pow(Bone.Radius, 4.0);
+			}
+			else
+			{
+				bHasThinBone = true;
+			}
 		}
+		// The bones bend in series, so their compliances add; a bone without thickness has no stiffness, and nor has the body.
+		Body.BendingStiffness = !bHasThinBone && Compliance > 0.0 ? 1.0 / Compliance : 0.0;
 	}
 	return Bodies;
 }

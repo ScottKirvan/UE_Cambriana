@@ -66,8 +66,13 @@ bends.
 
 ## Physics
 
-Physics asset: one capsule per bone (length, radius), mass from volume, stiffness from
-thickness. Consecutive short bones may merge into one capsule.
+Physics asset: one capsule per bone (length, radius), mass from volume. Consecutive short
+bones may merge into one capsule.
+
+Stiffness from thickness: each body's constraint has an angular drive that returns the body
+to its bind pose. The drive stiffness follows the beam bending model: proportional to
+radius⁴ ÷ length of the body's bones. One overall stiffness setting, a bake setting on the
+grammar asset (`FCambrianaBakeSettings`), scales the whole plant.
 
 - `[Proposed — unconfirmed]` A chain is a maximal run of drawn-segment bones in which each bone
   after the first is the only drawn child of the bone before it and has no chain break before
@@ -84,6 +89,37 @@ thickness. Consecutive short bones may merge into one capsule.
   as `FPhysicsAssetUtils::CreateFromSkeletalMesh` joins a body to its parent's
   (`PhysicsAssetUtils.cpp`). A body with none above it, such as each of `sk.ls`'s four, is
   unconstrained.
+- `[Proposed — unconfirmed]` A body's mass is the engine's default for a body, from the
+  capsules' summed volume (πr²L + 4/3πr³ each): (volume × density) ^ `RaiseMassToPower`, with
+  the default physical material's density 1 g/cm³ and power 0.75 (`UBodySetup::CalculateMass`,
+  `BodyUtils.cpp`, `PhysicalMaterial.cpp`). Bake sets no mass override or mass scale.
+- `[Proposed — unconfirmed]` A body's bending stiffness is its bones' in series:
+  1 ÷ Σ(length ÷ radius⁴) over the body's bones, radius⁴ ÷ length for a one-bone body. The
+  bones of a chain bend one after another under the same moment at the body's joint, so their
+  compliances (length ÷ radius⁴) add, as for beam segments in series. A bone of radius 0 makes
+  the body's bending stiffness 0.
+- `[Proposed — unconfirmed]` The drive's stiffness is the overall stiffness times the body's
+  bending stiffness (radii and lengths in cm). The overall stiffness is
+  `FCambrianaBakeSettings::PhysicsStiffness`, 25000 by default, chosen by hand so that a 10 cm
+  bone of radius 1 cm held level sags about 0.1 rad under gravity (mass 0.082 kg, torque
+  0.082 × 980 × 5 ≈ 400 kg·cm²/s², Chaos's angular drive stiffness scale 1.5:
+  400 ÷ (1.5 × 25000 × 0.1) ≈ 0.11). No engine default sets a stiffness from geometry.
+- `[Proposed — unconfirmed]` The drive is the engine's default angular drive mode, SLERP
+  (`FAngularDriveConstraint`), set as `USkeletalMeshComponent::SetAllMotorsAngularPositionDrive`
+  and `SetAllMotorsAngularDriveParams` set a skeletal mesh's drives
+  (`FConstraintInstance::SetOrientationDriveSLERP`, `SetAngularDriveParams`), with the SLERP
+  velocity drive on too, as `FPhysicsControlRecord` sets it, since Chaos applies the damping
+  only with the velocity drive on (`FPBDJointUtilities::GetAngularSLerpDriveDamping`). One
+  stiffness for bending and twist, as a round section's bending and torsion both go as
+  radius⁴ ÷ length. Force mode (`bAccelerationMode` off, the physics asset editor's
+  Acceleration Mode on the angular motor), so the stiffness is a torque per angle as in the
+  model; acceleration mode would scale it by each body's inertia. The targets are zero: the
+  constraint frames are snapped to the bind pose, so the drive returns the body there. No force
+  limit (`MaxForce` 0, the engine default, means none).
+- `[Proposed — unconfirmed]` The drive's damping is its stiffness ÷ 50, the ratio of
+  `FConstraintDrive`'s default stiffness 50 and damping 1 (`ConstraintDrives.cpp`).
+- `[Proposed — unconfirmed]` A body without a constraint, one with no body above it, has no
+  drive, as the root body of `FPhysicsAssetUtils::CreateFromSkeletalMesh` has none.
 
 ## Rig controls
 
