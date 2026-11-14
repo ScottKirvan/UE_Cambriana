@@ -147,4 +147,36 @@ bool FCambrianaPhysicsBodyParentsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaPhysicsBodyBendingStiffnessTest,
+	"Cambriana.PhysicsBodies.BendingStiffnessIsRadiusToTheFourthOverLengthInSeriesAlongTheBodysBones",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaPhysicsBodyBendingStiffnessTest::RunTest(const FString& Parameters)
+{
+	// Hand calculation. A bone's radius is half its length times thickness (SDD-surfacing.md), `!` multiplies thickness by 0.7 and `'`
+	// length by 0.9 (grammar-guide.md, command reference), so with step 10 cm and thickness 20%:
+	// bone 0: L 10, r 1. Bone 1, after `!`: L 10, r 0.7. Bone 2, after `'`: L 9, r 0.9. Bone 3: L 10, r 1. Bone 4, after `!`: L 10, r 0.7.
+	// Bone 0 has three drawn children, so the chains are {0} {1} {2} {3,4}.
+	const FCambrianaBuildResult Result = Build(TEXT("step 10cm\nthickness 20%\naxiom F [ + ! F ] [ - ' F ] F ! F\n"));
+	const TArray<FCambrianaPhysicsBody> Bodies = Cambriana::MakePhysicsBodies(Result);
+	if (!TestEqual(TEXT("Five bones"), Result.Bones.Num(), 5) || !TestEqual(TEXT("Four bodies"), Bodies.Num(), 4))
+	{
+		return false;
+	}
+	const double Radii[] = { 1.0, 0.7, 0.9, 1.0, 0.7 };
+	const double Lengths[] = { 10.0, 10.0, 9.0, 10.0, 10.0 };
+	for (int32 Bone = 0; Bone < 5; ++Bone)
+	{
+		TestEqual(FString::Printf(TEXT("Bone %d's radius"), Bone), Result.Bones[Bone].Radius, Radii[Bone], Tolerance);
+		TestEqual(FString::Printf(TEXT("Bone %d's length"), Bone), FVector3d::Distance(Result.Bones[Bone].Start, Result.Bones[Bone].End), Lengths[Bone], Tolerance);
+	}
+
+	// One bone: r^4 / L. Two in series: 1 / (L0 / r0^4 + L1 / r1^4).
+	TestEqual(TEXT("Body on bone 0: 1^4 / 10"), Bodies[0].BendingStiffness, 0.1, 1e-6);
+	TestEqual(TEXT("Body on bone 1: 0.7^4 / 10"), Bodies[1].BendingStiffness, 0.02401, 1e-6);
+	TestEqual(TEXT("Body on bone 2: 0.9^4 / 9"), Bodies[2].BendingStiffness, 0.0729, 1e-6);
+	TestEqual(TEXT("Body on bones 3 and 4: 1 / (10 / 1^4 + 10 / 0.7^4)"), Bodies[3].BendingStiffness, 1.0 / (10.0 + 10.0 / 0.2401), 1e-6);
+	return true;
+}
+
 #endif
