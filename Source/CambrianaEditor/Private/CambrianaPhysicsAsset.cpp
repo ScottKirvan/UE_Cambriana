@@ -30,7 +30,7 @@ namespace
 	}
 }
 
-void Cambriana::Editor::SetPhysicsAssetFromBuild(UPhysicsAsset& PhysicsAsset, USkeletalMesh& SkeletalMesh, const FCambrianaBuildResult& Result)
+void Cambriana::Editor::SetPhysicsAssetFromBuild(UPhysicsAsset& PhysicsAsset, USkeletalMesh& SkeletalMesh, const FCambrianaBuildResult& Result, float Stiffness)
 {
 	// Earlier bodies are emptied as the physics asset editor empties them before regenerating all bodies (PhysicsAssetEditor.cpp).
 	PhysicsAsset.SkeletalBodySetups.Empty();

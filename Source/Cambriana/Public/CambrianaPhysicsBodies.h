@@ -15,6 +15,11 @@ struct FCambrianaPhysicsBody
 	int32 ParentBodyBone = INDEX_NONE;
 	/** One capsule per bone of the chain, in the space of the body's bone: along the bone, its length and radius. */
 	TArray<FKSphylElem> Capsules;
+	/**
+	 * The beam bending model's stiffness of the body's bones without its material constant, in cm³: radius⁴ / length for one bone,
+	 * and the bones' in series, 1 / Σ(length / radius⁴), for a chain of them.
+	 */
+	double BendingStiffness = 0.0;
 };
 
 namespace Cambriana
