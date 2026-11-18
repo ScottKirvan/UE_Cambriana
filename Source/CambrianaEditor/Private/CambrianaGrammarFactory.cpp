@@ -3,7 +3,16 @@
 #include "CambrianaGrammar.h"
 #include "CambrianaSeed.h"
 
-const TCHAR* UCambrianaGrammarFactory::DefaultGrammarText = TEXT("4\n25\n50\nA\nA=F^'A\n@\n");
+const TCHAR* UCambrianaGrammarFactory::DefaultGrammarText = TEXT(
+	"generations 4\n"
+	"angle       25\n"
+	"thickness   50%\n"
+	"\n"
+	"axiom A\n"
+	"\n"
+	"grow {\n"
+	"    A -> F ^ ' A\n"
+	"}\n");
 
 UCambrianaGrammarFactory::UCambrianaGrammarFactory()
 {
@@ -16,6 +25,7 @@ UObject* UCambrianaGrammarFactory::FactoryCreateNew(UClass* InClass, UObject* In
 {
 	UCambrianaGrammar* Grammar = NewObject<UCambrianaGrammar>(InParent, InClass, InName, Flags);
 	Grammar->GrammarText = DefaultGrammarText;
+	Grammar->StartSettingsFromGrammarText();
 	Grammar->Seed = Cambriana::GenerateSeed();
 	return Grammar;
 }

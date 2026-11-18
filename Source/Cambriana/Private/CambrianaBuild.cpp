@@ -2,7 +2,9 @@
 
 #include "Algo/BinarySearch.h"
 #include "CambrianaBuildInternal.h"
+#include "CambrianaCoreGrammar.h"
 #include "CambrianaCoreLoader.h"
+#include "CambrianaGrammarFormat.h"
 #include "CambrianaModule.h"
 #include "DynamicMesh/DynamicMeshAttributeSet.h"
 #include "DynamicMesh/MeshNormals.h"
@@ -28,6 +30,23 @@ namespace
 		case CAMBRIANA_DIAGNOSTIC_UNMATCHED_POP: return ECambrianaDiagnosticCode::UnmatchedPop;
 		case CAMBRIANA_DIAGNOSTIC_UNMATCHED_POLYGON_END: return ECambrianaDiagnosticCode::UnmatchedPolygonEnd;
 		case CAMBRIANA_DIAGNOSTIC_UNCLOSED_POLYGON: return ECambrianaDiagnosticCode::UnclosedPolygon;
+		case CAMBRIANA_DIAGNOSTIC_SYNTAX: return ECambrianaDiagnosticCode::Syntax;
+		case CAMBRIANA_DIAGNOSTIC_COMMAND_USED_AS_NAME: return ECambrianaDiagnosticCode::CommandUsedAsName;
+		case CAMBRIANA_DIAGNOSTIC_RESERVED_NAME: return ECambrianaDiagnosticCode::ReservedName;
+		case CAMBRIANA_DIAGNOSTIC_UNKNOWN_NAME: return ECambrianaDiagnosticCode::UnknownName;
+		case CAMBRIANA_DIAGNOSTIC_DUPLICATE_NAME: return ECambrianaDiagnosticCode::DuplicateName;
+		case CAMBRIANA_DIAGNOSTIC_ARGUMENT_COUNT: return ECambrianaDiagnosticCode::ArgumentCount;
+		case CAMBRIANA_DIAGNOSTIC_POSE_PARAMETER: return ECambrianaDiagnosticCode::PoseParameter;
+		case CAMBRIANA_DIAGNOSTIC_MACRO_CYCLE: return ECambrianaDiagnosticCode::MacroCycle;
+		case CAMBRIANA_DIAGNOSTIC_MODULE_IN_DRAW_RULE: return ECambrianaDiagnosticCode::ModuleInDrawRule;
+		case CAMBRIANA_DIAGNOSTIC_UNKNOWN_AXIOM: return ECambrianaDiagnosticCode::UnknownAxiom;
+		case CAMBRIANA_DIAGNOSTIC_SEGMENT_REPLACED_BY_SEVERAL: return ECambrianaDiagnosticCode::SegmentReplacedBySeveral;
+		case CAMBRIANA_DIAGNOSTIC_UNREACHABLE_RULE: return ECambrianaDiagnosticCode::UnreachableRule;
+		case CAMBRIANA_DIAGNOSTIC_NOT_CONSTANT: return ECambrianaDiagnosticCode::NotConstant;
+		case CAMBRIANA_DIAGNOSTIC_SIZE_AND_STEP: return ECambrianaDiagnosticCode::SizeAndStep;
+		case CAMBRIANA_DIAGNOSTIC_NON_FINITE_VALUE: return ECambrianaDiagnosticCode::NonFiniteValue;
+		case CAMBRIANA_DIAGNOSTIC_NOT_CONVERTIBLE: return ECambrianaDiagnosticCode::NotConvertible;
+		case CAMBRIANA_DIAGNOSTIC_SHAPE_PARAMETER: return ECambrianaDiagnosticCode::ShapeParameter;
 		default: return ECambrianaDiagnosticCode::Unknown;
 		}
 	}
@@ -44,6 +63,23 @@ namespace
 		case ECambrianaDiagnosticCode::UnmatchedPop: return TEXT("unmatched ']'");
 		case ECambrianaDiagnosticCode::UnmatchedPolygonEnd: return TEXT("unmatched '}'");
 		case ECambrianaDiagnosticCode::UnclosedPolygon: return TEXT("unclosed polygon");
+		case ECambrianaDiagnosticCode::Syntax: return TEXT("syntax error");
+		case ECambrianaDiagnosticCode::CommandUsedAsName: return TEXT("command used as a name");
+		case ECambrianaDiagnosticCode::ReservedName: return TEXT("reserved name");
+		case ECambrianaDiagnosticCode::UnknownName: return TEXT("unknown name");
+		case ECambrianaDiagnosticCode::DuplicateName: return TEXT("duplicate name");
+		case ECambrianaDiagnosticCode::ArgumentCount: return TEXT("wrong number of arguments");
+		case ECambrianaDiagnosticCode::PoseParameter: return TEXT("invalid use of a pose parameter");
+		case ECambrianaDiagnosticCode::MacroCycle: return TEXT("macro cycle");
+		case ECambrianaDiagnosticCode::ModuleInDrawRule: return TEXT("module in a draw rule");
+		case ECambrianaDiagnosticCode::UnknownAxiom: return TEXT("unknown axiom");
+		case ECambrianaDiagnosticCode::SegmentReplacedBySeveral: return TEXT("segment replaced by several");
+		case ECambrianaDiagnosticCode::UnreachableRule: return TEXT("unreachable rule");
+		case ECambrianaDiagnosticCode::NotConstant: return TEXT("value is not constant");
+		case ECambrianaDiagnosticCode::SizeAndStep: return TEXT("both size and step are set");
+		case ECambrianaDiagnosticCode::NonFiniteValue: return TEXT("value is not finite");
+		case ECambrianaDiagnosticCode::NotConvertible: return TEXT("not convertible");
+		case ECambrianaDiagnosticCode::ShapeParameter: return TEXT("invalid use of a shape parameter");
 		default: return TEXT("unknown problem");
 		}
 	}
@@ -70,7 +106,7 @@ namespace
 		return Data ? TConstArrayView<T>(Data, static_cast<int32>(FMath::Min<uint64_t>(Count, MAX_int32))) : TConstArrayView<T>();
 	}
 
-	cambriana_build_settings ToCoreSettings(const FCambrianaBuildInput& Input)
+	cambriana_build_settings ToCoreSettings(const FCambrianaBuildInput& Input, ECambrianaGrammarFormat Format)
 	{
 		const FCambrianaBuildSettings& Settings = Input.Settings;
 		cambriana_build_settings Core;
@@ -94,15 +130,35 @@ namespace
 		Core.min_thickness = Settings.MinThickness;
 		Core.closed_form = Settings.bClosedForm ? 1u : 0u;
 		Core.sides = static_cast<uint64_t>(FMath::Max(Settings.Sides, 0));
-		if (Settings.SizeMode == ECambrianaSizeMode::Fit)
+		if (Format == ECambrianaGrammarFormat::Cambriana)
 		{
-			Core.size_mode = CAMBRIANA_SIZE_FIT;
-			Core.fit_size = Settings.SizeValue;
+			Core.overrides |= CAMBRIANA_OVERRIDE_SEED;
+			const TPair<bool, uint64_t> Overrides[] = {
+				{ Settings.bOverrideGrammarSize, CAMBRIANA_OVERRIDE_SIZE },
+				{ Settings.bOverrideGrammarSides, CAMBRIANA_OVERRIDE_SIDES },
+				{ Settings.bOverrideGrammarSurface, CAMBRIANA_OVERRIDE_SURFACE },
+				{ Settings.bOverrideGrammarMinThickness, CAMBRIANA_OVERRIDE_MIN_THICKNESS },
+			};
+			for (const TPair<bool, uint64_t>& Override : Overrides)
+			{
+				if (Override.Key)
+				{
+					Core.overrides |= Override.Value;
+				}
+			}
 		}
-		else
+		if (Format == ECambrianaGrammarFormat::Legacy || Settings.bOverrideGrammarSize || Settings.bSizeForGrammarWithoutSize)
 		{
-			Core.size_mode = CAMBRIANA_SIZE_STEP;
-			Core.step_length = Settings.SizeValue;
+			if (Settings.SizeMode == ECambrianaSizeMode::Fit)
+			{
+				Core.size_mode = CAMBRIANA_SIZE_FIT;
+				Core.fit_size = Settings.SizeValue;
+			}
+			else
+			{
+				Core.size_mode = CAMBRIANA_SIZE_STEP;
+				Core.step_length = Settings.SizeValue;
+			}
 		}
 		Core.production_budget = Settings.ProductionBudget.Get(Core.production_budget);
 		Core.bone_budget = Settings.BoneBudget.Get(Core.bone_budget);
@@ -126,15 +182,45 @@ namespace
 
 		for (const cambriana_diagnostic& Core : CoreArray(&cambriana_result_diagnostics, Result))
 		{
-			FCambrianaDiagnostic& Diagnostic = Report.Diagnostics.AddDefaulted_GetRef();
-			Diagnostic.Severity = Core.severity == CAMBRIANA_SEVERITY_ERROR ? ECambrianaDiagnosticSeverity::Error : ECambrianaDiagnosticSeverity::Warning;
-			Diagnostic.Code = ToDiagnosticCode(Core.code);
-			Diagnostic.Line = Core.line;
-			Diagnostic.Column = Core.column;
-			if (Core.production_position != CAMBRIANA_NO_POSITION)
-			{
-				Diagnostic.ProductionPosition = Core.production_position;
-			}
+			Report.Diagnostics.Add(Cambriana::ToDiagnostic(Core));
+		}
+	}
+
+	/** The size and surfacer settings a build used: the text's, unless the settings override them, else the settings' own. */
+	void ReadSettingsUsed(const FCambrianaStatedSettings& Stated, const FCambrianaBuildSettings& Settings, const cambriana_build_settings& Core,
+		FCambrianaBuildReport& Report)
+	{
+		const bool bStatedSize = !Settings.bOverrideGrammarSize && Stated.SizeMode.IsSet();
+		Report.SizeMode = bStatedSize ? *Stated.SizeMode : (Core.size_mode == CAMBRIANA_SIZE_FIT ? ECambrianaSizeMode::Fit : ECambrianaSizeMode::Step);
+		if (Report.SizeMode == ECambrianaSizeMode::Fit)
+		{
+			Report.SizeValue = bStatedSize ? *Stated.SizeValue : Core.fit_size;
+		}
+		else
+		{
+			Report.SizeValue = Report.StepLength;
+		}
+		Report.Sides = Settings.bOverrideGrammarSides ? Settings.Sides : Stated.Sides.Get(Settings.Sides);
+		Report.bClosedForm = Settings.bOverrideGrammarSurface ? Settings.bClosedForm : Stated.bClosedForm.Get(Settings.bClosedForm);
+		Report.MinThickness = Settings.bOverrideGrammarMinThickness ? Settings.MinThickness : Stated.MinThickness.Get(Settings.MinThickness);
+	}
+
+	/** A legacy build with no production budget parses the header and stops before rewriting. */
+	void ReadLegacyHeader(const FTCHARToUTF8& Text, FCambrianaStatedSettings& Out)
+	{
+		cambriana_build_settings Settings;
+		cambriana_build_settings_init(&Settings, sizeof(Settings));
+		Settings.production_budget = 0;
+		Settings.work_budget = 0;
+		cambriana_result* RawResult = nullptr;
+		cambriana_build_legacy(Text.Get(), static_cast<size_t>(Text.Length()), &Settings, nullptr, &RawResult);
+		const FCoreResult Result(RawResult);
+		const cambriana_summary* Summary = Result.Get() ? cambriana_result_summary(Result.Get()) : nullptr;
+		if (Summary && (Summary->flags & CAMBRIANA_RESULT_HAS_ERRORS) == 0)
+		{
+			Out.Recursion = Summary->recursion;
+			Out.BasicAngle = Summary->basic_angle;
+			Out.Thickness = Summary->thickness;
 		}
 	}
 
@@ -286,15 +372,34 @@ namespace
 FString FCambrianaDiagnostic::Describe() const
 {
 	const TCHAR* SeverityText = Severity == ECambrianaDiagnosticSeverity::Error ? TEXT("error") : TEXT("warning");
+	return FString::Printf(TEXT("%s at %s"), SeverityText, *DescribePositionAndProblem());
+}
+
+FString FCambrianaDiagnostic::DescribePositionAndProblem() const
+{
 	if (ProductionPosition)
 	{
-		return FString::Printf(TEXT("%s at production position %llu: %s"), SeverityText, *ProductionPosition, DescribeCode(Code));
+		return FString::Printf(TEXT("production position %llu: %s"), *ProductionPosition, DescribeCode(Code));
 	}
-	return FString::Printf(TEXT("%s at line %llu, column %llu: %s"), SeverityText, Line, Column, DescribeCode(Code));
+	return FString::Printf(TEXT("line %llu, column %llu: %s"), Line, Column, DescribeCode(Code));
 }
 
 namespace Cambriana
 {
+	FCambrianaDiagnostic ToDiagnostic(const cambriana_diagnostic& Core)
+	{
+		FCambrianaDiagnostic Diagnostic;
+		Diagnostic.Severity = Core.severity == CAMBRIANA_SEVERITY_ERROR ? ECambrianaDiagnosticSeverity::Error : ECambrianaDiagnosticSeverity::Warning;
+		Diagnostic.Code = ToDiagnosticCode(Core.code);
+		Diagnostic.Line = Core.line;
+		Diagnostic.Column = Core.column;
+		if (Core.production_position != CAMBRIANA_NO_POSITION)
+		{
+			Diagnostic.ProductionPosition = Core.production_position;
+		}
+		return Diagnostic;
+	}
+
 	bool ShouldBuildWithCore(bool bCoreAvailable, std::atomic<bool>& UnavailableLogged)
 	{
 		if (bCoreAvailable)
@@ -364,10 +469,25 @@ namespace Cambriana
 			return Out;
 		}
 
-		const cambriana_build_settings Settings = ToCoreSettings(Input);
+		const ECambrianaGrammarFormat Format = DetectGrammarFormat(Input.GrammarText);
+		const cambriana_build_settings Settings = ToCoreSettings(Input, Format);
 		const FTCHARToUTF8 Text(*Input.GrammarText);
+		FCoreGrammar Model;
+		if (Format == ECambrianaGrammarFormat::Cambriana)
+		{
+			Model.Parse(Text);
+		}
 		cambriana_result* RawResult = nullptr;
-		const cambriana_status Status = cambriana_build_legacy(Text.Get(), static_cast<size_t>(Text.Length()), &Settings, nullptr, &RawResult);
+		cambriana_status Status;
+		if (Format == ECambrianaGrammarFormat::Legacy)
+		{
+			Status = cambriana_build_legacy(Text.Get(), static_cast<size_t>(Text.Length()), &Settings, nullptr, &RawResult);
+		}
+		else
+		{
+			Model.ApplyParameterValues(Input.ParameterValues);
+			Status = cambriana_build_grammar_model(Model.Get(), nullptr, &Settings, nullptr, &RawResult);
+		}
 		const FCoreResult Result(RawResult);
 		if (Status != CAMBRIANA_OK || !Result.Get())
 		{
@@ -376,12 +496,58 @@ namespace Cambriana
 		}
 
 		ReadReport(Result.Get(), Out.Report);
+		ReadSettingsUsed(Model.GetStatedSettings(), Input.Settings, Settings, Out.Report);
 		LogBuildReport(Out.Report);
 		if (!Out.Report.bHasErrors)
 		{
 			WriteMesh(Result.Get(), Out);
 		}
 		return Out;
+	}
+
+	TArray<FCambrianaParameter> ReadParameters(const FString& GrammarText, TConstArrayView<FCambrianaParameterValue> StoredValues)
+	{
+		const ECambrianaGrammarFormat Format = DetectGrammarFormat(GrammarText);
+		if (Format != ECambrianaGrammarFormat::Cambriana || GrammarText.IsEmpty() || !FCambrianaModule::IsCoreAvailable())
+		{
+			return {};
+		}
+		const FTCHARToUTF8 Text(*GrammarText);
+		FCoreGrammar Model;
+		Model.Parse(Text);
+		const TArray<FCambrianaParameter> InText = Model.ReadParameters();
+		Model.ApplyParameterValues(StoredValues);
+		TArray<FCambrianaParameter> Parameters = Model.ReadParameters();
+		for (int32 Index = 0; Index < Parameters.Num(); ++Index)
+		{
+			FCambrianaParameter& Parameter = Parameters[Index];
+			Parameter.TextValue = InText.IsValidIndex(Index) ? InText[Index].Value : Parameter.Value;
+			Parameter.bStored = StoredValues.ContainsByPredicate([&Parameter](const FCambrianaParameterValue& Stored)
+			{
+				return Stored.Name.Equals(Parameter.Name, ESearchCase::CaseSensitive);
+			});
+		}
+		return Parameters;
+	}
+
+	FCambrianaStatedSettings ReadStatedSettings(const FString& GrammarText)
+	{
+		FCambrianaStatedSettings Out;
+		if (GrammarText.IsEmpty() || !FCambrianaModule::IsCoreAvailable())
+		{
+			return Out;
+		}
+		const ECambrianaGrammarFormat Format = DetectGrammarFormat(GrammarText);
+		const FTCHARToUTF8 Text(*GrammarText);
+		if (Format == ECambrianaGrammarFormat::Legacy)
+		{
+			ReadLegacyHeader(Text, Out);
+			return Out;
+		}
+
+		FCoreGrammar Model;
+		Model.Parse(Text);
+		return Model.GetStatedSettings();
 	}
 
 	int32 PreviewPaletteIndex(int64 MaterialId)

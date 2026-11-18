@@ -1,5 +1,6 @@
 #include "ActorFactoryCambrianaGrammar.h"
 #include "AssetSelection.h"
+#include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarFactory.h"
 #include "CambrianaLiveActor.h"
@@ -16,51 +17,11 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-namespace
-{
-	UCambrianaGrammar* CreateGrammarWithFactory()
-	{
-		UCambrianaGrammarFactory* Factory = NewObject<UCambrianaGrammarFactory>();
-		return Cast<UCambrianaGrammar>(Factory->FactoryCreateNew(UCambrianaGrammar::StaticClass(), GetTransientPackage(),
-			MakeUniqueObjectName(GetTransientPackage(), UCambrianaGrammar::StaticClass()), RF_Transactional, nullptr, nullptr));
-	}
-
-	TSharedPtr<IPropertyHandle> FindPropertyHandle(const TArray<TSharedRef<IDetailTreeNode>>& Nodes, FName PropertyName)
-	{
-		for (const TSharedRef<IDetailTreeNode>& Node : Nodes)
-		{
-			const TSharedPtr<IPropertyHandle> Handle = Node->CreatePropertyHandle();
-			if (Handle && Handle->GetProperty() && Handle->GetProperty()->GetFName() == PropertyName)
-			{
-				return Handle;
-			}
-			TArray<TSharedRef<IDetailTreeNode>> Children;
-			Node->GetChildren(Children, true);
-			if (TSharedPtr<IPropertyHandle> Found = FindPropertyHandle(Children, PropertyName))
-			{
-				return Found;
-			}
-		}
-		return nullptr;
-	}
-
-	ACambrianaLiveActor* PlaceInCurrentLevel(UCambrianaGrammar* Grammar)
-	{
-		UE::AssetPlacementUtil::FExtraPlaceAssetOptions Options;
-		Options.bSelectOutput = false;
-		const TArray<FTypedElementHandle> Placed = UE::AssetPlacementUtil::PlaceAssetInCurrentLevel(Grammar, Options);
-		return Placed.Num() == 1 ? Cast<ACambrianaLiveActor>(ActorElementDataUtil::GetActorFromHandle(Placed[0])) : nullptr;
-	}
-
-	void EditProperty(UObject* Object, FName PropertyName, TFunctionRef<void()> Change)
-	{
-		FProperty* Property = Object->GetClass()->FindPropertyByName(PropertyName);
-		Object->PreEditChange(Property);
-		Change();
-		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
-		Object->PostEditChangeProperty(Event);
-	}
-}
+using Cambriana::Editor::Tests::CreateGrammarWithFactory;
+using Cambriana::Editor::Tests::FindPropertyHandle;
+using Cambriana::Editor::Tests::PlaceInCurrentLevel;
+using Cambriana::Editor::Tests::MakeRows;
+using Cambriana::Editor::Tests::EditProperty;
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarFactoryNewAssetTest,
 	"Cambriana.Editor.GrammarFactory.NewAssetHasDefaultGrammarAndGeneratedSeed",
@@ -78,7 +39,7 @@ bool FCambrianaGrammarFactoryNewAssetTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("New asset holds the default legacy grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
+	TestEqualSensitive(TEXT("New asset holds the default grammar"), First->GrammarText, FString(UCambrianaGrammarFactory::DefaultGrammarText));
 	TestNotEqual(TEXT("Two new assets get different seeds"), First->Seed, Second->Seed);
 	return true;
 }
@@ -115,7 +76,7 @@ bool FCambrianaDragGrammarIntoLevelTest::RunTest(const FString& Parameters)
 	if (TestNotNull(TEXT("The placed element is a live actor"), Actor))
 	{
 		TestTrue(TEXT("The live actor references the dropped grammar"), Actor->Grammar == Grammar);
-		TestEqual(TEXT("The live actor was built from the grammar's text"), Actor->GetLastBuildInput().GrammarText, Grammar->GrammarText);
+		TestEqualSensitive(TEXT("The live actor was built from the grammar's text"), Actor->GetLastBuildInput().GrammarText, Grammar->GrammarText);
 		Actor->GetWorld()->EditorDestroyActor(Actor, false);
 	}
 	return true;
@@ -241,9 +202,7 @@ bool FCambrianaNewSeedButtonTest::RunTest(const FString& Parameters)
 	First->Seed = 1;
 	Second->Seed = 1;
 
-	FPropertyEditorModule& PropertyEditor = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
-	const TSharedRef<IPropertyRowGenerator> Rows = PropertyEditor.CreatePropertyRowGenerator(FPropertyRowGeneratorArgs());
-	Rows->SetObjects({ First, Second });
+	const TSharedRef<IPropertyRowGenerator> Rows = MakeRows({ First, Second });
 	const TSharedPtr<IPropertyHandle> SeedHandle = FindPropertyHandle(Rows->GetRootTreeNodes(), GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed));
 	if (!TestTrue(TEXT("Seed property found"), SeedHandle.IsValid()))
 	{
@@ -255,6 +214,41 @@ bool FCambrianaNewSeedButtonTest::RunTest(const FString& Parameters)
 	TestNotEqual(TEXT("First seed changed"), First->Seed, 1u);
 	TestNotEqual(TEXT("Second seed changed"), Second->Seed, 1u);
 	TestNotEqual(TEXT("Each object got its own seed"), First->Seed, Second->Seed);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaPlacedActorSettingsFromGrammarTest,
+	"Cambriana.Editor.PlacedLiveActorStartsSettingsFromTheTextThenTheAsset",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaPlacedActorSettingsFromGrammarTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
+	if (!TestNotNull(TEXT("Grammar created"), Grammar))
+	{
+		return false;
+	}
+	Grammar->GrammarText = TEXT("generations 3\nangle 40\nsides 3\naxiom A\n\ngrow {\n    A -> F A\n}\n");
+	Grammar->SizeMode = ECambrianaSizeMode::Step;
+	Grammar->SizeValue = 10.0;
+	Grammar->Sides = 5;
+	Grammar->bClosedForm = false;
+	Grammar->MinThickness = 20.0;
+
+	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Grammar);
+	if (!TestNotNull(TEXT("A live actor was placed"), Actor))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Recursion is the text's"), Actor->Recursion, 3.0);
+	TestEqual(TEXT("Basic angle is the text's"), Actor->BasicAngle, 40.0);
+	TestEqual(TEXT("Thickness is the default"), Actor->Thickness, 50.0);
+	TestTrue(TEXT("Size mode is the asset's"), Actor->SizeMode == ECambrianaSizeMode::Step);
+	TestEqual(TEXT("Size value is the asset's"), Actor->SizeValue, 10.0);
+	TestEqual(TEXT("Sides are the text's"), Actor->Sides, 3);
+	TestFalse(TEXT("Closed form is the asset's"), Actor->bClosedForm);
+	TestEqual(TEXT("Min thickness is the asset's"), Actor->MinThickness, 20.0);
+	Actor->GetWorld()->EditorDestroyActor(Actor, false);
 	return true;
 }
 

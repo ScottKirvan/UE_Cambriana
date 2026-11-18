@@ -94,3 +94,9 @@ thickness. Consecutive short bones may merge into one capsule.
 
 For AR-02 ([SRS.md](SRS.md)): a pruned branch removes its bones
 and all descendants; bone indices of the remaining tree are compacted and names are kept.
+
+## Bake skeleton
+
+- **Decided:** one synthetic `Root` bone parents the generated bone tree.
+- **Decided:** the bind pose is the grammar's own parameter values, until pose parameters
+  (M5).
