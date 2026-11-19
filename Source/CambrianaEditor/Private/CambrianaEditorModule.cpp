@@ -1,3 +1,4 @@
+#include "CambrianaBake.h"
 #include "CambrianaEditorCategory.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarCustomization.h"
@@ -9,6 +10,7 @@
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
+#include "ToolMenus.h"
 
 class FCambrianaEditorModule : public IModuleInterface
 {
@@ -29,11 +31,14 @@ public:
 		{
 			FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &FCambrianaEditorModule::RegisterPlacementCategory);
 		}
+		UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FCambrianaEditorModule::RegisterMenus));
 	}
 
 	virtual void ShutdownModule() override
 	{
 		FCoreDelegates::GetOnPostEngineInit().RemoveAll(this);
+		UToolMenus::UnRegisterStartupCallback(this);
+		UToolMenus::UnregisterOwner(this);
 		if (IPlacementModeModule::IsAvailable())
 		{
 			IPlacementModeModule::Get().UnregisterPlacementCategory(Cambriana::Editor::BojuStudiosCategoryName);
@@ -49,6 +54,12 @@ public:
 	}
 
 private:
+	void RegisterMenus()
+	{
+		FToolMenuOwnerScoped Owner(this);
+		Cambriana::Editor::AddBakeMenuEntry();
+	}
+
 	void RegisterPlacementCategory()
 	{
 		if (!GIsEditor || IsRunningCommandlet())
