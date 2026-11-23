@@ -6,12 +6,14 @@ outline: [2, 3]
 
 Bake turns a grammar into standard engine assets. Nothing Cambriana-specific is needed to use them: place them, assign materials and animate them like any imported mesh.
 
-There are three ways to bake:
+There are four ways to bake:
 
 | From | Writes | Built from |
 |---|---|---|
 | A grammar asset's right-click **Bake to Static Mesh** | A static mesh | The grammar asset's saved state |
 | A grammar asset's right-click **Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The grammar asset's saved state |
+| The grammar editor's toolbar **Bake > Bake to Static Mesh** | A static mesh | The grammar asset's saved state |
+| The grammar editor's toolbar **Bake > Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The grammar asset's saved state |
 | A live actor's Details **Bake** button | A static mesh | That actor's own settings, overrides and seed |
 
 ## Baking a grammar asset
@@ -24,7 +26,7 @@ Bake builds the grammar as the grammar editor's preview does: with the asset's t
 
 Both choices write from what is saved on disk. When the grammar asset has unsaved changes, or has never been saved, the bake first shows the engine's save prompt. If the asset is not saved there, nothing is baked.
 
-Edits still open in the grammar editor are not part of the asset until the editor saves them. Save in the grammar editor before baking.
+Edits still open in the grammar editor are not part of the asset until the editor saves them. Baking from the right-click menu leaves them out. Baking from the grammar editor's toolbar asks whether to save them first: **Yes** saves them and bakes the saved grammar, and **No** bakes nothing.
 
 ### Where the assets go
 

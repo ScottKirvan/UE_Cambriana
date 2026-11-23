@@ -36,6 +36,12 @@ A change in Details rebuilds the preview.
 
 **Outputs** is an empty tab.
 
+## Bake
+
+The editor toolbar's **Bake** button opens a menu with **Bake to Static Mesh** and **Bake to Skeletal Mesh**. Each writes the same assets as the grammar asset's right-click choice of the same name; see [Baking](./baking).
+
+Bake writes from the saved asset, not from the working copy. When you have unsaved edits, the editor asks "Save your changes to `<asset>` first?" **Yes** saves as Save does, then bakes the saved grammar. **No** bakes nothing and leaves the asset and your edits as they are. With no unsaved edits, Bake runs at once.
+
 ## Saving
 
 **Save** (the editor toolbar's Save button, **Ctrl+S**, or **File > Save**) copies the working copy into the asset and saves the asset's package. Live actors that reference the asset rebuild once the save completes. When the save does not complete, because it was cancelled or failed, the asset keeps its previous values and the editor keeps your edits.
