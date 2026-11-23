@@ -64,7 +64,7 @@ Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-c
 |---|---|---|
 | ATS-80 | Given `sk.ls`, when baked, then the physics asset has 80 bodies, one capsule each, and 76 constraints, each joining a bone's body to its parent bone's body; the bodies on the 4 children of `Root` have none. | FR-20 |
 | ATS-81 | Given a straight run of bones baked with Physics Stiffness 0, laid level with its first body kinematic, when simulated under gravity, then the run bends down at its joints: its last body drops more than one bone length and the run stays joined. | FR-20 |
-| ATS-82 | Given the same run baked with a very high Physics Stiffness, when simulated the same way, then its last body stays within 1 cm of its bind pose. | FR-20 |
+| ATS-82 | Given the same run baked with a very high Physics Stiffness and placed with the component's position solver iterations at 32, when simulated the same way, then its last body stays within 1 cm of its bind pose. | FR-20 |
 
 ## Pose and growth
 

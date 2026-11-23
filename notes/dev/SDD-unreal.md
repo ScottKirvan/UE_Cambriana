@@ -105,6 +105,10 @@ display baked results.
   `FPhysicsAssetUtils::CreateFromSkeletalMesh` does. A rebake empties its bodies and
   constraints first, as the physics asset editor does before regenerating all bodies
   (`PhysicsAssetEditor.cpp`), and rebuilds the same object.
+- `[Proposed — unconfirmed]` Each baked body overrides the solver's iteration counts, so the
+  placed skeletal mesh component's Position Solver Iteration Count applies to every body:
+  `USkeletalMeshComponent::InitArticulated` copies the component's counts but not the override
+  flag (`SkeletalMeshComponentPhysics.cpp`, lines 1029 and 1043–1045; SDD-rigging.md, Physics).
 - `[Proposed — unconfirmed]` A grammar with errors, or one that builds no triangles (empty
   text included), or whose bone tree makes no reference skeleton (a parent after its child, or
   two bones of one name), bakes nothing and leaves an existing baked mesh unchanged; after the

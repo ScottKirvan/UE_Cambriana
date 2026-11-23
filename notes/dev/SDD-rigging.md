@@ -112,6 +112,12 @@ grammar asset (`FCambrianaBakeSettings`), scales the whole mesh.
   `FConstraintDrive`'s default stiffness 50 and damping 1 (`ConstraintDrives.cpp`).
 - `[Proposed — unconfirmed]` A body without a constraint, one with no body above it, has no
   drive, as the root body of `FPhysicsAssetUtils::CreateFromSkeletalMesh` has none.
+- `[Proposed — unconfirmed]` Each body overrides the solver's iteration counts
+  (`bOverrideIterationCounts` on its `DefaultInstance`), leaving the counts at
+  `FBodyInstance`'s defaults. `USkeletalMeshComponent::InitArticulated`
+  (`SkeletalMeshComponentPhysics.cpp`, lines 1029 and 1043–1045) copies each body's settings
+  from the physics asset, then only the counts from the component, so the placed component's
+  Position Solver Iteration Count reaches the bodies only with the override on (ATS-82).
 
 ## Rig controls
 
