@@ -80,6 +80,7 @@ Layout `[Proposed — unconfirmed]`:
 | `Source/Cambriana/Private/Tests/Fixtures/` | Byte-exact legacy `.ls` fixtures (`sk.ls`, `TREE11.LS`), kept out of line-ending conversion by `.gitattributes` `[Proposed — unconfirmed]` |
 | `Source/ThirdParty/CambrianaCore/` | External module: delivered core headers, libraries and stamps; written by CambrianaCore `scripts/deliver.cmake`, never edited by hand except `CambrianaCore.Build.cs` |
 | `docs/grammar-guide.md`, `docs/grammar-spec.md` | `.lsys` guide for grammar authors and formal specification; update with the format |
+| `docs/unreal/` | Unreal user guide for plugin users and technical artists: `getting-started.md`, `grammar-assets.md` (create, import, reimport, export, settings, parameters), `grammar-editor.md`, `live-actor.md`, `baking.md` (outputs, naming, rebake, skeleton, physics asset, static mesh, live actor Bake), `data-channels.md`; listed in `docs/.vitepress/config.mts`; update with user-facing editor behaviour `[Proposed — unconfirmed]` |
 | `scripts/New-BaseProject.ps1` | Creates the base project |
 | `scripts/Test-NoExperimentalDependencies.ps1` | ATS-05 check; fixture tests in `scripts/tests/` |
 
@@ -341,6 +342,8 @@ any per-machine agent memory that disagrees.
   it did that you didn't expect.
 - Bug fixes aren't part of a milestone. File them as issues (and test-harness work as a
   general issue) unless the author says otherwise.
+- User docs in `docs/` carry no beta, unimplemented or not-yet language: everything is a draft
+  until release, so they describe the format and behaviour plainly.
 
 ### Unreal behaviour
 
