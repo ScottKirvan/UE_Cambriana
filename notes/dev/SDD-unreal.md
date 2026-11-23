@@ -18,8 +18,9 @@ display baked results.
 | Control Rig | Shared rig shipped in the plugin's `Content/`; standalone copies written on request |
 
 - Baked assets are written to a folder beside the grammar asset.
-- Bake writes from the grammar asset's saved state. With unsaved edits in the
-  grammar editor, Bake asks to save first.
+- Bake always bakes the grammar's current state, saved or not, and saves nothing but its
+  outputs. In the grammar editor it bakes the editor's current edits and leaves them unsaved, as
+  the material editor's Apply applies edits without saving them.
 - Bake has two choices: **Bake to Static Mesh** writes a static mesh, and **Bake to Skeletal
   Mesh** writes a skeletal mesh, skeleton and physics asset.
 - Both choices are offered on the grammar asset's right-click menu and in the grammar
@@ -29,7 +30,7 @@ display baked results.
   (SDD-rigging.md, Physics).
 - **Reimport** is the standard right-click Reimport on a baked skeletal or static
   mesh, with the grammar asset recorded as its source. It rebuilds the asset in place from the
-  grammar's current saved state; references to it remain valid, and the mesh's stored
+  grammar's current state; references to it remain valid, and the mesh's stored
   definition is updated. A change to the bone tree replaces the skeleton in place.
 - **Detach** is a right-click item on a baked mesh that removes its link to its
   grammar. A detached mesh is not offered Reimport and is not listed in the grammar's
@@ -44,10 +45,10 @@ display baked results.
   Static Mesh` and `Bake to Skeletal Mesh` of a `Bake` combo button on the editor's toolbar, in
   a section after Asset, as the static mesh editor's toolbar offers its Reimport and Collision
   choices (`StaticMeshEditor.cpp`, `ExtendToolBar`: `FToolMenuEntry::InitComboButton` on
-  `AssetEditor.StaticMeshEditor.ToolBar`, with the menu registered by name). With unsaved edits
-  the editor asks "Save your changes to <asset> first?" (Yes/No) through the unsaved edits
-  prompt; Yes saves through the editor's Save and bakes the saved asset through
-  `Cambriana::Editor::BakeGrammar`, No bakes nothing. Bake never reads the working copy.
+  `AssetEditor.StaticMeshEditor.ToolBar`, with the menu registered by name). Bake applies a
+  pending Rules edit, then bakes the working copy's state through the same bake path as the
+  right-click menu, with the outputs beside the asset, named after it and linked to it. It asks
+  nothing about saving; the asset and the editor's unsaved edits stay as they were.
 - `[Proposed — unconfirmed]` The folder beside the grammar asset is named after it: a grammar
   `/Game/Trees/Fern` bakes `/Game/Trees/Fern/SM_Fern`.
 - `[Proposed — unconfirmed]` The two choices are the `Bake to Static Mesh` and `Bake to
@@ -55,11 +56,10 @@ display baked results.
   right-click menu, labelled in title case as the engine's menu entries are. Each bakes every
   selected grammar and shows a notification for each, and asks before rebuilding only the
   existing outputs it writes; reasons are logged to `LogCambrianaBake`.
-- `[Proposed — unconfirmed]` A grammar asset without a saved state (its package has unsaved
-  changes or was never saved) is first offered to the engine's save prompt
-  (`FEditorFileUtils::PromptForCheckoutAndSave`); when it is not saved, nothing is baked.
-  Unsaved grammar editor edits are in the working copy, not the asset, and are not baked. The
-  baked assets' packages are saved without a prompt.
+- `[Proposed — unconfirmed]` The right-click Bake bakes the grammar asset as it is in memory,
+  unsaved changes included, and a grammar asset never saved. Unsaved grammar editor edits are in
+  the working copy, not the asset, so the right-click Bake leaves them out. The baked assets'
+  packages are saved without a prompt.
 - `[Proposed — unconfirmed]` The static mesh is built in the runtime module
   (`Cambriana::SetStaticMeshFromBuild`) from the result of `Cambriana::BuildMesh` with the
   build input of a live actor referencing the grammar with every override off and the
@@ -146,8 +146,7 @@ display baked results.
   (`ObjectTools::SanitizeObjectName`).
 - `[Proposed — unconfirmed]` The live actor's Details Bake shares the grammar Bake's refusal of
   an asset of another class, nothing baked for errors or no triangles, and saving without a
-  prompt. A grammar asset without a saved state is first offered to the engine's save prompt;
-  when it is not saved, nothing is baked and the dialog does not show. The grammar's own bake
+  prompt. The grammar's own bake
   settings do not apply. The grammar right-click Bake keeps its fixed location and its own
   overwrite question.
 - Each variant (seed, axiom) gets its own skeleton.
