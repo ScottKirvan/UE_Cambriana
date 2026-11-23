@@ -1,8 +1,13 @@
 #pragma once
 
+#include "AssetSelection.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "CoreMinimal.h"
 #include "DynamicMesh/DynamicMesh3.h"
+#include "Elements/Actor/ActorElementData.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "StaticMeshResources.h"
 
 namespace Cambriana::Editor::Tests
@@ -90,6 +95,50 @@ namespace Cambriana::Editor::Tests
 			for (int32 Corner = 0; Corner < 3; ++Corner)
 			{
 				Triangle.Corners[Corner] = FVector3d(Positions.VertexPosition(Indices[Index + Corner]));
+			}
+		}
+		return Triangles;
+	}
+
+	/** The actor the engine places in the current level for Asset, as a drag from the Content Browser does; null unless it is an ActorType. */
+	template <typename ActorType>
+	ActorType* PlaceAsset(UObject* Asset)
+	{
+		UE::AssetPlacementUtil::FExtraPlaceAssetOptions Options;
+		Options.bSelectOutput = false;
+		const TArray<FTypedElementHandle> Placed = UE::AssetPlacementUtil::PlaceAssetInCurrentLevel(Asset, Options);
+		return Placed.Num() == 1 ? Cast<ActorType>(ActorElementDataUtil::GetActorFromHandle(Placed[0])) : nullptr;
+	}
+
+	/** The triangles of the placed skeletal mesh's LOD 0, skinned on the CPU at its pose, in the space of the frame given. */
+	inline TArray<FMeshTriangle> SkinnedTrianglesOf(USkeletalMeshComponent& Component, const FTransform& Frame)
+	{
+		TArray<FMeshTriangle> Triangles;
+		const FSkeletalMeshRenderData* RenderData = Component.GetSkeletalMeshAsset() ? Component.GetSkeletalMeshAsset()->GetResourceForRendering() : nullptr;
+		if (!RenderData || RenderData->LODRenderData.IsEmpty())
+		{
+			return Triangles;
+		}
+		const FSkeletalMeshLODRenderData& Lod = RenderData->LODRenderData[0];
+		if (Component.GetComponentSpaceTransforms().Num() != Component.GetSkeletalMeshAsset()->GetRefSkeleton().GetNum())
+		{
+			// A placed skeletal mesh component poses itself when it ticks; the test does not tick, so it poses it now.
+			Component.RefreshBoneTransforms();
+		}
+		TArray<FMatrix44f> RefToLocals;
+		Component.CacheRefToLocalMatrices(RefToLocals);
+		TArray<FVector3f> Positions;
+		USkinnedMeshComponent::ComputeSkinnedPositions(&Component, Positions, RefToLocals, Lod, Lod.SkinWeightVertexBuffer);
+		TArray<uint32> Indices;
+		Lod.MultiSizeIndexContainer.GetIndexBuffer(Indices);
+		const FTransform& ToWorld = Component.GetComponentTransform();
+		for (int32 Index = 0; Index + 2 < Indices.Num(); Index += 3)
+		{
+			FMeshTriangle& Triangle = Triangles.AddDefaulted_GetRef();
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
+				const FVector3d World = ToWorld.TransformPosition(FVector3d(Positions[Indices[Index + Corner]]));
+				Triangle.Corners[Corner] = Frame.InverseTransformPosition(World);
 			}
 		}
 		return Triangles;

@@ -16,48 +16,6 @@ using namespace Cambriana::Editor::Tests;
 
 namespace
 {
-	ASkeletalMeshActor* PlaceSkeletalMesh(USkeletalMesh* Mesh)
-	{
-		UE::AssetPlacementUtil::FExtraPlaceAssetOptions Options;
-		Options.bSelectOutput = false;
-		const TArray<FTypedElementHandle> Placed = UE::AssetPlacementUtil::PlaceAssetInCurrentLevel(Mesh, Options);
-		return Placed.Num() == 1 ? Cast<ASkeletalMeshActor>(ActorElementDataUtil::GetActorFromHandle(Placed[0])) : nullptr;
-	}
-
-	/** The triangles of the placed skeletal mesh's LOD 0, skinned on the CPU at its pose, in the space of the frame given. */
-	TArray<FMeshTriangle> SkinnedTrianglesOf(USkeletalMeshComponent& Component, const FTransform& Frame)
-	{
-		TArray<FMeshTriangle> Triangles;
-		const FSkeletalMeshRenderData* RenderData = Component.GetSkeletalMeshAsset() ? Component.GetSkeletalMeshAsset()->GetResourceForRendering() : nullptr;
-		if (!RenderData || RenderData->LODRenderData.IsEmpty())
-		{
-			return Triangles;
-		}
-		const FSkeletalMeshLODRenderData& Lod = RenderData->LODRenderData[0];
-		if (Component.GetComponentSpaceTransforms().Num() != Component.GetSkeletalMeshAsset()->GetRefSkeleton().GetNum())
-		{
-			// A placed skeletal mesh component poses itself when it ticks; the test does not tick, so it poses it now.
-			Component.RefreshBoneTransforms();
-		}
-		TArray<FMatrix44f> RefToLocals;
-		Component.CacheRefToLocalMatrices(RefToLocals);
-		TArray<FVector3f> Positions;
-		USkinnedMeshComponent::ComputeSkinnedPositions(&Component, Positions, RefToLocals, Lod, Lod.SkinWeightVertexBuffer);
-		TArray<uint32> Indices;
-		Lod.MultiSizeIndexContainer.GetIndexBuffer(Indices);
-		const FTransform& ToWorld = Component.GetComponentTransform();
-		for (int32 Index = 0; Index + 2 < Indices.Num(); Index += 3)
-		{
-			FMeshTriangle& Triangle = Triangles.AddDefaulted_GetRef();
-			for (int32 Corner = 0; Corner < 3; ++Corner)
-			{
-				const FVector3d World = ToWorld.TransformPosition(FVector3d(Positions[Indices[Index + Corner]]));
-				Triangle.Corners[Corner] = Frame.InverseTransformPosition(World);
-			}
-		}
-		return Triangles;
-	}
-
 	/** ATS-42: bakes the fixture grammar, places its skeletal mesh and a live actor from it; the skinned bind pose must match the actor. */
 	void TestBindPoseMatchesPlacedActor(FAutomationTestBase& Test, const TCHAR* AssetName, const TCHAR* Label, const FString& GrammarText)
 	{
@@ -68,7 +26,7 @@ namespace
 		{
 			return;
 		}
-		ASkeletalMeshActor* Baked = PlaceSkeletalMesh(Fixture.FindSkeletalMesh());
+		ASkeletalMeshActor* Baked = PlaceAsset<ASkeletalMeshActor>(Fixture.FindSkeletalMesh());
 		ACambrianaLiveActor* Live = PlaceInCurrentLevel(Fixture.Grammar);
 		if (Test.TestNotNull(TEXT("The baked skeletal mesh is placed"), Baked) && Test.TestNotNull(TEXT("A live actor is placed from the grammar"), Live))
 		{
