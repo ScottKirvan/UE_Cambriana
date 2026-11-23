@@ -4,7 +4,9 @@
 #include "CambrianaStaticMesh.h"
 #include "CambrianaTestUtilities.h"
 #include "Engine/SkeletalMesh.h"
+#include "MeshDescription.h"
 #include "Misc/AutomationTest.h"
+#include "Rendering/SkeletalMeshLODModel.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 
@@ -256,6 +258,44 @@ bool FCambrianaSkeletalMeshFromBuildTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The mesh has vertices"), Vertices > 0);
 	TestEqual(TEXT("Every vertex is bound at full weight to one bone of the tree"), NotOneBone, 0);
 	TestEqual(TEXT("Every vertex is on the tube of its bone"), OffTheBone, 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaSkeletalMeshRebuildOneLodTest,
+	"Cambriana.SkeletalMesh.RebuildingASkeletalMeshWithASecondLodLeavesItWithOneLod",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaSkeletalMeshRebuildOneLodTest::RunTest(const FString& Parameters)
+{
+	const FCambrianaBuildResult Result = BuildSk();
+	USkeletalMesh* Mesh = NewObject<USkeletalMesh>(GetTransientPackage(), NAME_None, RF_Transient);
+	USkeleton* Skeleton = NewObject<USkeleton>(GetTransientPackage(), NAME_None, RF_Transient);
+	if (!TestTrue(TEXT("The skeletal mesh is made"), Cambriana::SetSkeletalMeshFromBuild(*Mesh, *Skeleton, Result)))
+	{
+		return false;
+	}
+	// A second LOD added as Geometry Script's CopyMeshToSkeletalMesh adds one past the last (MeshAssetFunctions.cpp), a copy of LOD 0.
+	Mesh->PreEditChange(nullptr);
+	Mesh->AddLODInfo();
+	Mesh->GetImportedModel()->LODModels.Add(new FSkeletalMeshLODModel);
+	FMeshDescription Copy = *Mesh->GetMeshDescription(0);
+	Mesh->CreateMeshDescription(1, MoveTemp(Copy));
+	Mesh->CommitMeshDescription(1);
+	Mesh->PostEditChange();
+	if (!TestEqual(TEXT("The mesh has two LODs before the rebuild"), Mesh->GetLODNum(), 2))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("The skeletal mesh is rebuilt"), Cambriana::SetSkeletalMeshFromBuild(*Mesh, *Skeleton, Result)))
+	{
+		return false;
+	}
+	// SDD-unreal.md: the skeletal mesh has one LOD.
+	TestEqual(TEXT("The rebuilt mesh has one LOD"), Mesh->GetLODNum(), 1);
+	TestEqual(TEXT("It has one LOD model"), Mesh->GetImportedModel()->LODModels.Num(), 1);
+	const FSkeletalMeshRenderData* RenderData = Mesh->GetResourceForRendering();
+	TestEqual(TEXT("It renders one LOD"), RenderData ? RenderData->LODRenderData.Num() : 0, 1);
 	return true;
 }
 #endif
