@@ -8,15 +8,11 @@
 
 class UAssetImportData;
 
-/** What Bake writes besides the skeletal mesh, skeleton and physics asset, and how stiff the physics asset is. */
+/** How stiff Bake to Skeletal Mesh makes the physics asset. */
 USTRUCT()
 struct FCambrianaBakeSettings
 {
 	GENERATED_BODY()
-
-	/** Also write a static mesh, SM_<grammar asset name>. */
-	UPROPERTY(EditAnywhere, Category = "Bake")
-	bool bStaticMesh = false;
 
 	/**
 	 * Scales the whole plant's stiffness: each physics body's drive back to its bind pose has this times radius^4 / length of the
