@@ -284,12 +284,11 @@ bool FCambrianaInlineLiveActorBakeTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeUnsavedGrammarTest,
-	"Cambriana.Editor.Bake.LiveActorBakeWithAGrammarWhoseSaveIsCancelledBakesNothing",
+	"Cambriana.Editor.Bake.LiveActorBakeWithANeverSavedGrammarBakesWithoutSavingIt",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaLiveActorBakeUnsavedGrammarTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("the grammar is not saved; nothing is baked"), ELogVerbosity::Warning);
 	FBakeFixture Fixture(TEXT("ActorBakeUnsaved"));
 	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Fixture.Grammar);
 	if (!TestNotNull(TEXT("A live actor is placed from the grammar"), Actor))
@@ -297,15 +296,17 @@ bool FCambrianaLiveActorBakeUnsavedGrammarTest::RunTest(const FString& Parameter
 		return false;
 	}
 	ON_SCOPE_EXIT { DestroyActor(Actor); };
+	const FString MeshPackage = ExpectedActorMeshPackage(Fixture, *Actor);
+	ON_SCOPE_EXIT { RemoveBakedMesh(MeshPackage); };
 	FAnswerBakeLocation Answer(&AcceptDefault);
 
-	// With -unattended the engine's save prompt cancels.
-	const FCambrianaBakeResult Result = Cambriana::Editor::BakeLiveActor(*Actor);
+	const FCambrianaBakeResult Result = BakeWithoutSavePrompt(*Actor);
 
-	TestTrue(TEXT("The bake reports the grammar not saved"), Result.Status == ECambrianaBakeStatus::GrammarNotSaved);
-	TestEqual(TEXT("The location is not asked for"), Answer.Defaults.Num(), 0);
-	TestNull(TEXT("No static mesh is created"), FindObject<UStaticMesh>(nullptr, *ObjectPathOf(ExpectedActorMeshPackage(Fixture, *Actor))));
+	TestTrue(TEXT("The bake succeeds"), Result.Status == ECambrianaBakeStatus::Baked);
+	TestEqual(TEXT("The location is asked for once"), Answer.Defaults.Num(), 1);
+	UStaticMesh* Mesh = FindObject<UStaticMesh>(nullptr, *ObjectPathOf(MeshPackage));
+	TestTrue(TEXT("It matches the actor"), Mesh && MatchTriangles(*Actor->GetDynamicMeshComponent()->GetMesh(), *Mesh).Matches());
+	TestFalse(TEXT("The never-saved grammar is not saved"), IFileManager::Get().FileExists(*PackageFilename(*Fixture.GrammarPackage)));
 	return true;
 }
-
 #endif
