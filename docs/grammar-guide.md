@@ -6,7 +6,7 @@ outline: [2, 3]
 
 A Cambriana grammar is a plain text file, with the extension `.lsys`, that describes how a form grows. Cambriana reads it and builds a rigged mesh from it.
 
-In Unreal, `.lsys` files import as grammar assets and are edited in the grammar editor.
+In Unreal, `.lsys` files import as grammar assets and are edited in the grammar editor. See [Using Cambriana in Unreal](./unreal/getting-started).
 
 ## What is a grammar?
 
