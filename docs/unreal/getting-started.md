@@ -50,7 +50,7 @@ Every live actor that references the asset rebuilds when the asset is saved.
 
 ## 4. Bake
 
-In the Content Browser, right-click the grammar asset and choose **Bake to Static Mesh** or **Bake to Skeletal Mesh**.
+In the Content Browser, right-click the grammar asset and choose **Bake to Static Mesh** or **Bake to Skeletal Mesh**. Bake uses the grammar asset as it is now, so it does not need saving first. The grammar editor's toolbar has the same two choices, which bake the edits open in the editor.
 
 Each writes its assets to a folder named after the grammar, beside it. For `/Game/Fern`:
 
