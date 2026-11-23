@@ -33,13 +33,17 @@ namespace
 		double MaxDeviation = 0.0;
 		/** The most the distance from the first bone's body to the last grew, in cm: a run that comes apart grows. */
 		double MaxStretch = 0.0;
+		/** The position solver iterations the last bone's body runs with, or -1 for the solver's default. */
+		int32 LastBodyPositionIterations = -1;
 	};
 
 	/**
 	 * Places the baked mesh in a preview scene simulating physics, as the physics asset editor's preview does, with the run laid
-	 * level, the first bone's body kinematic, and the rest simulated for Ticks steps under gravity.
+	 * level, the first bone's body kinematic, and the rest simulated for Ticks steps under gravity. PositionIterations above 0 is set
+	 * as the component's Position Solver Iteration Count, which USkeletalMeshComponent::InitArticulated copies to every body
+	 * (SkeletalMeshComponentPhysics.cpp).
 	 */
-	FRunMotion SimulateLevelRun(USkeletalMesh& Mesh, UPhysicsAsset& PhysicsAsset)
+	FRunMotion SimulateLevelRun(USkeletalMesh& Mesh, UPhysicsAsset& PhysicsAsset, int32 PositionIterations)
 	{
 		FRunMotion Motion;
 		const FReferenceSkeleton& Skeleton = Mesh.GetRefSkeleton();
@@ -56,6 +60,11 @@ namespace
 		USkeletalMeshComponent* Component = NewObject<USkeletalMeshComponent>(GetTransientPackage());
 		// The collision profile a placed skeletal mesh actor gives its component (SkeletalMeshActor.cpp); without collision it has no bodies.
 		Component->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
+		if (PositionIterations > 0)
+		{
+			Component->BodyInstance.SetOverrideIterationCounts(true);
+			Component->BodyInstance.SetPositionSolverIterationCount(uint8(PositionIterations));
+		}
 		Component->SetSkeletalMesh(&Mesh);
 		Scene.AddComponent(Component, FTransform::Identity);
 		FBodyInstance* First = Component->GetBodyInstance(FirstBone);
@@ -69,6 +78,7 @@ namespace
 		Component->SetWorldRotation(FQuat::FindBetweenNormals(Along, FVector::XAxisVector), false, nullptr, ETeleportType::TeleportPhysics);
 		const FVector LastStart = Last->GetUnrealWorldTransform().GetLocation();
 		const double BindSpan = FVector::Distance(LastStart, First->GetUnrealWorldTransform().GetLocation());
+		Motion.LastBodyPositionIterations = Last->GetPositionSolverIterationCount();
 
 		Component->SetSimulatePhysics(true);
 		Motion.bSimulated = Component->IsSimulatingPhysics(LastBone) && !Component->IsSimulatingPhysics(FirstBone);
@@ -87,7 +97,7 @@ namespace
 	}
 
 	/** Bakes the run with the Physics Stiffness given and simulates it level; false when it does not bake. */
-	bool BakeAndSimulateRun(FAutomationTestBase& Test, const TCHAR* Name, float Stiffness, FRunMotion& Motion)
+	bool BakeAndSimulateRun(FAutomationTestBase& Test, const TCHAR* Name, float Stiffness, FRunMotion& Motion, int32 PositionIterations = 0)
 	{
 		FBakeFixture Fixture(Name);
 		Fixture.Grammar->GrammarText = RunGrammarText;
@@ -100,7 +110,7 @@ namespace
 		{
 			return false;
 		}
-		Motion = SimulateLevelRun(*Mesh, *PhysicsAsset);
+		Motion = SimulateLevelRun(*Mesh, *PhysicsAsset, PositionIterations);
 		Test.AddInfo(FString::Printf(TEXT("Physics Stiffness %g: the last bone's body dropped at most %.3f cm, moved at most %.3f cm, the run stretched at most %.3f cm"),
 			Stiffness, Motion.MaxDrop, Motion.MaxDeviation, Motion.MaxStretch));
 		return Test.TestTrue(TEXT("The first bone's body is kinematic and the last bone's simulates"), Motion.bSimulated);
@@ -174,10 +184,14 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakePhysicsRunStiffTest,
 bool FCambrianaBakePhysicsRunStiffTest::RunTest(const FString& Parameters)
 {
 	FRunMotion Motion;
-	if (!BakeAndSimulateRun(*this, TEXT("BakePhysicsRunStiff"), 1.0e8f, Motion))
+	// ATS-82: the placed component's Position Solver Iteration Count raised to 32. At the solver's default of 8 the run's joints do
+	// not converge and even locked joints leave the tip about 2 cm low.
+	constexpr int32 PositionIterations = 32;
+	if (!BakeAndSimulateRun(*this, TEXT("BakePhysicsRunStiff"), 1.0e8f, Motion, PositionIterations))
 	{
 		return false;
 	}
+	TestEqual(TEXT("The last bone's body runs the component's position solver iterations"), Motion.LastBodyPositionIterations, PositionIterations);
 	// By hand (SDD-rigging.md, Physics): each capsule is 35.6 cm^3 (pi x 1 x 10 + 4/3 pi), mass (0.0356)^0.75 = 0.082 kg. The first
 	// joint carries four bodies at 5, 15, 25 and 35 cm: torque 0.082 x 980 x 80 = 6400 kg cm^2/s^2. Its drive stiffness is
 	// 1e8 x 1^4 / 10 = 1e7, so it turns about 6400 / 1e7 = 6.4e-4 rad, moving the last body 40 cm out about 0.03 cm; the other joints
