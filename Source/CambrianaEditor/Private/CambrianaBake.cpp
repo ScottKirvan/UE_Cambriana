@@ -87,31 +87,6 @@ namespace
 		return { Status };
 	}
 
-	/**
-	 * Links the mesh to the grammar in its import data, replacing import data of another kind (as
-	 * UFbxStaticMeshImportData::GetImportDataForStaticMesh does). Without a grammar, a link to one is replaced with plain import data
-	 * with no source file, as the Source File row's Clear leaves it (AssetImportDataCustomization.cpp).
-	 */
-	template <typename MeshType>
-	void LinkToGrammar(MeshType& Mesh, const UCambrianaGrammar* Grammar)
-	{
-		UCambrianaAssetImportData* ImportData = UCambrianaAssetImportData::Of(&Mesh);
-		if (!Grammar)
-		{
-			if (ImportData)
-			{
-				Mesh.SetAssetImportData(NewObject<UAssetImportData>(&Mesh, NAME_None, RF_NoFlags));
-			}
-			return;
-		}
-		if (!ImportData)
-		{
-			ImportData = NewObject<UCambrianaAssetImportData>(&Mesh, NAME_None, RF_NoFlags);
-			Mesh.SetAssetImportData(ImportData);
-		}
-		ImportData->SetGrammar(*Grammar);
-	}
-
 	/** An asset a bake writes: its package and class, and the asset already at its name, if any. */
 	struct FOutputToBake
 	{
@@ -226,7 +201,7 @@ namespace
 			Result.Skeleton = Outputs.Skeleton->MakeAsset<USkeleton>();
 			Result.SkeletalMesh = Outputs.SkeletalMesh->MakeAsset<USkeletalMesh>();
 			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build);
-			LinkToGrammar(*Result.SkeletalMesh, Outputs.Grammar);
+			UCambrianaAssetImportData::Link(*Result.SkeletalMesh, Outputs.Grammar);
 			Result.PhysicsAsset = Outputs.PhysicsAsset->MakeAsset<UPhysicsAsset>();
 			Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build, Outputs.PhysicsStiffness);
 			Packages.Add(Result.SkeletalMesh->GetPackage());
@@ -237,7 +212,7 @@ namespace
 		{
 			Result.StaticMesh = Outputs.StaticMesh->MakeAsset<UStaticMesh>();
 			Cambriana::SetStaticMeshFromBuild(*Result.StaticMesh, Build);
-			LinkToGrammar(*Result.StaticMesh, Outputs.Grammar);
+			UCambrianaAssetImportData::Link(*Result.StaticMesh, Outputs.Grammar);
 			Packages.Add(Result.StaticMesh->GetPackage());
 		}
 		for (UPackage* Package : Packages)

@@ -7,6 +7,9 @@
 #include "CambrianaAssetImportData.generated.h"
 
 class UCambrianaGrammar;
+class USkeletalMesh;
+class UStaticMesh;
+struct FAssetData;
 
 /** A baked mesh's link to the grammar asset it was baked from; its source file is the grammar's package file. */
 UCLASS()
@@ -30,4 +33,15 @@ public:
 
 	/** The import data of a static or skeletal mesh, when it is a grammar link; otherwise null. */
 	static UCambrianaAssetImportData* Of(const UObject* Mesh);
+
+	/**
+	 * Links the mesh to the grammar in its import data, replacing import data of another kind (as
+	 * UFbxStaticMeshImportData::GetImportDataForStaticMesh does). Without a grammar, a link to one is replaced with plain import data
+	 * with no source file, as the Source File row's Clear leaves it (AssetImportDataCustomization.cpp).
+	 */
+	static void Link(UStaticMesh& Mesh, const UCambrianaGrammar* Grammar);
+	static void Link(USkeletalMesh& Mesh, const UCambrianaGrammar* Grammar);
+
+	/** The grammar's outputs: the static and skeletal meshes whose grammar link resolves to Grammar, found through the asset registry. */
+	static TArray<FAssetData> FindMeshesLinkedTo(const UCambrianaGrammar& Grammar);
 };
