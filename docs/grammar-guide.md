@@ -6,9 +6,7 @@ outline: [2, 3]
 
 A Cambriana grammar is a plain text file, with the extension `.lsys`, that describes how a form grows. Cambriana reads it and builds a rigged mesh from it.
 
-::: warning Format still being tested
-**The format is still being tested, so names and rules may change.** In Unreal, `.lsys` files import as grammar assets and are edited in the grammar editor. The examples here were checked against the grammar engine directly.
-:::
+In Unreal, `.lsys` files import as grammar assets and are edited in the grammar editor.
 
 ## What is a grammar?
 
@@ -438,7 +436,7 @@ credit "after a tree by a friend"
 axiom F
 ```
 
-**Queries** declare a word whose values something outside the grammar can change between generations, such as how much light reaches a branch. `query Light(amount)` declares `Light` with one value. When nothing answers, it behaves like any other word. Nothing in Unreal answers queries yet.
+**Queries** declare a word whose values something outside the grammar can change between generations, such as how much light reaches a branch. `query Light(amount)` declares `Light` with one value. When nothing answers, it behaves like any other word. In Unreal, nothing answers queries, so a query word builds as an ordinary word.
 
 ```text
 generations 3
@@ -450,9 +448,9 @@ grow {
 }
 ```
 
-## Not available yet
+## Reserved rig hint names
 
-Rig hints (`fk`, `ik`, `pole`, `aim`) are planned. Their names are reserved, and using them today is an error.
+The names `fk`, `ik`, `pole` and `aim` are reserved for rig hints. Using one is an error.
 
 ```text
 axiom F ik(foot)
