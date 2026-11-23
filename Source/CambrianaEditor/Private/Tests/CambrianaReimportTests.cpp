@@ -963,6 +963,43 @@ bool FCambrianaGrammarOutputsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarOutputsWithoutLoadingTest,
+	"Cambriana.Editor.Detach.TheGrammarsOutputsAreFoundWithoutLoadingAMeshThatReferencesTheGrammarButIsImportedFromAnFbxFile",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarOutputsWithoutLoadingTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("OutputsNoLoad"));
+	FBakeFixture Other(TEXT("OutputsNoLoadFbx"));
+	if (!TestTrue(TEXT("The grammar saves"), Save(Fixture.Grammar))
+		|| !TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked)
+		|| !TestTrue(TEXT("The other skeletal mesh bakes"), Other.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	// A skeletal mesh imported from an FBX file whose package references the grammar's, through its soft Default Animating Rig.
+	USkeletalMesh* Referencing = Other.FindSkeletalMesh();
+	SetFbxImportData(*Referencing);
+	Referencing->SetDefaultAnimatingRig(TSoftObjectPtr<UObject>(FSoftObjectPath(Fixture.Grammar)));
+	if (!TestTrue(TEXT("The referencing mesh saves"), Save(Referencing)))
+	{
+		return false;
+	}
+	UnloadedAssetData(Referencing);
+	TArray<FName> Referencers;
+	IAssetRegistry::GetChecked().GetReferencers(FName(*Fixture.GrammarPackage), Referencers);
+	if (!TestTrue(TEXT("The registry lists the FBX mesh's package among the grammar's referencers"), Referencers.Contains(FName(*Other.SkeletalMeshPackage)))
+		|| !TestNull(TEXT("The FBX mesh is not loaded"), FindPackage(nullptr, *Other.SkeletalMeshPackage)))
+	{
+		return false;
+	}
+
+	const TArray<FAssetData> Outputs = UCambrianaAssetImportData::FindMeshesLinkedTo(*Fixture.Grammar);
+	TestTrue(TEXT("The grammar's only output is its static mesh"), Outputs.Num() == 1 && ListsOutput(*Fixture.Grammar, Fixture.FindMesh()));
+	TestNull(TEXT("The FBX mesh is not loaded to decide"), FindPackage(nullptr, *Other.SkeletalMeshPackage));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarOutputsMovedTest,
 	"Cambriana.Editor.Detach.AMovedGrammarsOutputsAreTheMeshesThatReferenceItOnceTheyAreSaved",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
