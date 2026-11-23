@@ -254,7 +254,7 @@ bool FCambrianaReimportStaticMeshTest::RunTest(const FString& Parameters)
 
 	TestTrue(TEXT("The same static mesh object is rebuilt"), Fixture.FindMesh() == Mesh);
 	TestEqual(TEXT("It is rebuilt from the changed len of 50: 15 cm tall"), MeshHeight(Mesh), HeightAtHalfLength, VertexTolerance);
-	TestFalse(TEXT("It is saved, as Bake saves"), Mesh->GetPackage()->IsDirty());
+	// As the engine's FBX reimport, which marks the package dirty and does not save it.
 	ACambrianaLiveActor* Live = PlaceInCurrentLevel(Fixture.Grammar);
 	if (TestNotNull(TEXT("A live actor is placed from the grammar"), Live))
 	{
@@ -308,8 +308,8 @@ bool FCambrianaReimportSkeletalMeshTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The same skeletal mesh object is rebuilt"), Fixture.FindSkeletalMesh() == Mesh);
 	TestTrue(TEXT("It keeps its skeleton, the same object"), Mesh->GetSkeleton() == Skeleton && Fixture.FindSkeleton() == Skeleton);
 	TestTrue(TEXT("It keeps its physics asset, the same object"), Mesh->GetPhysicsAsset() == PhysicsAsset && Fixture.FindPhysicsAsset() == PhysicsAsset);
-	TestFalse(TEXT("The skeletal mesh, skeleton and physics asset are saved, as Bake saves"),
-		Mesh->GetPackage()->IsDirty() || Skeleton->GetPackage()->IsDirty() || PhysicsAsset->GetPackage()->IsDirty());
+	TestTrue(TEXT("The skeletal mesh, skeleton and physics asset are left with unsaved changes"),
+		Mesh->GetPackage()->IsDirty() && Skeleton->GetPackage()->IsDirty() && PhysicsAsset->GetPackage()->IsDirty());
 	TestTrue(TEXT("The placed instance still references the skeletal mesh"), Component->GetSkeletalMeshAsset() == Mesh);
 	// The editor poses a placed component on its next tick; the test does not tick, so it poses it as that tick would.
 	Component->RefreshBoneTransforms();
@@ -550,4 +550,90 @@ bool FCambrianaReimportInterchangeTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+// ATS-43: Reimport rebuilds from the grammar's current state, unsaved changes included.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaReimportCurrentStateTest,
+	"Cambriana.Editor.Reimport.ReimportRebuildsFromTheGrammarsUnsavedChangesWithoutSavingTheGrammar",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaReimportCurrentStateTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("ReimportCurrent"));
+	if (!PrepareShapeGrammar(*this, Fixture) || !TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	UStaticMesh* Mesh = Fixture.FindMesh();
+	Fixture.Edit([](UCambrianaGrammar& Grammar) { SetLength(Grammar, 50.0); });
+	const FDateTime SavedAt = IFileManager::Get().GetTimeStamp(*PackageFilename(*Fixture.GrammarPackage));
+
+	TestTrue(TEXT("Reimport succeeds"), Reimport(Mesh));
+
+	TestEqual(TEXT("The mesh is rebuilt from the unsaved len of 50: 15 cm tall"), MeshHeight(Mesh), HeightAtHalfLength, VertexTolerance);
+	TestTrue(TEXT("The grammar keeps its unsaved changes"), Fixture.Grammar->GetPackage()->IsDirty());
+	TestTrue(TEXT("The grammar's package file is not written"), IFileManager::Get().GetTimeStamp(*PackageFilename(*Fixture.GrammarPackage)) == SavedAt);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeClearsLinkTest,
+	"Cambriana.Editor.Reimport.ALiveActorBakeOverAMeshLinkedToAGrammarClearsItsImportData",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorBakeClearsLinkTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("ReimportActorBake"));
+	if (!TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked)
+		|| !TestNotNull(TEXT("The baked mesh links its grammar"), UCambrianaAssetImportData::Of(Fixture.FindMesh())))
+	{
+		return false;
+	}
+	UStaticMesh* Mesh = Fixture.FindMesh();
+	ACambrianaLiveActor* Actor = PlaceInCurrentLevel(Fixture.Grammar);
+	if (!TestNotNull(TEXT("A live actor is placed from the grammar"), Actor))
+	{
+		return false;
+	}
+	ON_SCOPE_EXIT { DestroyActor(Actor); };
+	Actor->bOverrideSides = true;
+	Actor->Sides = 6;
+	Actor->Rebuild();
+
+	const FString MeshPackage = Fixture.MeshPackage;
+	Cambriana::Editor::FBakeLocationPrompt Previous = Cambriana::Editor::SetBakeLocationPrompt([MeshPackage](const FString&) { return MeshPackage; });
+	ON_SCOPE_EXIT { Cambriana::Editor::SetBakeLocationPrompt(MoveTemp(Previous)); };
+	FCambrianaBakeResult Result;
+	RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeLiveActor(*Actor); });
+
+	TestTrue(TEXT("The live actor bakes over the grammar's static mesh"), Result.Status == ECambrianaBakeStatus::Baked && Result.StaticMesh == Mesh);
+	const UAssetImportData* ImportData = Mesh->GetAssetImportData();
+	// SDD-unreal.md: as Detach does, a plain UAssetImportData with no source file.
+	TestTrue(TEXT("Its import data is a plain UAssetImportData"), ImportData && ImportData->GetClass() == UAssetImportData::StaticClass());
+	TestEqual(TEXT("It has no source file"), ImportData ? ImportData->GetSourceFileCount() : -1, 0);
+	TestTrue(TEXT("The Cambriana reimport factory no longer claims it"), ClaimedFiles(Mesh).IsEmpty());
+	TestTrue(TEXT("The Content Browser reads no source file, so Reimport is disabled"), ContentBrowserSourceFiles(Mesh).IsEmpty());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeLinksAssetTest,
+	"Cambriana.Editor.Reimport.TheGrammarEditorsBakeLinksTheMeshToTheGrammarAssetNotTheWorkingCopy",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaEditorBakeLinksAssetTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("ReimportEditorBake"));
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Fixture.Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		return false;
+	}
+	EditGrammarSides(Toolkit->GetWorkingCopy(), 6);
+	RunWithoutSavePrompt([Toolkit] { Toolkit->Bake(ECambrianaBakeChoice::StaticMesh); });
+
+	const UCambrianaAssetImportData* ImportData = UCambrianaAssetImportData::Of(Fixture.FindMesh());
+	if (TestNotNull(TEXT("The baked mesh links a grammar"), ImportData))
+	{
+		TestTrue(TEXT("The link is the grammar asset"), ImportData->Grammar.ToSoftObjectPath() == FSoftObjectPath(Fixture.Grammar));
+		TestTrue(TEXT("Its source file is the asset's package file"), SameFile(ImportData->GetFirstFilename(), PackageFilename(*Fixture.GrammarPackage)));
+	}
+	return true;
+}
 #endif
