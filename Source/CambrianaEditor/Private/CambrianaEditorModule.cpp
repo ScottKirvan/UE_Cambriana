@@ -1,4 +1,5 @@
 #include "CambrianaBake.h"
+#include "CambrianaDetach.h"
 #include "CambrianaEditorCategory.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarCustomization.h"
@@ -59,6 +60,7 @@ private:
 	{
 		FToolMenuOwnerScoped Owner(this);
 		Cambriana::Editor::AddBakeMenuEntry();
+		Cambriana::Editor::AddDetachMenuEntry();
 		Cambriana::Editor::AddGrammarEditorBakeMenu();
 	}
 
