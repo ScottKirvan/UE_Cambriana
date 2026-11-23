@@ -72,7 +72,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | FR-17 | A PCG node scatters baked variants with per-instance pose values. | US-11 |
 | FR-18 | Packaged games generate rigged, skinned, animatable meshes from a grammar, seed and parameter values on every supported platform. Generation runs off the game thread; the result matches an editor bake of the same inputs within 0.001 cm. | US-12, US-18 |
 | FR-19 | Generated meshes carry data channels for materials ([SDD-surfacing.md](SDD-surfacing.md)). | US-15 |
-| FR-20 | Baking produces a physics asset with one body per bone or merged chain. | US-16 |
+| FR-20 | Baking produces a physics asset with one body per drawn bone. | US-16 |
 | FR-21 | Blob skins and a blob API with a variety of distance-field primitives. Blob primitives are placed and edited in the grammar editor viewport and combine with grown parts into one skinned mesh. | US-14 |
 | FR-22 | Generation, baking and reimport are callable from Blueprint, Python and C++. | US-17 |
 | FR-23 | The plugin credits Lparser by Laurens Lapré. Text in description and About: "Reads Lparser `.ls` files. Lparser by Laurens Lapré." | |

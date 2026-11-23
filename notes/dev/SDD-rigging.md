@@ -66,8 +66,8 @@ bends.
 
 ## Physics
 
-Physics asset: one capsule per bone (length, radius), mass from volume. Consecutive short
-bones may merge into one capsule.
+Physics asset: one body per drawn bone, holding one capsule (length, radius), mass from
+volume.
 
 Stiffness from thickness: each body's constraint has an angular drive that returns the body
 to its bind pose. The drive stiffness follows the beam bending model: proportional to
