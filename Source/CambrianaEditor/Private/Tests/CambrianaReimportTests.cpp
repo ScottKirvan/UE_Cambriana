@@ -173,6 +173,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeRecordsGrammarOnStaticMeshTest,
 bool FCambrianaBakeRecordsGrammarOnStaticMeshTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("RecordStatic"));
+	// A grammar's package file resolves as the source file once it is on disk (UAssetImportData::ResolveImportFilename).
+	if (!TestTrue(TEXT("The grammar saves"), Save(Fixture.Grammar)))
+	{
+		return false;
+	}
 	if (!TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked) || !TestNotNull(TEXT("SM_RecordStatic"), Fixture.FindMesh()))
 	{
 		return false;
@@ -205,6 +210,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeRecordsGrammarOnSkeletalMeshTest,
 bool FCambrianaBakeRecordsGrammarOnSkeletalMeshTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("RecordSkeletal"));
+	// A grammar's package file resolves as the source file once it is on disk (UAssetImportData::ResolveImportFilename).
+	if (!TestTrue(TEXT("The grammar saves"), Save(Fixture.Grammar)))
+	{
+		return false;
+	}
 	if (!TestTrue(TEXT("The skeletal mesh bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked)
 		|| !TestNotNull(TEXT("SK_RecordSkeletal"), Fixture.FindSkeletalMesh()))
 	{
@@ -250,11 +260,14 @@ bool FCambrianaReimportStaticMeshTest::RunTest(const FString& Parameters)
 	}
 
 	// With -unattended an overwrite question would answer No and stop the rebuild, so success means none was asked.
+	const FDateTime MeshSavedAt = IFileManager::Get().GetTimeStamp(*PackageFileOf(Mesh));
 	TestTrue(TEXT("Reimport succeeds without asking to overwrite"), Reimport(Mesh));
 
 	TestTrue(TEXT("The same static mesh object is rebuilt"), Fixture.FindMesh() == Mesh);
 	TestEqual(TEXT("It is rebuilt from the changed len of 50: 15 cm tall"), MeshHeight(Mesh), HeightAtHalfLength, VertexTolerance);
 	// As the engine's FBX reimport, which marks the package dirty and does not save it.
+	TestTrue(TEXT("It is left with unsaved changes"), Mesh->GetPackage()->IsDirty());
+	TestTrue(TEXT("Its package file is not written"), IFileManager::Get().GetTimeStamp(*PackageFileOf(Mesh)) == MeshSavedAt);
 	ACambrianaLiveActor* Live = PlaceInCurrentLevel(Fixture.Grammar);
 	if (TestNotNull(TEXT("A live actor is placed from the grammar"), Live))
 	{
@@ -303,6 +316,7 @@ bool FCambrianaReimportSkeletalMeshTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Before Reimport the placed instance does not match the changed grammar"),
 		MatchTriangles(LiveMesh, SkinnedTrianglesOf(*Component, LiveFrame)).Matches());
 
+	const FDateTime MeshSavedAt = IFileManager::Get().GetTimeStamp(*PackageFileOf(Mesh));
 	TestTrue(TEXT("Reimport succeeds without asking to overwrite"), Reimport(Mesh));
 
 	TestTrue(TEXT("The same skeletal mesh object is rebuilt"), Fixture.FindSkeletalMesh() == Mesh);
@@ -310,6 +324,7 @@ bool FCambrianaReimportSkeletalMeshTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("It keeps its physics asset, the same object"), Mesh->GetPhysicsAsset() == PhysicsAsset && Fixture.FindPhysicsAsset() == PhysicsAsset);
 	TestTrue(TEXT("The skeletal mesh, skeleton and physics asset are left with unsaved changes"),
 		Mesh->GetPackage()->IsDirty() && Skeleton->GetPackage()->IsDirty() && PhysicsAsset->GetPackage()->IsDirty());
+	TestTrue(TEXT("The skeletal mesh's package file is not written"), IFileManager::Get().GetTimeStamp(*PackageFileOf(Mesh)) == MeshSavedAt);
 	TestTrue(TEXT("The placed instance still references the skeletal mesh"), Component->GetSkeletalMeshAsset() == Mesh);
 	// The editor poses a placed component on its next tick; the test does not tick, so it poses it as that tick would.
 	Component->RefreshBoneTransforms();
@@ -620,6 +635,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeLinksAssetTest,
 bool FCambrianaEditorBakeLinksAssetTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("ReimportEditorBake"));
+	// A grammar's package file resolves as the source file once it is on disk (UAssetImportData::ResolveImportFilename).
+	if (!TestTrue(TEXT("The grammar saves"), Save(Fixture.Grammar)))
+	{
+		return false;
+	}
 	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Fixture.Grammar);
 	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
 	{
