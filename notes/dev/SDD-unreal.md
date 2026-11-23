@@ -40,6 +40,14 @@ display baked results.
   (`FCambrianaBakeSettings`, Details category Bake) holding the physics asset's overall
   stiffness `PhysicsStiffness` (SDD-rigging.md, Physics). Which outputs are written is chosen
   by the Bake choice, not by a setting.
+- `[Proposed — unconfirmed]` In the grammar editor the two choices are the entries `Bake to
+  Static Mesh` and `Bake to Skeletal Mesh` of a `Bake` combo button on the editor's toolbar, in
+  a section after Asset, as the static mesh editor's toolbar offers its Reimport and Collision
+  choices (`StaticMeshEditor.cpp`, `ExtendToolBar`: `FToolMenuEntry::InitComboButton` on
+  `AssetEditor.StaticMeshEditor.ToolBar`, with the menu registered by name). With unsaved edits
+  the editor asks "Save your changes to <asset> first?" (Yes/No) through the unsaved edits
+  prompt; Yes saves through the editor's Save and bakes the saved asset through
+  `Cambriana::Editor::BakeGrammar`, No bakes nothing. Bake never reads the working copy.
 - `[Proposed — unconfirmed]` The folder beside the grammar asset is named after it: a grammar
   `/Game/Trees/Fern` bakes `/Game/Trees/Fern/SM_Fern`.
 - `[Proposed — unconfirmed]` The two choices are the `Bake to Static Mesh` and `Bake to
