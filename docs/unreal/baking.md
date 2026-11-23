@@ -6,22 +6,23 @@ outline: [2, 3]
 
 Bake turns a grammar into standard engine assets. Nothing Cambriana-specific is needed to use them: place them, assign materials and animate them like any imported mesh.
 
-There are two ways to bake:
+There are three ways to bake:
 
 | From | Writes | Built from |
 |---|---|---|
-| A grammar asset's right-click **Bake** | Skeletal mesh, skeleton and physics asset, plus a static mesh when **Static Mesh** is ticked | The grammar asset's saved state |
+| A grammar asset's right-click **Bake to Static Mesh** | A static mesh | The grammar asset's saved state |
+| A grammar asset's right-click **Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The grammar asset's saved state |
 | A live actor's Details **Bake** button | A static mesh | That actor's own settings, overrides and seed |
 
 ## Baking a grammar asset
 
-In the Content Browser, right-click one or more grammar assets and choose **Bake**. Each selected grammar is baked in turn, and a notification shows each result: `Baked <path>` on success, or `<grammar> was not baked; see the Output Log`.
+In the Content Browser, right-click one or more grammar assets and choose **Bake to Static Mesh** or **Bake to Skeletal Mesh**. Each choice writes only its own assets, so the two can be used one after the other on the same grammar. Each selected grammar is baked in turn, and a notification shows each result: `Baked <path>` on success, or `<grammar> was not baked; see the Output Log`.
 
 Bake builds the grammar as the grammar editor's preview does: with the asset's text, seed, settings and stored parameter values, and no live actor overrides.
 
 ### Saved state only
 
-Bake writes from what is saved on disk. When the grammar asset has unsaved changes, or has never been saved, Bake first shows the engine's save prompt. If the asset is not saved there, nothing is baked.
+Both choices write from what is saved on disk. When the grammar asset has unsaved changes, or has never been saved, the bake first shows the engine's save prompt. If the asset is not saved there, nothing is baked.
 
 Edits still open in the grammar editor are not part of the asset until the editor saves them. Save in the grammar editor before baking.
 
@@ -29,35 +30,30 @@ Edits still open in the grammar editor are not part of the asset until the edito
 
 The assets go into a folder beside the grammar asset, named after it, and are named after the grammar with the usual Unreal prefixes. For a grammar `/Game/Trees/Fern`:
 
-| Asset | Path |
-|---|---|
-| Skeletal mesh | `/Game/Trees/Fern/SK_Fern` |
-| Skeleton | `/Game/Trees/Fern/SKEL_Fern` |
-| Physics asset | `/Game/Trees/Fern/PHYS_Fern` |
-| Static mesh | `/Game/Trees/Fern/SM_Fern` |
+| Asset | Path | Written by |
+|---|---|---|
+| Static mesh | `/Game/Trees/Fern/SM_Fern` | Bake to Static Mesh |
+| Skeletal mesh | `/Game/Trees/Fern/SK_Fern` | Bake to Skeletal Mesh |
+| Skeleton | `/Game/Trees/Fern/SKEL_Fern` | Bake to Skeletal Mesh |
+| Physics asset | `/Game/Trees/Fern/PHYS_Fern` | Bake to Skeletal Mesh |
 
 The baked assets are saved as soon as they are written.
 
 ### Bake settings
 
-The grammar asset's **Bake** category holds two settings:
-
-- **Static Mesh**, off by default: also write `SM_<grammar name>`.
-- **Physics Stiffness**, 25000 by default: how stiffly the physics asset holds the mesh in its bind pose. See [Stiffness](#stiffness).
-
-The skeletal mesh, skeleton and physics asset are always written.
+The grammar asset's **Bake** category holds one setting, **Physics Stiffness**, 25000 by default: how stiffly the physics asset holds the mesh in its bind pose. See [Stiffness](#stiffness). It applies to Bake to Skeletal Mesh.
 
 ### Rebaking
 
-When any of the assets Bake would write already exists, Bake asks once:
+When any of the assets the chosen bake would write already exists, it asks once. Assets the other choice writes are not considered: with `SM_Fern` present, a first Bake to Skeletal Mesh does not ask.
 
 > Do you want to overwrite the existing asset?
 >
 > An asset already exists at the bake location: `<path>`
 
-The path named is the first existing one, in the order skeletal mesh, skeleton, physics asset, static mesh.
+The path named is the first existing one of that choice's assets, in the order skeletal mesh, skeleton, physics asset for Bake to Skeletal Mesh.
 
-- **Yes** rebuilds every existing asset in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working. A rebuilt mesh keeps the material assigned to each slot whose name it already had. The skeleton's bone tree follows any change to the grammar's bones. The physics asset's bodies and constraints are cleared and generated again, so hand edits to them are replaced.
+- **Yes** rebuilds every existing asset of that choice in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working. A rebuilt mesh keeps the material assigned to each slot whose name it already had. The skeleton's bone tree follows any change to the grammar's bones. The physics asset's bodies and constraints are cleared and generated again, so hand edits to them are replaced.
 - **No** bakes nothing and changes nothing.
 
 ### When nothing is baked
@@ -68,7 +64,7 @@ Bake writes nothing, leaves any existing baked assets unchanged and logs the rea
 - the grammar has errors;
 - the grammar builds no triangles, including empty text;
 - the grammar's bone tree cannot make a skeleton;
-- an asset of a different type already holds one of the names, for example a texture called `SK_Fern`. That asset is left alone;
+- an asset of a different type already holds one of the chosen bake's names, for example a texture called `SK_Fern`. That asset is left alone;
 - you answer **No** to the overwrite question.
 
 If the assets are built but cannot be saved, the Output Log says so.
@@ -111,7 +107,7 @@ Long runs of stiff joints need more solver iterations to hold their shape. Raise
 
 ## The static mesh
 
-The static mesh `SM_<name>`, written when **Static Mesh** is ticked, has the same triangles, material slots and data channels as the skeletal mesh.
+The static mesh `SM_<name>`, written by Bake to Static Mesh, has the same triangles, material slots and data channels as the skeletal mesh.
 
 - One LOD, with the grammar's normals and computed tangents.
 - Lightmap UVs are generated into UV3, after the data channels in UV1 and UV2.

@@ -7,7 +7,7 @@ This page walks through the whole loop once. The other pages cover each part in 
 - [Grammar Assets](./grammar-assets): creating, importing, reimporting and exporting grammars, and their settings and parameters.
 - [Grammar Editor](./grammar-editor): editing the rules with a live preview, and saving.
 - [Live Actor](./live-actor): a grammar placed in a level, and its overrides.
-- [Baking](./baking): the assets Bake writes, where they go, and rebaking.
+- [Baking](./baking): the assets each Bake writes, where they go, and rebaking.
 - [Data Channels](./data-channels): the per-vertex values a material can read.
 
 For the grammar language itself, see the [Syntax Guide](../grammar-guide).
@@ -50,16 +50,16 @@ Every live actor that references the asset rebuilds when the asset is saved.
 
 ## 4. Bake
 
-In the Content Browser, right-click the grammar asset and choose **Bake**.
+In the Content Browser, right-click the grammar asset and choose **Bake to Static Mesh** or **Bake to Skeletal Mesh**.
 
-Bake writes these assets to a folder named after the grammar, beside it. For `/Game/Fern`:
+Each writes its assets to a folder named after the grammar, beside it. For `/Game/Fern`:
 
-| Asset | Path |
-|---|---|
-| Skeletal mesh | `/Game/Fern/SK_Fern` |
-| Skeleton | `/Game/Fern/SKEL_Fern` |
-| Physics asset | `/Game/Fern/PHYS_Fern` |
-| Static mesh, when **Static Mesh** is ticked in the asset's Bake settings | `/Game/Fern/SM_Fern` |
+| Asset | Path | Written by |
+|---|---|---|
+| Static mesh | `/Game/Fern/SM_Fern` | Bake to Static Mesh |
+| Skeletal mesh | `/Game/Fern/SK_Fern` | Bake to Skeletal Mesh |
+| Skeleton | `/Game/Fern/SKEL_Fern` | Bake to Skeletal Mesh |
+| Physics asset | `/Game/Fern/PHYS_Fern` | Bake to Skeletal Mesh |
 
 The baked assets are ordinary engine assets: place them, assign materials to their slots and use them like any imported mesh. See [Baking](./baking).
 
