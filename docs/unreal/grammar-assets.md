@@ -4,7 +4,7 @@ outline: [2, 3]
 
 # Grammar Assets
 
-A **Cambriana Grammar** asset holds a grammar's text, a seed, the values you set for its parameters, size and surfacer settings, and bake settings. Live actors build from it, and Bake writes meshes from it.
+A **Cambriana Grammar** asset holds a grammar's text, a seed, the values you set for its parameters, size and surfacer settings, and bake settings. Live actors build from it, and Bake to Static Mesh and Bake to Skeletal Mesh write meshes from it.
 
 Double-click a grammar asset to open it in the [grammar editor](./grammar-editor).
 
@@ -86,8 +86,7 @@ The asset's settings start from the text when the asset is created or imported. 
 
 | Category | Property | Default | What it does |
 |---|---|---|---|
-| Bake | **Static Mesh** | Off | Bake also writes a static mesh, `SM_<grammar name>` |
-| Bake | **Physics Stiffness** | 25000 | Scales how stiffly the whole baked physics asset springs back to its bind pose. 0 or more |
+| Bake | **Physics Stiffness** | 25000 | Scales how stiffly the whole physics asset that Bake to Skeletal Mesh writes springs back to its bind pose. 0 or more |
 
 See [Baking](./baking).
 
