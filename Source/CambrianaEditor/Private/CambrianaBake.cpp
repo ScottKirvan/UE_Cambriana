@@ -87,17 +87,29 @@ namespace
 		return { Status };
 	}
 
-	/** Links the mesh to the grammar in its import data, replacing import data of another kind (as UFbxStaticMeshImportData::GetImportDataForStaticMesh does). */
+	/**
+	 * Links the mesh to the grammar in its import data, replacing import data of another kind (as
+	 * UFbxStaticMeshImportData::GetImportDataForStaticMesh does). Without a grammar, a link to one is replaced with plain import data
+	 * with no source file, as the Source File row's Clear leaves it (AssetImportDataCustomization.cpp).
+	 */
 	template <typename MeshType>
-	void RecordGrammar(MeshType& Mesh, const UCambrianaGrammar& Grammar)
+	void LinkToGrammar(MeshType& Mesh, const UCambrianaGrammar* Grammar)
 	{
 		UCambrianaAssetImportData* ImportData = UCambrianaAssetImportData::Of(&Mesh);
+		if (!Grammar)
+		{
+			if (ImportData)
+			{
+				Mesh.SetAssetImportData(NewObject<UAssetImportData>(&Mesh, NAME_None, RF_NoFlags));
+			}
+			return;
+		}
 		if (!ImportData)
 		{
 			ImportData = NewObject<UCambrianaAssetImportData>(&Mesh, NAME_None, RF_NoFlags);
 			Mesh.SetAssetImportData(ImportData);
 		}
-		ImportData->SetGrammar(Grammar);
+		ImportData->SetGrammar(*Grammar);
 	}
 
 	/** An asset a bake writes: its package and class, and the asset already at its name, if any. */
@@ -141,6 +153,8 @@ namespace
 		float PhysicsStiffness = 0.0f;
 		/** The grammar the baked mesh is linked to for Reimport, or none. */
 		const UCambrianaGrammar* Grammar = nullptr;
+		/** Whether the outputs are saved; otherwise they are left with unsaved changes. */
+		bool bSave = true;
 
 		TArray<FOutputToBake*, TInlineAllocator<4>> All()
 		{
@@ -157,7 +171,7 @@ namespace
 	};
 
 	/**
-	 * Builds Input into the outputs and saves them, asking once before any existing output is rebuilt in place; Source names what is
+	 * Builds Input into the outputs and saves them unless the outputs say not to, asking once before any existing output is rebuilt in place; Source names what is
 	 * baked in the log. An asset of another class at an output's name bakes nothing.
 	 */
 	FCambrianaBakeResult BakeOutputs(const FCambrianaBuildInput& Input, FOutputsToBake Outputs, const FString& Source,
@@ -212,10 +226,7 @@ namespace
 			Result.Skeleton = Outputs.Skeleton->MakeAsset<USkeleton>();
 			Result.SkeletalMesh = Outputs.SkeletalMesh->MakeAsset<USkeletalMesh>();
 			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build);
-			if (Outputs.Grammar)
-			{
-				RecordGrammar(*Result.SkeletalMesh, *Outputs.Grammar);
-			}
+			LinkToGrammar(*Result.SkeletalMesh, Outputs.Grammar);
 			Result.PhysicsAsset = Outputs.PhysicsAsset->MakeAsset<UPhysicsAsset>();
 			Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build, Outputs.PhysicsStiffness);
 			Packages.Add(Result.SkeletalMesh->GetPackage());
@@ -226,15 +237,16 @@ namespace
 		{
 			Result.StaticMesh = Outputs.StaticMesh->MakeAsset<UStaticMesh>();
 			Cambriana::SetStaticMeshFromBuild(*Result.StaticMesh, Build);
-			if (Outputs.Grammar)
-			{
-				RecordGrammar(*Result.StaticMesh, *Outputs.Grammar);
-			}
+			LinkToGrammar(*Result.StaticMesh, Outputs.Grammar);
 			Packages.Add(Result.StaticMesh->GetPackage());
 		}
 		for (UPackage* Package : Packages)
 		{
 			Package->MarkPackageDirty();
+		}
+		if (!Outputs.bSave)
+		{
+			return Result;
 		}
 
 		if (FEditorFileUtils::PromptForCheckoutAndSave(Packages, false, false) != FEditorFileUtils::PR_Success)
@@ -326,7 +338,9 @@ namespace Cambriana::Editor
 		{
 			return Failed(ECambrianaBakeStatus::NothingToBuild);
 		}
-		// Reimport rebuilds without asking, as the engine's Reimport does.
+		// Reimport rebuilds without asking and leaves the rebuilt assets unsaved, as the engine's FBX reimport does
+		// (EditorFactories.cpp, UReimportFbxStaticMeshFactory::Reimport, which marks the package dirty).
+		Outputs.bSave = false;
 		return BakeGrammarTo(Grammar, Grammar, MoveTemp(Outputs), [](const FText&) { return EAppReturnType::Yes; });
 	}
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
