@@ -171,7 +171,12 @@ bool FCambrianaBakeDataChannelsTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	const TArray<FRenderedVertex> Rendered = RenderedVertices(*Fixture.FindMesh());
+	const UStaticMesh* BakedMesh = Fixture.FindMesh();
+	if (!TestNotNull(TEXT("The baked static mesh exists"), BakedMesh))
+	{
+		return false;
+	}
+	const TArray<FRenderedVertex> Rendered = RenderedVertices(*BakedMesh);
 	if (!TestTrue(TEXT("The baked mesh renders vertices with UV1, UV2 and a vertex colour"), Rendered.Num() > 0))
 	{
 		return false;
