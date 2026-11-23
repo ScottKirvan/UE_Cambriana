@@ -20,9 +20,9 @@ display baked results.
 - Baked assets are written to a folder beside the grammar asset.
 - Bake writes from the grammar asset's saved state. With unsaved edits in the
   grammar editor, Bake asks to save first.
-- Bake writes a skeletal mesh, skeleton and physics asset. Static mesh output is
-  a bake setting on the grammar asset.
-- Bake is offered on the grammar asset's right-click menu and in the grammar
+- Bake has two choices: **Bake to Static Mesh** writes a static mesh, and **Bake to Skeletal
+  Mesh** writes a skeletal mesh, skeleton and physics asset.
+- Both choices are offered on the grammar asset's right-click menu and in the grammar
   editor. The live actor's Details Bake writes a static mesh only, from the actor's own build
   input.
 - The physics asset has one body per drawn bone and a joint at every bone with a body above it
@@ -37,15 +37,16 @@ display baked results.
 - Baked asset names are the grammar asset's name with the Unreal style prefixes
   `SK_`, `SKEL_`, `PHYS_` and `SM_`.
 - `[Proposed — unconfirmed]` The bake settings are one struct on the grammar asset
-  (`FCambrianaBakeSettings`, Details category Bake) holding the static mesh output, off by
-  default, and the physics asset's overall stiffness `PhysicsStiffness` (SDD-rigging.md,
-  Physics). The skeletal mesh, skeleton and physics asset need no setting: Bake always writes
-  the skeletal mesh and skeleton, and the static mesh as well when static mesh output is on.
+  (`FCambrianaBakeSettings`, Details category Bake) holding the physics asset's overall
+  stiffness `PhysicsStiffness` (SDD-rigging.md, Physics). Which outputs are written is chosen
+  by the Bake choice, not by a setting.
 - `[Proposed — unconfirmed]` The folder beside the grammar asset is named after it: a grammar
   `/Game/Trees/Fern` bakes `/Game/Trees/Fern/SM_Fern`.
-- `[Proposed — unconfirmed]` Bake is the `Bake` entry in the asset actions section of the
-  grammar asset's right-click menu; it bakes each selected grammar and shows a notification
-  for each; reasons are logged to `LogCambrianaBake`.
+- `[Proposed — unconfirmed]` The two choices are the `Bake to Static Mesh` and `Bake to
+  Skeletal Mesh` entries, in that order, in the asset actions section of the grammar asset's
+  right-click menu, labelled in title case as the engine's menu entries are. Each bakes every
+  selected grammar and shows a notification for each, and asks before rebuilding only the
+  existing outputs it writes; reasons are logged to `LogCambrianaBake`.
 - `[Proposed — unconfirmed]` A grammar asset without a saved state (its package has unsaved
   changes or was never saved) is first offered to the engine's save prompt
   (`FEditorFileUtils::PromptForCheckoutAndSave`); when it is not saved, nothing is baked.

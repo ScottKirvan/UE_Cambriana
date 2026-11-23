@@ -25,14 +25,15 @@ Each step is one PR with its acceptance test.
 
 | # | Step | Tests |
 |---|---|---|
-| 1 | Bake a static mesh from a grammar asset (right-click Bake); static mesh output as a bake setting | ATS-41 |
+| 1 | Bake a static mesh from a grammar asset (right-click Bake) | ATS-41 |
 | 2 | Baked static mesh matches the live actor | ATS-46 |
 | 3 | Data channels in the vertex slots | ATS-45 |
 | 4 | Live actor Details Bake writes a static mesh | ATS-47 |
 | 5 | Skeleton and skinned skeletal mesh under a synthetic Root | ATS-40 (mesh, skeleton, slots) |
-| 6 | Physics asset with capsules merged along chains | ATS-40 (physics asset) |
+| 6 | Physics asset with one body per drawn bone | ATS-40 (physics asset), ATS-80 to ATS-82 |
 | 7 | Bind pose matches the live actor | ATS-42 |
-| 8 | Bake from the grammar editor, asking to save unsaved edits | ATS-48 |
+| 7a | Bake to Static Mesh and Bake to Skeletal Mesh on the right-click menu, replacing Bake and its static mesh setting | ATS-40, ATS-41 |
+| 8 | Both Bake choices from the grammar editor, asking to save unsaved edits | ATS-48 |
 | 9 | Reimport on a baked mesh's right-click menu | ATS-43 |
 | 10 | Detach on a baked mesh's right-click menu | ATS-44 |
 
