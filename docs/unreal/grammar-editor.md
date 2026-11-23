@@ -40,7 +40,7 @@ A change in Details rebuilds the preview.
 
 The editor toolbar's **Bake** button opens a menu with **Bake to Static Mesh** and **Bake to Skeletal Mesh**. Each writes the same assets as the grammar asset's right-click choice of the same name; see [Baking](./baking).
 
-Bake writes from the saved asset, not from the working copy. When you have unsaved edits, the editor asks "Save your changes to `<asset>` first?" **Yes** saves as Save does, then bakes the saved grammar. **No** bakes nothing and leaves the asset and your edits as they are. With no unsaved edits, Bake runs at once.
+Bake bakes what the editor shows: your current edits, including Rules text you are still typing. It works like the material editor's **Apply**: the outputs are written and saved beside the asset and named after it, but your edits are not saved. Bake asks nothing about saving; the asset and your unsaved edits stay as they are, and **Save** still saves them when you choose.
 
 ## Saving
 

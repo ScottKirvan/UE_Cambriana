@@ -10,10 +10,10 @@ There are four ways to bake:
 
 | From | Writes | Built from |
 |---|---|---|
-| A grammar asset's right-click **Bake to Static Mesh** | A static mesh | The grammar asset's saved state |
-| A grammar asset's right-click **Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The grammar asset's saved state |
-| The grammar editor's toolbar **Bake > Bake to Static Mesh** | A static mesh | The grammar asset's saved state |
-| The grammar editor's toolbar **Bake > Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The grammar asset's saved state |
+| A grammar asset's right-click **Bake to Static Mesh** | A static mesh | The grammar asset as it is now, saved or not |
+| A grammar asset's right-click **Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The grammar asset as it is now, saved or not |
+| The grammar editor's toolbar **Bake > Bake to Static Mesh** | A static mesh | The editor's current edits |
+| The grammar editor's toolbar **Bake > Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The editor's current edits |
 | A live actor's Details **Bake** button | A static mesh | That actor's own settings, overrides and seed |
 
 ## Baking a grammar asset
@@ -22,11 +22,11 @@ In the Content Browser, right-click one or more grammar assets and choose **Bake
 
 Bake builds the grammar as the grammar editor's preview does: with the asset's text, seed, settings and stored parameter values, and no live actor overrides.
 
-### Saved state only
+### Current state
 
-Both choices write from what is saved on disk. When the grammar asset has unsaved changes, or has never been saved, the bake first shows the engine's save prompt. If the asset is not saved there, nothing is baked.
+Both choices bake the grammar asset as it is now, including changes not yet saved and an asset that has never been saved. Bake asks nothing about saving and does not save the grammar asset; it saves only the assets it writes.
 
-Edits still open in the grammar editor are not part of the asset until the editor saves them. Baking from the right-click menu leaves them out. Baking from the grammar editor's toolbar asks whether to save them first: **Yes** saves them and bakes the saved grammar, and **No** bakes nothing.
+Edits still open in the grammar editor are not part of the asset until the editor saves them, so baking from the right-click menu leaves them out. Baking from the grammar editor's toolbar bakes those edits instead, without saving them; see [Bake](./grammar-editor#bake) in the grammar editor guide.
 
 ### Where the assets go
 
@@ -62,7 +62,6 @@ The path named is the first existing one of that choice's assets, in the order s
 
 Bake writes nothing, leaves any existing baked assets unchanged and logs the reason to the Output Log (category `LogCambrianaBake`) when:
 
-- the grammar asset is not saved;
 - the grammar has errors;
 - the grammar builds no triangles, including empty text;
 - the grammar's bone tree cannot make a skeleton;
@@ -129,7 +128,7 @@ The engine's **Bake Static Mesh** save dialog asks where to write it. It default
 
 - **Cancel** bakes nothing.
 - Choosing an existing static mesh makes the dialog ask whether to replace it. Bake then rebuilds that static mesh in place, without asking again.
-- When the actor's grammar asset has unsaved changes, the engine's save prompt shows first; if the asset is not saved, nothing is baked and the dialog does not show.
+- The actor is baked as it shows in the level, whether or not its grammar asset is saved. The grammar asset is not saved.
 
 The same rules as a grammar bake apply for errors, empty results and names held by another asset type: nothing is baked and the Output Log says why. The static mesh is saved as soon as it is written.
 
