@@ -58,6 +58,14 @@ Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-c
 | ATS-47 | Given a live actor with overridden settings, when Bake runs from its Details panel, then a static mesh is written whose vertices match that actor's within 0.001 cm. | FR-12 |
 | ATS-48 | Given a grammar editor with unsaved edits, when Bake runs from the editor, then it asks to save; on save, the baked mesh matches the saved grammar; on cancel, nothing is baked and the asset is unchanged. | FR-12 |
 
+## Physics
+
+| ID | Given / when / then | Verifies |
+|---|---|---|
+| ATS-80 | Given `sk.ls`, when baked, then the physics asset has 80 bodies, one capsule each, and 76 constraints, each joining a bone's body to its parent bone's body; the bodies on the 4 children of `Root` have none. | FR-20 |
+| ATS-81 | Given a straight run of bones baked with Physics Stiffness 0, laid level with its first body kinematic, when simulated under gravity, then the run bends down at its joints: its last body drops more than one bone length and the run stays joined. | FR-20 |
+| ATS-82 | Given the same run baked with a very high Physics Stiffness, when simulated the same way, then its last body stays within 1 cm of its bind pose. | FR-20 |
+
 ## Pose and growth
 
 | ID | Given / when / then | Verifies |

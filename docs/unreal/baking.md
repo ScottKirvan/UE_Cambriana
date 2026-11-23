@@ -43,7 +43,7 @@ The baked assets are saved as soon as they are written.
 The grammar asset's **Bake** category holds two settings:
 
 - **Static Mesh**, off by default: also write `SM_<grammar name>`.
-- **Physics Stiffness**, 25000 by default: how stiffly the physics asset holds the plant in its bind pose. See [Stiffness](#stiffness).
+- **Physics Stiffness**, 25000 by default: how stiffly the physics asset holds the mesh in its bind pose. See [Stiffness](#stiffness).
 
 The skeletal mesh, skeleton and physics asset are always written.
 
@@ -89,23 +89,23 @@ The skeletal mesh `SK_<name>` uses the skeleton `SKEL_<name>` and the physics as
 
 The physics asset `PHYS_<name>` is set as the skeletal mesh's physics asset, with the skeletal mesh as its preview mesh.
 
-**Bodies.** There is one body per **chain**. A chain is a run of drawn bones in which each bone is the only drawn child of the one before it, with no break between them, such as after a `]`, `f`, `z` or `g`. A fork ends a chain: each branch, the continuing one included, starts its own. The body sits on the chain's first bone and holds one capsule per bone of the chain, centred on the bone and along it, with the bone's radius and length. `Root` and undrawn bones have no body.
+**Bodies.** Every drawn bone (`F`, `Z`) gets its own body, holding one capsule centred on the bone and along it, with the bone's radius and length. `Root` and undrawn bones have no body. `sk.ls`, with 80 bones, bakes 80 bodies.
 
-**Mass.** Each body's mass is the engine's default for a body, from its capsules' volume.
+**Mass.** Each body's mass is the engine's default for a body, from its capsule's volume.
 
-**Constraints.** Each body is constrained to the body of the nearest bone above it that has one, with limited angular motion, and collision between the two bodies off. A body with no body above it, such as the trunk's, is not constrained.
+**Constraints.** There is a joint at every bone: each body is constrained to the body of its parent bone, with limited angular motion, and collision between the two bodies off. So the mesh can bend at every bone, like a tentacle. The bodies on the bones directly under `Root` have no body above them and are not constrained. `sk.ls` bakes 76 constraints: one at each bone except its 4 bones under `Root`.
 
 ### Stiffness
 
-Each constraint's angular drive pulls its body back to the bind pose, so the plant springs back after being pushed. The drive is a SLERP angular drive in force mode, with no force limit.
+Each constraint's angular drive pulls its body back to the bind pose, so the mesh springs back after being pushed. The drive is a SLERP angular drive in force mode, with no force limit.
 
-Its stiffness follows how a beam bends: a thick, short body is stiffer than a thin, long one.
+Its stiffness follows how a beam bends: a thick, short bone is stiffer than a thin, long one.
 
-- A body's **bending stiffness** is 1 ÷ Σ(length ÷ radius⁴) over its bones, with lengths and radii in centimetres. For a one-bone body that is radius⁴ ÷ length.
+- A body's **bending stiffness** is its bone's radius⁴ ÷ length, with the length and radius in centimetres.
 - The drive's **stiffness** is the grammar asset's **Physics Stiffness** times the body's bending stiffness.
 - The drive's **damping** is its stiffness ÷ 50.
 
-Raise **Physics Stiffness** to make the whole plant stiffer, lower it to make it floppier. At the default of 25000, a level 10 cm bone of radius 1 cm sags about 0.1 radians under gravity. A body with a bone of radius 0 has no stiffness. Rebake to apply a new value.
+Raise **Physics Stiffness** to make the whole mesh stiffer, lower it to make it floppier. At 0 the joints hang loose. At the default of 25000, a level 10 cm bone of radius 1 cm sags about 0.1 radians under gravity. A bone of radius 0 has no stiffness. Rebake to apply a new value.
 
 ## The static mesh
 

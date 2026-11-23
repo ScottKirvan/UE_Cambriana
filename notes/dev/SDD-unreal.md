@@ -25,7 +25,8 @@ display baked results.
 - Bake is offered on the grammar asset's right-click menu and in the grammar
   editor. The live actor's Details Bake writes a static mesh only, from the actor's own build
   input.
-- The physics asset merges capsules along chains.
+- The physics asset has one body per drawn bone and a joint at every bone with a body above it
+  (SDD-rigging.md, Physics).
 - **Reimport** is the standard right-click Reimport on a baked skeletal or static
   mesh, with the grammar asset recorded as its source. It rebuilds the asset in place from the
   grammar's current saved state; references to it remain valid, and the mesh's stored
