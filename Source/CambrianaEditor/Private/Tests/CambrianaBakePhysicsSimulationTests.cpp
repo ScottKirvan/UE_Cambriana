@@ -2,6 +2,7 @@
 #include "CambrianaBakeTestFixture.h"
 #include "CambrianaGrammar.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/CollisionProfile.h"
 #include "Misc/AutomationTest.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
@@ -53,6 +54,8 @@ namespace
 
 		FPreviewScene Scene(FPreviewScene::ConstructionValues().ShouldSimulatePhysics(true));
 		USkeletalMeshComponent* Component = NewObject<USkeletalMeshComponent>(GetTransientPackage());
+		// The collision profile a placed skeletal mesh actor gives its component (SkeletalMeshActor.cpp); without collision it has no bodies.
+		Component->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
 		Component->SetSkeletalMesh(&Mesh);
 		Scene.AddComponent(Component, FTransform::Identity);
 		FBodyInstance* First = Component->GetBodyInstance(FirstBone);
@@ -72,6 +75,8 @@ namespace
 		for (int32 Tick = 0; Tick < Ticks; ++Tick)
 		{
 			Scene.GetWorld()->Tick(LEVELTICK_All, TickSeconds);
+			// A tick function runs once per frame counter, so each step advances it, as FTestWorldWrapper::TickTestWorld does (AutomationCommon.cpp).
+			++GFrameCounter;
 			const FVector LastNow = Last->GetUnrealWorldTransform().GetLocation();
 			Motion.MaxDrop = FMath::Max(Motion.MaxDrop, LastStart.Z - LastNow.Z);
 			Motion.MaxDeviation = FMath::Max(Motion.MaxDeviation, FVector::Distance(LastNow, LastStart));
