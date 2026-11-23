@@ -666,7 +666,7 @@ namespace
 	 * The Detach from Grammar entry in the asset actions of the right-click menu of MeshClass, generated for the selection as the
 	 * Content Browser generates it; unset when none is offered. Context is the menu context to run it with.
 	 */
-	TOptional<FToolMenuEntry> OfferedDetachEntry(UClass* MeshClass, TConstArrayView<UObject*> Selected, FToolMenuContext& Context)
+	TOptional<FToolMenuEntry> OfferedDetachEntryForAssets(UClass* MeshClass, TConstArrayView<FAssetData> Selected, FToolMenuContext& Context)
 	{
 		const UToolMenu* Registered = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(MeshClass);
 		if (!Registered)
@@ -674,10 +674,7 @@ namespace
 			return {};
 		}
 		UContentBrowserAssetContextMenuContext* AssetContext = NewObject<UContentBrowserAssetContextMenuContext>();
-		for (UObject* Asset : Selected)
-		{
-			AssetContext->SelectedAssets.Add(FAssetData(Asset));
-		}
+		AssetContext->SelectedAssets = TArray<FAssetData>(Selected);
 		AssetContext->CommonClass = MeshClass;
 		AssetContext->bCanBeModified = true;
 		Context = FToolMenuContext(AssetContext);
@@ -687,10 +684,36 @@ namespace
 		return Entry ? TOptional<FToolMenuEntry>(*Entry) : TOptional<FToolMenuEntry>();
 	}
 
+	TOptional<FToolMenuEntry> OfferedDetachEntry(UClass* MeshClass, TConstArrayView<UObject*> Selected, FToolMenuContext& Context)
+	{
+		TArray<FAssetData> Assets;
+		for (UObject* Asset : Selected)
+		{
+			Assets.Add(FAssetData(Asset));
+		}
+		return OfferedDetachEntryForAssets(MeshClass, Assets, Context);
+	}
+
 	bool IsDetachOffered(UClass* MeshClass, TConstArrayView<UObject*> Selected)
 	{
 		FToolMenuContext Context;
 		return OfferedDetachEntry(MeshClass, Selected, Context).IsSet();
+	}
+
+	bool IsDetachOffered(UClass* MeshClass, const FAssetData& Selected)
+	{
+		FToolMenuContext Context;
+		return OfferedDetachEntryForAssets(MeshClass, TConstArrayView<FAssetData>(&Selected, 1), Context).IsSet();
+	}
+
+	/** The asset registry's record of a saved asset read from its package file, with its package unloaded, as the Content Browser lists it. */
+	FAssetData UnloadedAssetData(UObject* Asset)
+	{
+		const FSoftObjectPath Path(Asset);
+		const FString File = PackageFileOf(Asset);
+		UnloadPackage(Asset->GetPackage());
+		IAssetRegistry::GetChecked().ScanFilesSynchronous({ File }, true);
+		return IAssetRegistry::GetChecked().GetAssetByObjectPath(Path);
 	}
 
 	/** Runs Detach from Grammar from the right-click menu of MeshClass on the selection; returns whether it was offered and ran. */
@@ -722,12 +745,18 @@ namespace
 		return ImportData && ImportData->Grammar.ToSoftObjectPath() == FSoftObjectPath(Grammar);
 	}
 
+	template <typename MeshType>
+	void SetFbxImportData(MeshType& Mesh)
+	{
+		UAssetImportData* FbxData = NewObject<UAssetImportData>(&Mesh);
+		FbxData->UpdateFilenameOnly(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("tree.fbx")));
+		Mesh.SetAssetImportData(FbxData);
+	}
+
 	UStaticMesh* MeshWithFbxImportData()
 	{
 		UStaticMesh* Mesh = NewObject<UStaticMesh>(GetTransientPackage());
-		UAssetImportData* FbxData = NewObject<UAssetImportData>(Mesh);
-		FbxData->UpdateFilenameOnly(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("tree.fbx")));
-		Mesh->SetAssetImportData(FbxData);
+		SetFbxImportData(*Mesh);
 		return Mesh;
 	}
 }
@@ -839,6 +868,41 @@ bool FCambrianaDetachOfferedTest::RunTest(const FString& Parameters)
 	{
 		TestFalse(TEXT("Once detached, the static mesh is not offered it"), IsDetachOffered(UStaticMesh::StaticClass(), { Fixture.FindMesh() }));
 	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaDetachOfferedWithoutLoadingTest,
+	"Cambriana.Editor.Detach.DetachFromGrammarIsOfferedOnAnUnloadedLinkedMeshAndNotOnAnUnloadedFbxMeshWithoutLoadingEither",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaDetachOfferedWithoutLoadingTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("DetachNoLoad"));
+	FBakeFixture Imported(TEXT("DetachNoLoadFbx"));
+	if (!PrepareShapeGrammar(*this, Fixture) || !TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked)
+		|| !TestTrue(TEXT("The other static mesh bakes"), Imported.BakeStatic().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	UStaticMesh* FromFbx = Imported.FindMesh();
+	SetFbxImportData(*FromFbx);
+	if (!TestTrue(TEXT("The mesh imported from an FBX file saves"), Save(FromFbx)))
+	{
+		return false;
+	}
+	const FAssetData Linked = UnloadedAssetData(Fixture.FindMesh());
+	const FAssetData Fbx = UnloadedAssetData(FromFbx);
+	if (!TestTrue(TEXT("The registry lists both meshes"), Linked.IsValid() && Fbx.IsValid())
+		|| !TestTrue(TEXT("Neither is loaded"), !FindPackage(nullptr, *Fixture.MeshPackage) && !FindPackage(nullptr, *Imported.MeshPackage)))
+	{
+		return false;
+	}
+
+	// ContentBrowserMenuContexts.h: the Content Browser no longer loads assets on right click; a menu decides from SelectedAssets.
+	TestTrue(TEXT("A linked mesh's asset actions offer Detach from Grammar"), IsDetachOffered(UStaticMesh::StaticClass(), Linked));
+	TestFalse(TEXT("A mesh imported from an FBX file is not offered it"), IsDetachOffered(UStaticMesh::StaticClass(), Fbx));
+	TestNull(TEXT("The linked mesh is not loaded to decide"), FindPackage(nullptr, *Fixture.MeshPackage));
+	TestNull(TEXT("The FBX mesh is not loaded to decide"), FindPackage(nullptr, *Imported.MeshPackage));
 	return true;
 }
 
