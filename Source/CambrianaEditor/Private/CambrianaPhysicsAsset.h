@@ -9,8 +9,8 @@ struct FCambrianaBuildResult;
 namespace Cambriana::Editor
 {
 	/**
-	 * Makes PhysicsAsset the physics asset of SkeletalMesh, built from the same build result: one body per chain of the bone tree on
-	 * the chain's first bone, holding a capsule per bone of the chain, and a constraint from each body to the nearest body above it.
+	 * Makes PhysicsAsset the physics asset of SkeletalMesh, built from the same build result: one body per drawn bone, holding a capsule
+	 * along it, and a constraint from each body to the nearest body above it.
 	 * Each constraint's angular drive returns its body to the bind pose with Stiffness times the body's bending stiffness. Its earlier
 	 * bodies and constraints are replaced.
 	 */
