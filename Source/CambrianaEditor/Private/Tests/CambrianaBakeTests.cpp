@@ -4,6 +4,7 @@
 #include "CambrianaGrammar.h"
 #include "ContentBrowserMenuContexts.h"
 #include "Engine/StaticMesh.h"
+#include "FileHelpers.h"
 #include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
@@ -70,8 +71,7 @@ bool FCambrianaBakeStaticMeshTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The result is that static mesh"), Result.StaticMesh == Mesh);
 	TestTrue(TEXT("The static mesh is saved to disk"), Fixture.MeshFileExists());
 	TestFalse(TEXT("The static mesh's package has no unsaved changes"), Mesh->GetPackage()->IsDirty());
-	TestTrue(TEXT("The grammar, never saved, is saved before it bakes"),
-		IFileManager::Get().FileExists(*PackageFilename(*Fixture.GrammarPackage)) && !Fixture.Grammar->GetPackage()->IsDirty());
+	TestFalse(TEXT("The grammar, never saved, bakes without being saved"), IFileManager::Get().FileExists(*PackageFilename(*Fixture.GrammarPackage)));
 	TestEqual(TEXT("Triangles"), RenderedTriangles(Mesh), SkTriangles);
 	TestEqual(TEXT("One material slot per material ID"), Mesh->GetStaticMaterials().Num(), SkMaterialIds);
 	TestTrue(TEXT("The result has no skeletal mesh, skeleton or physics asset"), !Result.SkeletalMesh && !Result.Skeleton && !Result.PhysicsAsset);
@@ -403,20 +403,28 @@ bool FCambrianaBakeSkeletalNameTakenTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeUnsavedGrammarTest,
-	"Cambriana.Editor.Bake.GrammarWhoseSaveIsCancelledIsNotBaked",
+	"Cambriana.Editor.Bake.BakeBakesTheGrammarAssetsUnsavedChangesInMemoryWithoutSavingThem",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeUnsavedGrammarTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("the grammar is not saved; nothing is baked"), ELogVerbosity::Warning);
 	FBakeFixture Fixture(TEXT("BakeUnsaved"));
+	UPackage* GrammarPackage = Fixture.Grammar->GetPackage();
+	if (!TestTrue(TEXT("The grammar saves"), UEditorLoadingAndSavingUtils::SavePackages({ GrammarPackage }, false)))
+	{
+		return false;
+	}
+	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Sides = 6; });
+	const FDateTime SavedAt = IFileManager::Get().GetTimeStamp(*PackageFilename(*Fixture.GrammarPackage));
 
-	// With -unattended the engine's save prompt cancels.
-	const FCambrianaBakeResult Result = Cambriana::Editor::BakeGrammar(*Fixture.Grammar, ECambrianaBakeChoice::StaticMesh, nullptr);
+	int32 Asked = 0;
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
 
-	TestTrue(TEXT("The bake reports the grammar not saved"), Result.Status == ECambrianaBakeStatus::GrammarNotSaved);
-	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());
-	TestFalse(TEXT("No static mesh is saved"), Fixture.MeshFileExists());
+	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
+	TestEqual(TEXT("The static mesh has the unsaved 6 sides"), RenderedTriangles(Fixture.FindMesh()), SkTrianglesAtSixSides);
+	TestTrue(TEXT("The grammar still has its unsaved changes"), GrammarPackage->IsDirty());
+	TestTrue(TEXT("The grammar's package file is not written"), IFileManager::Get().GetTimeStamp(*PackageFilename(*Fixture.GrammarPackage)) == SavedAt);
+	TestEqual(TEXT("Nothing asks to overwrite"), Asked, 0);
 	return true;
 }
 

@@ -104,80 +104,94 @@ bool FCambrianaEditorBakeChoicesTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ATS-48: with unsaved edits, either choice asks to save.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeAsksToSaveTest,
-	"Cambriana.Editor.GrammarEditor.Bake.WithUnsavedEditsEitherChoiceAsksToSaveOnceWithYesAndNo",
+namespace
+{
+	// SDD-surfacing.md, Tubes: TypedGrammarText grows A -> F A twice, a chain of 2 segments, each 2 triangles per side, at 8 sides.
+	constexpr int32 TypedTriangles = 2 * 2 * 8;
+
+	/** Counts the unsaved edits prompt's questions, answering No. */
+	void CountQuestions(FCambrianaGrammarEditorToolkit& Toolkit, int32& Asked)
+	{
+		Toolkit.SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::No; });
+	}
+
+	/** ATS-48: the asset and the editor's unsaved edits are as they were before the bake. */
+	void TestAssetAndEditsUnchanged(FAutomationTestBase& Test, const FEditedGrammar& Edited, const FString& TextBefore, int32 SidesBefore)
+	{
+		Test.TestEqual(TEXT("The asset keeps its sides"), Edited.Fixture.Grammar->Sides, SidesBefore);
+		Test.TestEqual(TEXT("The asset keeps its text"), Edited.Fixture.Grammar->GrammarText, TextBefore);
+		Test.TestFalse(TEXT("The asset is not saved"), IFileManager::Get().FileExists(*PackageFilename(*Edited.Fixture.GrammarPackage)));
+		Test.TestTrue(TEXT("The editor still has its unsaved edits"), Edited.Toolkit->HasUnsavedEdits());
+	}
+}
+
+// ATS-48: with unsaved edits, nothing asks to save.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeAsksNothingTest,
+	"Cambriana.Editor.GrammarEditor.Bake.WithUnsavedEditsNeitherChoiceAsksAnything",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FCambrianaEditorBakeAsksToSaveTest::RunTest(const FString& Parameters)
+bool FCambrianaEditorBakeAsksNothingTest::RunTest(const FString& Parameters)
 {
-	FEditedGrammar Edited(TEXT("EditorBakeAsks"));
+	FEditedGrammar Edited(TEXT("EditorBakeAsksNothing"));
 	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Edited.OpenAndEdit()))
 	{
 		return false;
 	}
 	int32 Asked = 0;
-	TArray<EAppMsgType::Type> Offered;
-	TArray<FString> Messages;
-	Edited.Toolkit->SetUnsavedEditsPrompt([&](EAppMsgType::Type Buttons, const FText& Message)
-	{
-		++Asked;
-		Offered.Add(Buttons);
-		Messages.Add(Message.ToString());
-		return EAppReturnType::No;
-	});
+	CountQuestions(*Edited.Toolkit, Asked);
 
 	TestTrue(TEXT("Bake to Static Mesh runs"), RunBakeEntry(*Edited.Toolkit, BakeToStaticMeshEntry));
-	TestEqual(TEXT("It asks once"), Asked, 1);
 	TestTrue(TEXT("Bake to Skeletal Mesh runs"), RunBakeEntry(*Edited.Toolkit, BakeToSkeletalMeshEntry));
-	TestEqual(TEXT("It asks once more"), Asked, 2);
-	for (int32 Index = 0; Index < Offered.Num(); ++Index)
-	{
-		TestTrue(TEXT("The question offers Yes and No"), Offered[Index] == EAppMsgType::YesNo);
-		TestTrue(TEXT("The question names the grammar"), Messages[Index].Contains(Edited.Fixture.Grammar->GetPathName()));
-	}
+	TestEqual(TEXT("Nothing asks about unsaved edits"), Asked, 0);
+	TestNotNull(TEXT("The static mesh is written"), Edited.Fixture.FindMesh());
+	TestNotNull(TEXT("The skeletal mesh is written"), Edited.Fixture.FindSkeletalMesh());
 	return true;
 }
 
-// ATS-48: on save, the baked mesh matches the saved grammar.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeSaveThenBakeTest,
-	"Cambriana.Editor.GrammarEditor.Bake.SavingThenBakingToStaticMeshBakesTheSavedGrammar",
+// ATS-48: the baked mesh matches the editor's edits; the asset and the edits are unchanged.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeEditsTest,
+	"Cambriana.Editor.GrammarEditor.Bake.BakeToStaticMeshBakesTheEditorsEditsBesideTheAssetAndLeavesTheAssetAndEditsUnsaved",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FCambrianaEditorBakeSaveThenBakeTest::RunTest(const FString& Parameters)
+bool FCambrianaEditorBakeEditsTest::RunTest(const FString& Parameters)
 {
-	FEditedGrammar Edited(TEXT("EditorBakeSaves"));
+	FEditedGrammar Edited(TEXT("EditorBakeEdits"));
+	const FString TextBefore = Edited.Fixture.Grammar->GrammarText;
+	const int32 SidesBefore = Edited.Fixture.Grammar->Sides;
 	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Edited.OpenAndEdit()))
 	{
 		return false;
 	}
-	Edited.Toolkit->SetUnsavedEditsPrompt([](EAppMsgType::Type, const FText&) { return EAppReturnType::Yes; });
+	int32 Asked = 0;
+	CountQuestions(*Edited.Toolkit, Asked);
 	TestTrue(TEXT("Bake to Static Mesh runs"), RunBakeEntry(*Edited.Toolkit, BakeToStaticMeshEntry));
 
-	TestEqual(TEXT("The asset holds the edited sides"), Edited.Fixture.Grammar->Sides, EditedSides);
-	TestTrue(TEXT("The asset is saved to disk"), IFileManager::Get().FileExists(*PackageFilename(*Edited.Fixture.GrammarPackage)));
-	TestFalse(TEXT("The editor has nothing unsaved"), Edited.Toolkit->HasUnsavedEdits());
-	TestEqual(TEXT("The static mesh is the saved grammar's, not the grammar as it was"), RenderedTriangles(Edited.Fixture.FindMesh()), SkTrianglesAtSixSides);
+	// FBakeFixture: SM_<asset name> in the folder beside the asset, named after it.
+	TestEqual(TEXT("The static mesh beside the asset has the edited 6 sides"), RenderedTriangles(Edited.Fixture.FindMesh()), SkTrianglesAtSixSides);
 	TestTrue(TEXT("The static mesh is saved to disk"), Edited.Fixture.MeshFileExists());
 	TestTrue(TEXT("No skeletal outputs are written"), !Edited.Fixture.FindSkeletalMesh() && !Edited.Fixture.FindSkeleton() && !Edited.Fixture.FindPhysicsAsset());
+	TestEqual(TEXT("Nothing asks"), Asked, 0);
+	TestAssetAndEditsUnchanged(*this, Edited, TextBefore, SidesBefore);
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeSaveThenBakeSkeletalTest,
-	"Cambriana.Editor.GrammarEditor.Bake.SavingThenBakingToSkeletalMeshWritesTheSkeletalOutputsFromTheSavedGrammar",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeEditsSkeletalTest,
+	"Cambriana.Editor.GrammarEditor.Bake.BakeToSkeletalMeshBakesTheEditorsEditsBesideTheAssetAndLeavesTheAssetAndEditsUnsaved",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FCambrianaEditorBakeSaveThenBakeSkeletalTest::RunTest(const FString& Parameters)
+bool FCambrianaEditorBakeEditsSkeletalTest::RunTest(const FString& Parameters)
 {
-	FEditedGrammar Edited(TEXT("EditorBakeSavesSkeletal"));
+	FEditedGrammar Edited(TEXT("EditorBakeEditsSkeletal"));
+	const FString TextBefore = Edited.Fixture.Grammar->GrammarText;
+	const int32 SidesBefore = Edited.Fixture.Grammar->Sides;
 	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Edited.OpenAndEdit()))
 	{
 		return false;
 	}
-	Edited.Toolkit->SetUnsavedEditsPrompt([](EAppMsgType::Type, const FText&) { return EAppReturnType::Yes; });
+	int32 Asked = 0;
+	CountQuestions(*Edited.Toolkit, Asked);
 	TestTrue(TEXT("Bake to Skeletal Mesh runs"), RunBakeEntry(*Edited.Toolkit, BakeToSkeletalMeshEntry));
 
-	TestEqual(TEXT("The asset holds the edited sides"), Edited.Fixture.Grammar->Sides, EditedSides);
 	TestTrue(TEXT("The skeletal mesh and skeleton are saved to disk"), Edited.Fixture.SkeletalFilesExist());
 	TestTrue(TEXT("The physics asset is saved to disk"), Edited.Fixture.FindPhysicsAsset() && Edited.Fixture.PhysicsAssetFileExists());
 	TestNull(TEXT("No static mesh is written"), Edited.Fixture.FindMesh());
@@ -185,43 +199,45 @@ bool FCambrianaEditorBakeSaveThenBakeSkeletalTest::RunTest(const FString& Parame
 	{
 		const FSkeletalMeshRenderData* RenderData = Mesh->GetResourceForRendering();
 		const int32 Triangles = RenderData && RenderData->LODRenderData.Num() > 0 ? int32(RenderData->LODRenderData[0].GetTotalFaces()) : 0;
-		TestEqual(TEXT("The skeletal mesh is the saved grammar's"), Triangles, SkTrianglesAtSixSides);
+		TestEqual(TEXT("The skeletal mesh has the edited 6 sides"), Triangles, SkTrianglesAtSixSides);
 	}
 	else
 	{
-		AddError(TEXT("The skeletal mesh SK_EditorBakeSavesSkeletal is not written"));
+		AddError(TEXT("The skeletal mesh SK_EditorBakeEditsSkeletal is not written"));
 	}
+	TestEqual(TEXT("Nothing asks"), Asked, 0);
+	TestAssetAndEditsUnchanged(*this, Edited, TextBefore, SidesBefore);
 	return true;
 }
 
-// ATS-48: on cancel, nothing is baked and the asset is unchanged.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeCancelTest,
-	"Cambriana.Editor.GrammarEditor.Bake.DecliningTheSaveBakesNothingAndLeavesTheAssetUnchanged",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakePendingRulesTest,
+	"Cambriana.Editor.GrammarEditor.Bake.BakeAppliesAPendingRulesEditAndBakesIt",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FCambrianaEditorBakeCancelTest::RunTest(const FString& Parameters)
+bool FCambrianaEditorBakePendingRulesTest::RunTest(const FString& Parameters)
 {
-	FEditedGrammar Edited(TEXT("EditorBakeCancels"));
-	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Edited.OpenAndEdit()))
+	FEditedGrammar Edited(TEXT("EditorBakePendingRules"));
+	const FString TextBefore = Edited.Fixture.Grammar->GrammarText;
+	const int32 SidesBefore = Edited.Fixture.Grammar->Sides;
+	Edited.Toolkit = OpenGrammarEditor(Edited.Fixture.Grammar);
+	const TSharedPtr<SMultiLineEditableTextBox> Rules = Edited.Toolkit ? RulesTextBoxOf(*Edited.Toolkit) : nullptr;
+	if (!TestNotNull(TEXT("The grammar editor shows its Rules text"), Rules.Get()))
 	{
 		return false;
 	}
-	const int32 SidesBefore = Edited.Fixture.Grammar->Sides;
-	Edited.Toolkit->SetUnsavedEditsPrompt([](EAppMsgType::Type, const FText&) { return EAppReturnType::No; });
-	TestTrue(TEXT("Bake to Static Mesh runs"), RunBakeEntry(*Edited.Toolkit, BakeToStaticMeshEntry));
-	TestTrue(TEXT("Bake to Skeletal Mesh runs"), RunBakeEntry(*Edited.Toolkit, BakeToSkeletalMeshEntry));
+	TypeOverRules(*Rules);
+	int32 Asked = 0;
+	CountQuestions(*Edited.Toolkit, Asked);
+	TestTrue(TEXT("Bake to Static Mesh runs while the typing has not paused"), RunBakeEntry(*Edited.Toolkit, BakeToStaticMeshEntry));
 
-	TestNull(TEXT("No static mesh"), Edited.Fixture.FindMesh());
-	TestTrue(TEXT("No skeletal mesh, skeleton or physics asset"), !Edited.Fixture.FindSkeletalMesh() && !Edited.Fixture.FindSkeleton() && !Edited.Fixture.FindPhysicsAsset());
-	TestFalse(TEXT("No output file"), Edited.Fixture.MeshFileExists() || Edited.Fixture.AnySkeletalFileExists() || Edited.Fixture.PhysicsAssetFileExists());
-	TestFalse(TEXT("The asset is not saved"), IFileManager::Get().FileExists(*PackageFilename(*Edited.Fixture.GrammarPackage)));
-	TestEqual(TEXT("The asset is unchanged"), Edited.Fixture.Grammar->Sides, SidesBefore);
-	TestTrue(TEXT("The edits stay in the editor"), Edited.Toolkit->HasUnsavedEdits());
+	TestEqual(TEXT("The static mesh is the typed grammar's two segments"), RenderedTriangles(Edited.Fixture.FindMesh()), TypedTriangles);
+	TestEqual(TEXT("Nothing asks"), Asked, 0);
+	TestAssetAndEditsUnchanged(*this, Edited, TextBefore, SidesBefore);
 	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaEditorBakeNoEditsTest,
-	"Cambriana.Editor.GrammarEditor.Bake.WithoutUnsavedEditsItBakesStraightAwayWithoutAsking",
+	"Cambriana.Editor.GrammarEditor.Bake.WithoutUnsavedEditsItBakesTheAssetWithoutAsking",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaEditorBakeNoEditsTest::RunTest(const FString& Parameters)
@@ -233,7 +249,7 @@ bool FCambrianaEditorBakeNoEditsTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	int32 Asked = 0;
-	Edited.Toolkit->SetUnsavedEditsPrompt([&Asked](EAppMsgType::Type, const FText&) { ++Asked; return EAppReturnType::No; });
+	CountQuestions(*Edited.Toolkit, Asked);
 	TestTrue(TEXT("Bake to Static Mesh runs"), RunBakeEntry(*Edited.Toolkit, BakeToStaticMeshEntry));
 	TestEqual(TEXT("It does not ask"), Asked, 0);
 	TestEqual(TEXT("The static mesh is baked"), RenderedTriangles(Edited.Fixture.FindMesh()), SkTriangles);
