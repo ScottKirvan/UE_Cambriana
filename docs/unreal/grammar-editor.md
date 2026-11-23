@@ -20,7 +20,7 @@ See [Reading errors](../grammar-guide#reading-errors) in the Syntax Guide for wh
 
 ## Viewport
 
-**Viewport** shows the working copy's result, built as a live actor that references the grammar with every override off and the grammar's own seed would build it. Each material ID shows in a preview colour: IDs 0 to 9, repeating, are black, brown, red, orange, yellow, green, blue, violet, grey and white.
+**Viewport** shows the working copy's result, built as a live actor that references the grammar would build it, with every override off and the grammar's own seed. Each material ID shows in a preview colour: IDs 0 to 9, repeating, are black, brown, red, orange, yellow, green, blue, violet, grey and white.
 
 - The camera orbits the mesh. It frames the mesh when the editor opens; press **F** to frame it again. Edits do not move the camera.
 - After each rebuild the floor moves to the mesh's lowest point, so the mesh rests on it.
