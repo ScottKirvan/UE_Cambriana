@@ -107,6 +107,8 @@ Its stiffness follows how a beam bends: a thick, short bone is stiffer than a th
 
 Raise **Physics Stiffness** to make the whole mesh stiffer, lower it to make it floppier. At 0 the joints hang loose. At the default of 25000, a level 10 cm bone of radius 1 cm sags about 0.1 radians under gravity. A bone of radius 0 has no stiffness. Rebake to apply a new value.
 
+Long runs of stiff joints need more solver iterations to hold their shape. Raise **Position Solver Iteration Count** in the placed skeletal mesh component's Details panel, under **Physics**: about 32 holds a 5-bone run within 1 cm of its bind pose, where the default of 8 lets its tip settle about 4 cm low. Every body of a baked physics asset uses the component's count.
+
 ## The static mesh
 
 The static mesh `SM_<name>`, written when **Static Mesh** is ticked, has the same triangles, material slots and data channels as the skeletal mesh.
