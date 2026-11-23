@@ -3,33 +3,23 @@
 #include "CoreMinimal.h"
 #include "PhysicsEngine/SphylElem.h"
 
-struct FCambrianaBone;
 struct FCambrianaBuildResult;
 
-/** A physics body of a baked mesh: one per chain, on the chain's first bone, holding a capsule per bone of the chain. */
+/** A physics body of a baked mesh: one per drawn bone, holding one capsule along it. */
 struct FCambrianaPhysicsBody
 {
 	/** The reference skeleton bone the body is on (Cambriana::MakeReferenceSkeleton). */
 	int32 SkeletonBone = INDEX_NONE;
 	/** The reference skeleton bone of the nearest body above this one, or INDEX_NONE for a body with none above it. */
 	int32 ParentBodyBone = INDEX_NONE;
-	/** One capsule per bone of the chain, in the space of the body's bone: along the bone, its length and radius. */
+	/** The bone's capsule, in the space of the body's bone: along the bone, its length and radius. */
 	TArray<FKSphylElem> Capsules;
-	/**
-	 * The beam bending model's stiffness of the body's bones without its material constant, in cm³: radius⁴ / length for one bone,
-	 * and the bones' in series, 1 / Σ(length / radius⁴), for a chain of them.
-	 */
+	/** The beam bending model's stiffness of the body's bone without its material constant, radius⁴ / length, in cm³. */
 	double BendingStiffness = 0.0;
 };
 
 namespace Cambriana
 {
-	/**
-	 * The chains of a bone tree, each the build bone indices of a chain from its first bone. A chain is a maximal run of drawn segments,
-	 * each after the first the only drawn child of the one before it, with no chain break before it.
-	 */
-	CAMBRIANA_API TArray<TArray<int32>> FindChains(TConstArrayView<FCambrianaBone> Bones);
-
-	/** The physics bodies of a build: one per chain, in chain order. */
+	/** The physics bodies of a build: one per drawn bone, in bone order. */
 	CAMBRIANA_API TArray<FCambrianaPhysicsBody> MakePhysicsBodies(const FCambrianaBuildResult& Result);
 }
