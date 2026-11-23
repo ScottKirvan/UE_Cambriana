@@ -255,7 +255,7 @@ namespace
 
 namespace Cambriana::Editor
 {
-	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, const FAskToOverwrite& AskToOverwrite)
+	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite)
 	{
 		const FString GrammarPath = Grammar.GetPathName();
 		if (!EnsureSaved(Grammar))

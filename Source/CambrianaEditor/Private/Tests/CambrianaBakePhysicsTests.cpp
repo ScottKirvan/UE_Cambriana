@@ -116,7 +116,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakePhysicsAssetTest,
 bool FCambrianaBakePhysicsAssetTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakePhysics"));
-	const FCambrianaBakeResult Result = Fixture.Bake();
+	const FCambrianaBakeResult Result = Fixture.BakeSkeletal();
 
 	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
 	UPhysicsAsset* PhysicsAsset = Fixture.FindPhysicsAsset();
@@ -160,7 +160,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakePhysicsIterationCountsTest,
 bool FCambrianaBakePhysicsIterationCountsTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakePhysicsIterations"));
-	if (!TestTrue(TEXT("The bake succeeds"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The bake succeeds"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
@@ -190,14 +190,14 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaRebakePhysicsAssetTest,
 bool FCambrianaRebakePhysicsAssetTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("RebakePhysics"));
-	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
 	UPhysicsAsset* PhysicsAsset = Fixture.FindPhysicsAsset();
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.GrammarText = ForkGrammarText; });
 
-	const FCambrianaBakeResult Result = Fixture.Bake(AnswerYes());
+	const FCambrianaBakeResult Result = Fixture.BakeSkeletal(AnswerYes());
 
 	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
 	USkeletalMesh* Mesh = Fixture.FindSkeletalMesh();
@@ -242,7 +242,7 @@ bool FCambrianaBakePhysicsNameTakenTest::RunTest(const FString& Parameters)
 	UPackage* Package = CreatePackage(*Fixture.PhysicsAssetPackage);
 	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("PHYS_") + Fixture.Name), RF_Public | RF_Standalone);
 
-	const FCambrianaBakeResult Result = Fixture.Bake(AnswerYes());
+	const FCambrianaBakeResult Result = Fixture.BakeSkeletal(AnswerYes());
 
 	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
 	TestTrue(TEXT("The other asset is untouched"),
@@ -261,7 +261,7 @@ bool FCambrianaBakePhysicsStiffnessTest::RunTest(const FString& Parameters)
 	FBakeFixture Fixture(TEXT("BakePhysicsStiffness"));
 	Fixture.Grammar->GrammarText = ThicknessGrammarText;
 	Fixture.Grammar->Bake.PhysicsStiffness = 1000.0f;
-	if (!TestTrue(TEXT("The grammar bakes"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The grammar bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
@@ -275,7 +275,7 @@ bool FCambrianaBakePhysicsStiffnessTest::RunTest(const FString& Parameters)
 	TestDrives(*this, *PhysicsAsset, Mesh->GetRefSkeleton(), 1000.0);
 
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Bake.PhysicsStiffness = 3000.0f; });
-	if (!TestTrue(TEXT("The grammar rebakes"), Fixture.Bake(AnswerYes()).Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The grammar rebakes"), Fixture.BakeSkeletal(AnswerYes()).Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
@@ -292,7 +292,7 @@ bool FCambrianaBakePhysicsMassTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakePhysicsMass"));
 	Fixture.Grammar->GrammarText = ThicknessGrammarText;
-	if (!TestTrue(TEXT("The grammar bakes"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The grammar bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}

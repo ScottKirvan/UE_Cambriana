@@ -167,7 +167,7 @@ bool FCambrianaBakeDataChannelsTest::RunTest(const FString& Parameters)
 	FBakeFixture Fixture(TEXT("BakeChannels"));
 	Fixture.Grammar->GrammarText = ChannelGrammar;
 	Fixture.Grammar->Seed = ChannelSeed;
-	if (!TestTrue(TEXT("The grammar bakes"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The grammar bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}

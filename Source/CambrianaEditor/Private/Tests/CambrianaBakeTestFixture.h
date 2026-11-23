@@ -70,11 +70,21 @@ namespace Cambriana::Editor::Tests
 		}
 
 		/** Bakes with the engine's save prompts saving without asking, as for an unattended script. */
-		FCambrianaBakeResult Bake(const Cambriana::Editor::FAskToOverwrite& AskToOverwrite = nullptr) const
+		FCambrianaBakeResult Bake(ECambrianaBakeChoice Choice, const Cambriana::Editor::FAskToOverwrite& AskToOverwrite = nullptr) const
 		{
 			FCambrianaBakeResult Result;
-			RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeGrammar(*Grammar, AskToOverwrite); });
+			RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeGrammar(*Grammar, Choice, AskToOverwrite); });
 			return Result;
+		}
+
+		FCambrianaBakeResult BakeStatic(const Cambriana::Editor::FAskToOverwrite& AskToOverwrite = nullptr) const
+		{
+			return Bake(ECambrianaBakeChoice::StaticMesh, AskToOverwrite);
+		}
+
+		FCambrianaBakeResult BakeSkeletal(const Cambriana::Editor::FAskToOverwrite& AskToOverwrite = nullptr) const
+		{
+			return Bake(ECambrianaBakeChoice::SkeletalMesh, AskToOverwrite);
 		}
 
 		/** Changes the grammar as an edit does, so that the bake saves it first. */

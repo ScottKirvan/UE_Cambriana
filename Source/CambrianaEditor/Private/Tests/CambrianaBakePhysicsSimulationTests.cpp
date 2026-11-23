@@ -104,7 +104,7 @@ namespace
 		Fixture.Grammar->Bake.PhysicsStiffness = Stiffness;
 		UPhysicsAsset* PhysicsAsset = nullptr;
 		USkeletalMesh* Mesh = nullptr;
-		if (!Test.TestTrue(TEXT("The run bakes"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked)
+		if (!Test.TestTrue(TEXT("The run bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked)
 			|| !Test.TestNotNull(TEXT("The physics asset is written"), PhysicsAsset = Fixture.FindPhysicsAsset())
 			|| !Test.TestNotNull(TEXT("The skeletal mesh is written"), Mesh = Fixture.FindSkeletalMesh()))
 		{
@@ -125,7 +125,7 @@ bool FCambrianaBakePhysicsRunTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakePhysicsRun"));
 	Fixture.Grammar->GrammarText = RunGrammarText;
-	if (!TestTrue(TEXT("The run bakes"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The run bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
