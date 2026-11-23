@@ -15,7 +15,7 @@ namespace Cambriana::Editor::Tests
 {
 	inline const TCHAR* const BakeTestRoot = TEXT("/Game/CambrianaBakeTests");
 
-	/** A grammar asset in its own package under BakeTestRoot, holding sk.ls with static mesh output on; removes it and whatever was baked from it, in memory and on disk. */
+	/** A grammar asset in its own package under BakeTestRoot, holding sk.ls; removes it and whatever was baked from it, in memory and on disk. */
 	class FBakeFixture
 	{
 	public:
@@ -32,7 +32,6 @@ namespace Cambriana::Editor::Tests
 			Remove();
 			Grammar = CreateGrammarInPackage(*GrammarPackage);
 			Grammar->GrammarText = LoadFile(FixturePath(TEXT("sk.ls")));
-			Grammar->Bake.bStaticMesh = true;
 		}
 
 		~FBakeFixture() { Remove(); }

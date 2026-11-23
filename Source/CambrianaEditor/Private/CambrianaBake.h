@@ -62,6 +62,8 @@ namespace Cambriana::Editor
 
 	inline const FName BakeMenuSection(TEXT("GetAssetActions"));
 	inline const FName BakeMenuEntry(TEXT("CambrianaGrammar_Bake"));
+	inline const FName BakeToStaticMeshMenuEntry(TEXT("CambrianaGrammar_BakeToStaticMesh"));
+	inline const FName BakeToSkeletalMeshMenuEntry(TEXT("CambrianaGrammar_BakeToSkeletalMesh"));
 
 	/**
 	 * Bakes the grammar asset's saved state to a folder beside the asset named after it, and saves the outputs. StaticMesh writes

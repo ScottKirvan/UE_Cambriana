@@ -130,8 +130,6 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorDetailsBakeTest,
 bool FCambrianaLiveActorDetailsBakeTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("ActorBake"));
-	// The grammar's own bake outputs do not apply to the actor's Details Bake, which writes a static mesh only.
-	Fixture.Grammar->Bake.bStaticMesh = false;
 	ACambrianaLiveActor* Actor = PlaceOverriddenActor(Fixture);
 	if (!TestNotNull(TEXT("A live actor is placed from the grammar"), Actor))
 	{
