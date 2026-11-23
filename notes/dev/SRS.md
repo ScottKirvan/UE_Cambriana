@@ -65,7 +65,7 @@ Status markings: [README.md](README.md). Open items: [TBD.md](TBD.md).
 | FR-10 | Dragging a grammar asset into a level places a live actor that references it and updates when the grammar changes. | US-05 |
 | FR-11 | A live actor accepts inline grammar text without a grammar asset. | US-05 |
 | FR-12 | Bake has two choices: Bake to Static Mesh produces a static mesh, and Bake to Skeletal Mesh produces a skeletal mesh, skeleton and physics asset. Both are offered on the grammar asset's right-click menu and in the grammar editor; the live actor's Details Bake produces a static mesh. | US-06 |
-| FR-13 | Reimport, on a baked mesh's right-click menu, rebuilds it in place from its grammar's saved state with references intact; Detach, on the same menu, unlinks a baked asset from its grammar. | US-07 |
+| FR-13 | Reimport, on a baked mesh's right-click menu, rebuilds it in place from its grammar's current state with references intact; Detach, on the same menu, unlinks a baked asset from its grammar. | US-07 |
 | FR-14 | Pose parameters are editable on placed baked meshes. As Details properties, keyframeable in Sequencer, settable from Blueprint and C++. | US-08, US-09 |
 | FR-15 | Pose parameter values are per instance. | US-09, US-11 |
 | FR-16 | A growth parameter animates a baked mesh from nothing to full growth, in Sequencer and at run time. | US-10 |
