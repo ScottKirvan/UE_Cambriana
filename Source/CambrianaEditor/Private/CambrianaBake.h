@@ -65,14 +65,22 @@ namespace Cambriana::Editor
 	/**
 	 * Bakes the grammar asset as it is in memory, saved or not, to a folder beside the asset named after it, and saves the outputs
 	 * but not the grammar. StaticMesh writes SM_<grammar asset name>; SkeletalMesh writes the skeleton SKEL_<grammar asset name>, the
-	 * skinned skeletal mesh SK_<grammar asset name> and its physics asset PHYS_<grammar asset name>. AskToOverwrite is asked once
-	 * before the chosen outputs that exist are rebuilt in place; unset, a message dialog asks.
+	 * skinned skeletal mesh SK_<grammar asset name> and its physics asset PHYS_<grammar asset name>; the static or skeletal mesh
+	 * records the grammar in its import data for Reimport. AskToOverwrite is asked once before the chosen outputs that exist are
+	 * rebuilt in place; unset, a message dialog asks.
 	 */
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite = nullptr);
 
 	/** Bakes as BakeGrammar does, building State, such as the grammar editor's working copy, into the outputs of Asset. */
 	FCambrianaBakeResult BakeGrammarState(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice,
 		const FAskToOverwrite& AskToOverwrite = nullptr);
+
+	/**
+	 * Rebuilds Mesh in place from the grammar asset as BakeGrammar does, without asking before: a static mesh as Bake to Static Mesh,
+	 * a skeletal mesh as Bake to Skeletal Mesh with the skeleton and physics asset it uses (SKEL_ and PHYS_ beside the grammar when it
+	 * has none). Links the mesh to the grammar.
+	 */
+	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh);
 
 	/**
 	 * Bakes a static mesh from the live actor's own build input, overrides included, and saves it where the engine's save-asset

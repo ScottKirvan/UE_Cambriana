@@ -2,6 +2,7 @@
 
 #include "Animation/Skeleton.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "CambrianaAssetImportData.h"
 #include "CambrianaBuild.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaLiveActor.h"
@@ -86,14 +87,34 @@ namespace
 		return { Status };
 	}
 
+	/** Links the mesh to the grammar in its import data, replacing import data of another kind (as UFbxStaticMeshImportData::GetImportDataForStaticMesh does). */
+	template <typename MeshType>
+	void RecordGrammar(MeshType& Mesh, const UCambrianaGrammar& Grammar)
+	{
+		UCambrianaAssetImportData* ImportData = UCambrianaAssetImportData::Of(&Mesh);
+		if (!ImportData)
+		{
+			ImportData = NewObject<UCambrianaAssetImportData>(&Mesh, NAME_None, RF_NoFlags);
+			Mesh.SetAssetImportData(ImportData);
+		}
+		ImportData->SetGrammar(Grammar);
+	}
+
 	/** An asset a bake writes: its package and class, and the asset already at its name, if any. */
 	struct FOutputToBake
 	{
 		FString PackageName;
 		UClass* Class = nullptr;
 		UObject* Existing = nullptr;
+		/** The asset's name, when it is not the package's short name. */
+		FString AssetName;
 
-		FString Name() const { return FPackageName::GetShortName(PackageName); }
+		static FOutputToBake At(const UObject& Asset, UClass* Class)
+		{
+			return FOutputToBake{ Asset.GetPackage()->GetName(), Class, nullptr, Asset.GetName() };
+		}
+
+		FString Name() const { return AssetName.IsEmpty() ? FPackageName::GetShortName(PackageName) : AssetName; }
 
 		/** The existing asset rebuilt in place, or a new one. */
 		template <typename T>
@@ -118,6 +139,8 @@ namespace
 		TOptional<FOutputToBake> PhysicsAsset;
 		/** The physics asset's overall stiffness (FCambrianaBakeSettings::PhysicsStiffness). */
 		float PhysicsStiffness = 0.0f;
+		/** The grammar the baked mesh is linked to for Reimport, or none. */
+		const UCambrianaGrammar* Grammar = nullptr;
 
 		TArray<FOutputToBake*, TInlineAllocator<4>> All()
 		{
@@ -189,6 +212,10 @@ namespace
 			Result.Skeleton = Outputs.Skeleton->MakeAsset<USkeleton>();
 			Result.SkeletalMesh = Outputs.SkeletalMesh->MakeAsset<USkeletalMesh>();
 			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build);
+			if (Outputs.Grammar)
+			{
+				RecordGrammar(*Result.SkeletalMesh, *Outputs.Grammar);
+			}
 			Result.PhysicsAsset = Outputs.PhysicsAsset->MakeAsset<UPhysicsAsset>();
 			Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build, Outputs.PhysicsStiffness);
 			Packages.Add(Result.SkeletalMesh->GetPackage());
@@ -199,6 +226,10 @@ namespace
 		{
 			Result.StaticMesh = Outputs.StaticMesh->MakeAsset<UStaticMesh>();
 			Cambriana::SetStaticMeshFromBuild(*Result.StaticMesh, Build);
+			if (Outputs.Grammar)
+			{
+				RecordGrammar(*Result.StaticMesh, *Outputs.Grammar);
+			}
 			Packages.Add(Result.StaticMesh->GetPackage());
 		}
 		for (UPackage* Package : Packages)
@@ -219,6 +250,31 @@ namespace
 		return Result;
 	}
 
+	/** The outputs Choice writes, at Asset's names in the folder beside it, with State's bake settings. */
+	FOutputsToBake OutputsBesideGrammar(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice)
+	{
+		FOutputsToBake Outputs;
+		if (Choice == ECambrianaBakeChoice::SkeletalMesh)
+		{
+			Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SK_")), USkeletalMesh::StaticClass() };
+			Outputs.Skeleton = FOutputToBake{ OutputPackageName(Asset, TEXT("SKEL_")), USkeleton::StaticClass() };
+			Outputs.PhysicsAsset = FOutputToBake{ OutputPackageName(Asset, TEXT("PHYS_")), UPhysicsAsset::StaticClass() };
+			Outputs.PhysicsStiffness = State.Bake.PhysicsStiffness;
+		}
+		else
+		{
+			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SM_")), UStaticMesh::StaticClass() };
+		}
+		return Outputs;
+	}
+
+	/** Bakes State, as it is in memory, into the outputs, linking the baked mesh to the grammar asset Asset. */
+	FCambrianaBakeResult BakeGrammarTo(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, FOutputsToBake Outputs,
+		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+	{
+		Outputs.Grammar = &Asset;
+		return BakeOutputs(ACambrianaLiveActor::MakeBuildInputFor(State), MoveTemp(Outputs), Asset.GetPathName(), AskToOverwrite);
+	}
 	void ExecuteBake(const FToolMenuContext& MenuContext, ECambrianaBakeChoice Choice)
 	{
 		const UContentBrowserAssetContextMenuContext* Context = UContentBrowserAssetContextMenuContext::FindContextWithAssets(MenuContext);
@@ -243,21 +299,36 @@ namespace Cambriana::Editor
 	FCambrianaBakeResult BakeGrammarState(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice,
 		const FAskToOverwrite& AskToOverwrite)
 	{
+		return BakeGrammarTo(Asset, State, OutputsBesideGrammar(Asset, State, Choice), AskToOverwrite);
+	}
+
+	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh)
+	{
 		FOutputsToBake Outputs;
-		if (Choice == ECambrianaBakeChoice::SkeletalMesh)
+		if (const USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(&Mesh))
 		{
-			Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SK_")), USkeletalMesh::StaticClass() };
-			Outputs.Skeleton = FOutputToBake{ OutputPackageName(Asset, TEXT("SKEL_")), USkeleton::StaticClass() };
-			Outputs.PhysicsAsset = FOutputToBake{ OutputPackageName(Asset, TEXT("PHYS_")), UPhysicsAsset::StaticClass() };
-			Outputs.PhysicsStiffness = State.Bake.PhysicsStiffness;
+			Outputs = OutputsBesideGrammar(Grammar, Grammar, ECambrianaBakeChoice::SkeletalMesh);
+			Outputs.SkeletalMesh = FOutputToBake::At(*SkeletalMesh, USkeletalMesh::StaticClass());
+			if (const USkeleton* Skeleton = SkeletalMesh->GetSkeleton())
+			{
+				Outputs.Skeleton = FOutputToBake::At(*Skeleton, USkeleton::StaticClass());
+			}
+			if (const UPhysicsAsset* PhysicsAsset = SkeletalMesh->GetPhysicsAsset())
+			{
+				Outputs.PhysicsAsset = FOutputToBake::At(*PhysicsAsset, UPhysicsAsset::StaticClass());
+			}
+		}
+		else if (const UStaticMesh* StaticMesh = Cast<UStaticMesh>(&Mesh))
+		{
+			Outputs.StaticMesh = FOutputToBake::At(*StaticMesh, UStaticMesh::StaticClass());
 		}
 		else
 		{
-			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SM_")), UStaticMesh::StaticClass() };
+			return Failed(ECambrianaBakeStatus::NothingToBuild);
 		}
-		return BakeOutputs(ACambrianaLiveActor::MakeBuildInputFor(State), MoveTemp(Outputs), Asset.GetPathName(), AskToOverwrite);
+		// Reimport rebuilds without asking, as the engine's Reimport does.
+		return BakeGrammarTo(Grammar, Grammar, MoveTemp(Outputs), [](const FText&) { return EAppReturnType::Yes; });
 	}
-
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
 	{
 		FSaveAssetDialogConfig Config;
