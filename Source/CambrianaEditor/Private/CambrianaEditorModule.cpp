@@ -2,6 +2,7 @@
 #include "CambrianaEditorCategory.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarCustomization.h"
+#include "CambrianaGrammarEditorToolkit.h"
 #include "CambrianaLiveActor.h"
 #include "CambrianaLiveActorCustomization.h"
 #include "Engine/Engine.h"
@@ -58,6 +59,7 @@ private:
 	{
 		FToolMenuOwnerScoped Owner(this);
 		Cambriana::Editor::AddBakeMenuEntry();
+		Cambriana::Editor::AddGrammarEditorBakeMenu();
 	}
 
 	void RegisterPlacementCategory()
