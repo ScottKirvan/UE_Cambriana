@@ -1,6 +1,8 @@
 #include "CambrianaBake.h"
 #include "CambrianaBakeTestFixture.h"
+#include "CambrianaBuild.h"
 #include "CambrianaGrammar.h"
+#include "CambrianaPhysicsAsset.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Misc/AutomationTest.h"
@@ -197,6 +199,53 @@ bool FCambrianaBakePhysicsRunStiffTest::RunTest(const FString& Parameters)
 	// 1e8 x 1^4 / 10 = 1e7, so it turns about 6400 / 1e7 = 6.4e-4 rad, moving the last body 40 cm out about 0.03 cm; the other joints
 	// carry less. Even doubled by overshoot that is far under 1 cm.
 	TestTrue(TEXT("The last bone's body stays within 1 cm of its bind pose"), Motion.MaxDeviation < 1.0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakePhysicsRebuildRefreshesComponentsTest,
+	"Cambriana.Editor.Bake.RebuildingThePhysicsAssetInPlaceGivesAPlacedComponentUsingItTheNewBodies",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakePhysicsRebuildRefreshesComponentsTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("BakePhysicsRefresh"));
+	Fixture.Grammar->GrammarText = RunGrammarText;
+	UPhysicsAsset* PhysicsAsset = nullptr;
+	USkeletalMesh* Mesh = nullptr;
+	if (!TestTrue(TEXT("The run bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked)
+		|| !TestNotNull(TEXT("The physics asset is written"), PhysicsAsset = Fixture.FindPhysicsAsset())
+		|| !TestNotNull(TEXT("The skeletal mesh is written"), Mesh = Fixture.FindSkeletalMesh()))
+	{
+		return false;
+	}
+	FPreviewScene Scene(FPreviewScene::ConstructionValues().ShouldSimulatePhysics(true));
+	USkeletalMeshComponent* Component = NewObject<USkeletalMeshComponent>(GetTransientPackage());
+	Component->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
+	Component->SetSkeletalMesh(Mesh);
+	Scene.AddComponent(Component, FTransform::Identity);
+	if (!TestEqual(TEXT("The placed component has a body per bone of the run"), Component->Bodies.Num(), RunBones))
+	{
+		Scene.RemoveComponent(Component);
+		return false;
+	}
+
+	// By hand (SDD-rigging.md, Physics): a run of three bones has three bodies, on skeleton bones 1 to 3.
+	FCambrianaBuildInput ShorterRun;
+	ShorterRun.GrammarText = TEXT("step 10cm
+thickness 20%
+axiom F F F
+");
+	Cambriana::Editor::SetPhysicsAssetFromBuild(*PhysicsAsset, *Mesh, Cambriana::BuildMesh(ShorterRun), 0.0f);
+
+	TestEqual(TEXT("The physics asset has three bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 3);
+	TestEqual(TEXT("The placed component has the rebuilt physics asset's three bodies"), Component->Bodies.Num(), 3);
+	int32 Stale = 0;
+	for (const FBodyInstance* Body : Component->Bodies)
+	{
+		Stale += !Body || !PhysicsAsset->SkeletalBodySetups.Contains(Cast<USkeletalBodySetup>(Body->GetBodySetup()));
+	}
+	TestEqual(TEXT("Every body of the component is built from a body of the rebuilt physics asset"), Stale, 0);
+	Scene.RemoveComponent(Component);
 	return true;
 }
 
