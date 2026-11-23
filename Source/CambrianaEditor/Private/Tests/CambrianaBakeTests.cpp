@@ -264,6 +264,10 @@ bool FCambrianaBakeOverwriteTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("The first static bake succeeds"), First.Status == ECambrianaBakeStatus::Baked);
 	TestEqual(TEXT("Existing skeletal outputs do not make a first static bake ask"), Asked, 0);
 	UStaticMesh* Mesh = Fixture.FindMesh();
+	if (!TestNotNull(TEXT("The static mesh is written"), Mesh))
+	{
+		return false;
+	}
 	TestEqual(TEXT("The static mesh has the saved grammar's new triangles"), RenderedTriangles(Mesh), SkTrianglesAtSixSides);
 	TestEqual(TEXT("The skeletal mesh was not touched"), RenderedTriangles(SkeletalMesh), SkTriangles);
 
