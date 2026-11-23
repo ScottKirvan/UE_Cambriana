@@ -47,26 +47,6 @@ namespace
 			: FString(TEXT("/Game")) / (TEXT("SM_") + Label);
 	}
 
-	bool HasSavedState(const UPackage& Package)
-	{
-		return !Package.IsDirty() && FPackageName::DoesPackageExist(Package.GetName());
-	}
-
-	/** Whether the grammar has a saved state matching its values, offering it to the engine's save prompt when it does not. */
-	bool EnsureSaved(UCambrianaGrammar& Grammar)
-	{
-		UPackage* Package = Grammar.GetPackage();
-		if (Package == GetTransientPackage())
-		{
-			return false;
-		}
-		if (!HasSavedState(*Package))
-		{
-			FEditorFileUtils::PromptForCheckoutAndSave({ Package }, false, true);
-		}
-		return HasSavedState(*Package);
-	}
-
 	/** The asset at the static mesh's name, loading it when only its package file exists. */
 	UObject* FindExisting(const FString& PackageName, const FString& Name)
 	{
@@ -257,26 +237,25 @@ namespace Cambriana::Editor
 {
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite)
 	{
-		const FString GrammarPath = Grammar.GetPathName();
-		if (!EnsureSaved(Grammar))
-		{
-			UE_LOG(LogCambrianaBake, Warning, TEXT("%s: the grammar is not saved; nothing is baked"), *GrammarPath);
-			return Failed(ECambrianaBakeStatus::GrammarNotSaved);
-		}
+		return BakeGrammarState(Grammar, Grammar, Choice, AskToOverwrite);
+	}
 
+	FCambrianaBakeResult BakeGrammarState(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice,
+		const FAskToOverwrite& AskToOverwrite)
+	{
 		FOutputsToBake Outputs;
 		if (Choice == ECambrianaBakeChoice::SkeletalMesh)
 		{
-			Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SK_")), USkeletalMesh::StaticClass() };
-			Outputs.Skeleton = FOutputToBake{ OutputPackageName(Grammar, TEXT("SKEL_")), USkeleton::StaticClass() };
-			Outputs.PhysicsAsset = FOutputToBake{ OutputPackageName(Grammar, TEXT("PHYS_")), UPhysicsAsset::StaticClass() };
-			Outputs.PhysicsStiffness = Grammar.Bake.PhysicsStiffness;
+			Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SK_")), USkeletalMesh::StaticClass() };
+			Outputs.Skeleton = FOutputToBake{ OutputPackageName(Asset, TEXT("SKEL_")), USkeleton::StaticClass() };
+			Outputs.PhysicsAsset = FOutputToBake{ OutputPackageName(Asset, TEXT("PHYS_")), UPhysicsAsset::StaticClass() };
+			Outputs.PhysicsStiffness = State.Bake.PhysicsStiffness;
 		}
 		else
 		{
-			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Grammar, TEXT("SM_")), UStaticMesh::StaticClass() };
+			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SM_")), UStaticMesh::StaticClass() };
 		}
-		return BakeOutputs(ACambrianaLiveActor::MakeBuildInputFor(Grammar), MoveTemp(Outputs), GrammarPath, AskToOverwrite);
+		return BakeOutputs(ACambrianaLiveActor::MakeBuildInputFor(State), MoveTemp(Outputs), Asset.GetPathName(), AskToOverwrite);
 	}
 
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
@@ -300,11 +279,6 @@ namespace Cambriana::Editor
 	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor)
 	{
 		const FString ActorPath = Actor.GetPathName();
-		if (Actor.Grammar && !EnsureSaved(*Actor.Grammar))
-		{
-			UE_LOG(LogCambrianaBake, Warning, TEXT("%s: the grammar is not saved; nothing is baked"), *ActorPath);
-			return Failed(ECambrianaBakeStatus::GrammarNotSaved);
-		}
 		const FString PackageName = AskForBakeLocation(StaticMeshPackageName(Actor));
 		if (PackageName.IsEmpty())
 		{
@@ -341,10 +315,10 @@ namespace Cambriana::Editor
 		UToolMenu* Menu = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(UCambrianaGrammar::StaticClass());
 		FToolMenuSection& Section = Menu->FindOrAddSection(BakeMenuSection);
 		Section.AddMenuEntry(BakeToStaticMeshMenuEntry, LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh"),
-			LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's saved state to a folder beside it."), FSlateIcon(),
+			LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's current state to a folder beside it."), FSlateIcon(),
 			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::StaticMesh));
 		Section.AddMenuEntry(BakeToSkeletalMeshMenuEntry, LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh"),
-			LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's saved state to a folder beside it."), FSlateIcon(),
+			LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's current state to a folder beside it."), FSlateIcon(),
 			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::SkeletalMesh));
 	}
 }

@@ -278,21 +278,13 @@ void FCambrianaGrammarEditorToolkit::SetUnsavedEditsPrompt(FUnsavedEditsPrompt P
 void FCambrianaGrammarEditorToolkit::Bake(ECambrianaBakeChoice Choice)
 {
 	ApplyPendingRulesEdit();
-	UCambrianaGrammar* Grammar = GetGrammar();
-	if (!Grammar)
+	const UCambrianaGrammar* Grammar = GetGrammar();
+	if (!Grammar || !WorkingCopy)
 	{
 		return;
 	}
-	if (HasUnsavedEdits())
-	{
-		const FText Message = FText::Format(LOCTEXT("BakeSavePrompt", "Bake writes from the saved grammar. Save your changes to {0} first?"),
-			FText::FromString(Grammar->GetPathName()));
-		if (UnsavedEditsPrompt(EAppMsgType::YesNo, Message) != EAppReturnType::Yes || !SaveWorkingCopy())
-		{
-			return;
-		}
-	}
-	Cambriana::Editor::NotifyBakeResult(Grammar->GetPathName(), Cambriana::Editor::BakeGrammar(*Grammar, Choice));
+	// As the material editor's Apply: the edits are baked without saving them.
+	Cambriana::Editor::NotifyBakeResult(Grammar->GetPathName(), Cambriana::Editor::BakeGrammarState(*Grammar, *WorkingCopy, Choice));
 }
 
 void FCambrianaGrammarEditorToolkit::SetSaveAsPrompt(FSaveAsPrompt Prompt)
@@ -535,10 +527,10 @@ namespace Cambriana::Editor
 		UToolMenu* BakeMenu = UToolMenus::Get()->RegisterMenu(BakeMenuName);
 		FToolMenuSection& Choices = BakeMenu->FindOrAddSection(TEXT("Bake"));
 		Choices.AddMenuEntry(TEXT("BakeToStaticMesh"), LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh"),
-			LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's saved state to a folder beside it."), FSlateIcon(),
+			LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's current state to a folder beside it."), FSlateIcon(),
 			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::StaticMesh));
 		Choices.AddMenuEntry(TEXT("BakeToSkeletalMesh"), LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh"),
-			LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's saved state to a folder beside it."), FSlateIcon(),
+			LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's current state to a folder beside it."), FSlateIcon(),
 			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::SkeletalMesh));
 
 		FToolMenuSection& Section = UToolMenus::Get()->ExtendMenu(ToolbarMenuName)->FindOrAddSection(TEXT("Bake"));

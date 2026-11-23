@@ -54,8 +54,8 @@ public:
 	bool HasUnsavedEdits() const;
 	void SetUnsavedEditsPrompt(FUnsavedEditsPrompt Prompt);
 	/**
-	 * Bakes the grammar asset. Bake writes from the saved asset, so with unsaved edits it first asks, through the unsaved edits prompt
-	 * with Yes and No, whether to save them; Yes saves and bakes, No bakes nothing and leaves the asset as it is.
+	 * Applies a pending Rules edit and bakes the working copy's state to the outputs beside the grammar asset, named after it. Asks
+	 * nothing; the asset and the unsaved edits stay as they were.
 	 */
 	void Bake(ECambrianaBakeChoice Choice);
 	/** Asked by Save As for the new asset's long package name; an empty name cancels. */

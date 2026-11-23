@@ -14,8 +14,6 @@ class UStaticMesh;
 enum class ECambrianaBakeStatus : uint8
 {
 	Baked,
-	/** The grammar has no saved state to bake from: its save was declined or did not complete. */
-	GrammarNotSaved,
 	/** The grammar has errors, builds no triangles, or its bone tree makes no skeleton. */
 	NothingToBuild,
 	/** An asset of another class holds an output's name. */
@@ -65,18 +63,22 @@ namespace Cambriana::Editor
 	inline const FName BakeToSkeletalMeshMenuEntry(TEXT("CambrianaGrammar_BakeToSkeletalMesh"));
 
 	/**
-	 * Bakes the grammar asset's saved state to a folder beside the asset named after it, and saves the outputs. StaticMesh writes
-	 * SM_<grammar asset name>; SkeletalMesh writes the skeleton SKEL_<grammar asset name>, the skinned skeletal mesh SK_<grammar asset
-	 * name> and its physics asset PHYS_<grammar asset name>. A grammar without saved state is first offered to the engine's save
-	 * prompt. AskToOverwrite is asked once before the chosen outputs that exist are rebuilt in place; unset, a message dialog asks.
+	 * Bakes the grammar asset as it is in memory, saved or not, to a folder beside the asset named after it, and saves the outputs
+	 * but not the grammar. StaticMesh writes SM_<grammar asset name>; SkeletalMesh writes the skeleton SKEL_<grammar asset name>, the
+	 * skinned skeletal mesh SK_<grammar asset name> and its physics asset PHYS_<grammar asset name>. AskToOverwrite is asked once
+	 * before the chosen outputs that exist are rebuilt in place; unset, a message dialog asks.
 	 */
 	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite = nullptr);
+
+	/** Bakes as BakeGrammar does, building State, such as the grammar editor's working copy, into the outputs of Asset. */
+	FCambrianaBakeResult BakeGrammarState(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice,
+		const FAskToOverwrite& AskToOverwrite = nullptr);
 
 	/**
 	 * Bakes a static mesh from the live actor's own build input, overrides included, and saves it where the engine's save-asset
 	 * dialog says, which asks itself before an existing static mesh is replaced. The dialog defaults to SM_<grammar asset
-	 * name>_<actor label> in the grammar's bake folder, first offering a grammar without saved state to the engine's save prompt,
-	 * or for an actor without a grammar asset to SM_<actor label> at the project's content root.
+	 * name>_<actor label> in the grammar's bake folder, or for an actor without a grammar asset to SM_<actor label> at the project's
+	 * content root.
 	 */
 	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor);
 
