@@ -74,7 +74,7 @@ If the assets are built but cannot be saved, the Output Log says so.
 
 A mesh baked from a grammar asset remembers that grammar, as an imported mesh remembers its source file. In the mesh's Details panel, **Import Settings > Source File** shows the grammar asset's package file, and **Grammar** names the grammar asset. `SM_<name>` and `SK_<name>` carry this link; the skeleton and physics asset do not.
 
-To rebuild a baked mesh after changing its grammar, right-click the mesh in the Content Browser and choose **Reimport**. Reimport bakes the grammar again, as the matching Bake does, into the same assets:
+To rebuild a baked mesh after changing its grammar, right-click the mesh in the Content Browser and choose **Reimport**. Reimport bakes the grammar again as it is now, unsaved changes included, as the matching Bake does, into the same assets:
 
 | Reimport on | Rebuilds | As |
 |---|---|---|
@@ -83,7 +83,7 @@ To rebuild a baked mesh after changing its grammar, right-click the mesh in the 
 
 - The mesh is rebuilt in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working and shows the change. A skeletal mesh keeps its skeleton.
 - Reimport does not ask before rebuilding, as the engine's Reimport of an imported mesh does not.
-- The rebuilt assets are saved as soon as they are written.
+- The rebuilt assets are left with unsaved changes, as after reimporting an FBX file; save them as usual. Bake, by contrast, saves the assets it writes.
 - The link follows the grammar asset when it is renamed or moved, and Reimport updates the Source File to the grammar's new package file.
 - When Reimport bakes nothing, for the reasons under [When nothing is baked](#when-nothing-is-baked), the mesh is unchanged and the engine's notification says the reimport failed.
 
@@ -150,7 +150,7 @@ The engine's **Bake Static Mesh** save dialog asks where to write it. It default
 | Inline text, labelled `Fern2` | `/Game/SM_Fern2` |
 
 - **Cancel** bakes nothing.
-- Choosing an existing static mesh makes the dialog ask whether to replace it. Bake then rebuilds that static mesh in place, without asking again.
+- Choosing an existing static mesh makes the dialog ask whether to replace it. Bake then rebuilds that static mesh in place, without asking again. If that static mesh was baked from a grammar asset, it loses its link to the grammar: its Source File is cleared and its Reimport is disabled, since Reimport cannot rebuild the actor's overrides.
 - The actor is baked as it shows in the level, whether or not its grammar asset is saved. The grammar asset is not saved.
 
 The same rules as a grammar bake apply for errors, empty results and names held by another asset type: nothing is baked and the Output Log says why. The static mesh is saved as soon as it is written.

@@ -49,10 +49,12 @@ display baked results.
   Interchange's handler (`InterchangeReimportHandler.cpp`). It claims only meshes whose import
   data is `UCambrianaAssetImportData` with a grammar that resolves. Reimport on `SM_<name>` runs
   Bake to Static Mesh; on `SK_<name>` it runs Bake to Skeletal Mesh, which also rebuilds
-  `SKEL_<name>` and `PHYS_<name>`. It writes to the mesh's own path, offers a grammar without a
-  saved state to the engine's save prompt first as Bake does, and does not ask before
-  rebuilding, as the engine's Reimport does not. Reimport With New File accepts a grammar
-  asset's package file and relinks the mesh to it; any other file fails with a log message.
+  `SKEL_<name>` and `PHYS_<name>`. It writes to the mesh's own path, bakes the grammar's current state as Bake does, and
+  does not ask before rebuilding, as the engine's Reimport does not. Reimport With New File
+  accepts a grammar asset's package file and relinks the mesh to it; any other file fails with a
+  log message.
+- `[Proposed — unconfirmed]` Reimport leaves the rebuilt assets dirty and unsaved, as the engine's FBX reimport does; Bake saves its outputs.
+- `[Proposed — unconfirmed]` A live actor's Details Bake records no grammar: writing over a mesh linked to a grammar clears its import data, as Detach does, since Reimport cannot rebuild the actor's overrides.
 - `[Proposed — unconfirmed]` Detach is the `Detach from Grammar` entry in the asset actions
   section of a baked mesh's right-click menu, offered only on meshes whose import data is
   `UCambrianaAssetImportData`. It replaces the import data with a plain `UAssetImportData` with
