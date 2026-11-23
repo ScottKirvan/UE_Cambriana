@@ -168,6 +168,33 @@ bool FCambrianaInfluenceLimitTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaInfluencesAllBelowThresholdTest,
+	"Cambriana.SkeletalMesh.AVertexWhoseInfluencesAreAllBelowTheWeightThresholdKeepsTheStrongestAndIsNotBoundToRoot",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaInfluencesAllBelowThresholdTest::RunTest(const FString& Parameters)
+{
+	// CLAUDE.md, CambrianaSkeletalMesh.h: no vertex with influences binds to Root. By hand: one influence on bone 5 weighing 2 and
+	// 140,000 on bone 3 weighing 1 sum to 140,002, so bone 5's share is 2 / 140,002 = 1.43e-5, below BoneWeightThreshold
+	// (1 / 65,535 = 1.53e-5), and every other share is half that. The strongest, bone 5, is kept at full weight on skeleton bone 6.
+	TArray<FCambrianaInfluence> Influences;
+	Influences.Add({ 5, 2.0 });
+	for (int32 Index = 0; Index < 140000; ++Index)
+	{
+		Influences.Add({ 3, 1.0 });
+	}
+	if (!TestTrue(TEXT("The strongest share is below the threshold"), 2.0 / 140002.0 < UE::AnimationCore::BoneWeightThreshold))
+	{
+		return false;
+	}
+	const UE::AnimationCore::FBoneWeights Weights = Cambriana::MakeBoneWeights(Influences);
+	TestEqual(TEXT("One influence is kept"), Weights.Num(), 1);
+	TestEqual(TEXT("The vertex is not bound to Root"), Weights.FindWeightIndexByBone(FBoneIndexType(0)), INDEX_NONE);
+	TestTrue(TEXT("It is bone 5, on skeleton bone 6, at full weight"),
+		Weights.Num() == 1 && Weights[0].GetBoneIndex() == 6 && Weights[0].GetRawWeight() == UE::AnimationCore::FBoneWeight::GetMaxRawWeight());
+	return true;
+}
+
 #if WITH_EDITOR
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaSkeletalMeshFromBuildTest,
 	"Cambriana.SkeletalMesh.BuildResultMakesTheSkinnedMeshAndItsSkeleton",
