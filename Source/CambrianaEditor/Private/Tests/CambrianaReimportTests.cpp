@@ -5,6 +5,7 @@
 #include "AssetToolsModule.h"
 #include "CambrianaAssetImportData.h"
 #include "CambrianaBakeTestFixture.h"
+#include "CambrianaDetach.h"
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaLiveActor.h"
@@ -13,6 +14,7 @@
 #include "Components/DynamicMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "ContentBrowserMenuContexts.h"
 #include "EditorFramework/AssetImportData.h"
 #include "EditorReimportHandler.h"
 #include "Engine/StaticMeshActor.h"
@@ -26,6 +28,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "ToolMenus.h"
 #include "UObject/Package.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -654,6 +657,289 @@ bool FCambrianaEditorBakeLinksAssetTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("The link is the grammar asset"), ImportData->Grammar.ToSoftObjectPath() == FSoftObjectPath(Fixture.Grammar));
 		TestTrue(TEXT("Its source file is the asset's package file"), SameFile(ImportData->GetFirstFilename(), PackageFilename(*Fixture.GrammarPackage)));
 	}
+	return true;
+}
+
+namespace
+{
+	/**
+	 * The Detach from Grammar entry in the asset actions of the right-click menu of MeshClass, generated for the selection as the
+	 * Content Browser generates it; unset when none is offered. Context is the menu context to run it with.
+	 */
+	TOptional<FToolMenuEntry> OfferedDetachEntry(UClass* MeshClass, TConstArrayView<UObject*> Selected, FToolMenuContext& Context)
+	{
+		const UToolMenu* Registered = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(MeshClass);
+		if (!Registered)
+		{
+			return {};
+		}
+		UContentBrowserAssetContextMenuContext* AssetContext = NewObject<UContentBrowserAssetContextMenuContext>();
+		for (UObject* Asset : Selected)
+		{
+			AssetContext->SelectedAssets.Add(FAssetData(Asset));
+		}
+		AssetContext->CommonClass = MeshClass;
+		AssetContext->bCanBeModified = true;
+		Context = FToolMenuContext(AssetContext);
+		UToolMenu* Menu = UToolMenus::Get()->GenerateMenu(Registered->GetMenuName(), Context);
+		FToolMenuSection* Section = Menu ? Menu->FindSection(Cambriana::Editor::DetachMenuSection) : nullptr;
+		const FToolMenuEntry* Entry = Section ? Section->FindEntry(Cambriana::Editor::DetachFromGrammarMenuEntry) : nullptr;
+		return Entry ? TOptional<FToolMenuEntry>(*Entry) : TOptional<FToolMenuEntry>();
+	}
+
+	bool IsDetachOffered(UClass* MeshClass, TConstArrayView<UObject*> Selected)
+	{
+		FToolMenuContext Context;
+		return OfferedDetachEntry(MeshClass, Selected, Context).IsSet();
+	}
+
+	/** Runs Detach from Grammar from the right-click menu of MeshClass on the selection; returns whether it was offered and ran. */
+	bool RunDetachEntry(UClass* MeshClass, TConstArrayView<UObject*> Selected)
+	{
+		FToolMenuContext Context;
+		TOptional<FToolMenuEntry> Entry = OfferedDetachEntry(MeshClass, Selected, Context);
+		return Entry && Entry->TryExecuteToolUIAction(Context);
+	}
+
+	bool ListsOutput(const UCambrianaGrammar& Grammar, const UObject* Mesh)
+	{
+		return UCambrianaAssetImportData::FindMeshesLinkedTo(Grammar).ContainsByPredicate(
+			[Mesh](const FAssetData& Asset) { return Asset.GetSoftObjectPath() == FSoftObjectPath(Mesh); });
+	}
+
+	/** SDD-unreal.md, Detach: plain UAssetImportData with no source file, as the Source File row's Clear leaves it. */
+	bool IsDetached(const UObject* Mesh)
+	{
+		const UStaticMesh* StaticMesh = Cast<UStaticMesh>(Mesh);
+		const USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(Mesh);
+		const UAssetImportData* ImportData = StaticMesh ? StaticMesh->GetAssetImportData() : SkeletalMesh ? SkeletalMesh->GetAssetImportData() : nullptr;
+		return ImportData && ImportData->GetClass() == UAssetImportData::StaticClass() && ImportData->GetSourceFileCount() == 0;
+	}
+
+	bool LinksTo(const UObject* Mesh, const UCambrianaGrammar* Grammar)
+	{
+		const UCambrianaAssetImportData* ImportData = UCambrianaAssetImportData::Of(Mesh);
+		return ImportData && ImportData->Grammar.ToSoftObjectPath() == FSoftObjectPath(Grammar);
+	}
+
+	UStaticMesh* MeshWithFbxImportData()
+	{
+		UStaticMesh* Mesh = NewObject<UStaticMesh>(GetTransientPackage());
+		UAssetImportData* FbxData = NewObject<UAssetImportData>(Mesh);
+		FbxData->UpdateFilenameOnly(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("tree.fbx")));
+		Mesh->SetAssetImportData(FbxData);
+		return Mesh;
+	}
+}
+
+// ATS-44.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaDetachAts44Test,
+	"Cambriana.Editor.Detach.ADetachedMeshIsUnchangedByReimportOfTheLinkedMeshHasReimportDisabledAndIsNotAmongTheGrammarsOutputs",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaDetachAts44Test::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("DetachAts"));
+	if (!PrepareShapeGrammar(*this, Fixture) || !TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked)
+		|| !TestTrue(TEXT("The skeletal mesh bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	UStaticMesh* Detached = Fixture.FindMesh();
+	USkeletalMesh* Linked = Fixture.FindSkeletalMesh();
+	TestTrue(TEXT("Both baked meshes are the grammar's outputs before Detach"), ListsOutput(*Fixture.Grammar, Detached) && ListsOutput(*Fixture.Grammar, Linked));
+	if (!TestTrue(TEXT("Detach from Grammar runs from the static mesh's right-click menu"), RunDetachEntry(UStaticMesh::StaticClass(), { Detached })))
+	{
+		return false;
+	}
+	if (!ChangeLengthAndSave(*this, *Fixture.Grammar, 50.0))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Reimport runs on the linked skeletal mesh"), Reimport(Linked));
+
+	TestTrue(TEXT("The detached mesh is the same object"), Fixture.FindMesh() == Detached);
+	TestEqual(TEXT("The detached mesh is unchanged: 20 cm tall, from len 100"), MeshHeight(Detached), HeightAtFullLength, VertexTolerance);
+	TestTrue(TEXT("Its import data is plain import data with no source file"), IsDetached(Detached));
+	TestTrue(TEXT("The Content Browser reads no source file for it, so its Reimport is disabled"), ContentBrowserSourceFiles(Detached).IsEmpty());
+	TestFalse(TEXT("The engine's reimport manager cannot reimport it"), FReimportManager::Instance()->CanReimport(Detached));
+	TestFalse(TEXT("Reimport on it does not run"), Reimport(Detached));
+	TestEqual(TEXT("It is still 20 cm tall"), MeshHeight(Detached), HeightAtFullLength, VertexTolerance);
+	TestFalse(TEXT("It is not among the grammar's outputs"), ListsOutput(*Fixture.Grammar, Detached));
+	TestTrue(TEXT("The linked mesh is among the grammar's outputs"), ListsOutput(*Fixture.Grammar, Linked));
+	TestTrue(TEXT("The linked mesh keeps its link"), LinksTo(Linked, Fixture.Grammar));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaDetachUndoTest,
+	"Cambriana.Editor.Detach.DetachIsOneUndoableChangeThatMarksTheMeshDirtyAndUndoRestoresTheLink",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaDetachUndoTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("DetachUndo"));
+	if (!PrepareShapeGrammar(*this, Fixture) || !TestTrue(TEXT("The skeletal mesh bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	USkeletalMesh* Mesh = Fixture.FindSkeletalMesh();
+	const UAssetImportData* Link = Mesh->GetAssetImportData();
+	const FString GrammarFile = PackageFilename(*Fixture.GrammarPackage);
+	TestFalse(TEXT("The baked mesh is saved"), Mesh->GetPackage()->IsDirty());
+	const int32 HistoryBefore = UndoHistoryLength();
+
+	if (!TestTrue(TEXT("Detach from Grammar runs from the skeletal mesh's right-click menu"), RunDetachEntry(USkeletalMesh::StaticClass(), { Mesh })))
+	{
+		return false;
+	}
+	TestTrue(TEXT("The mesh is detached"), IsDetached(Mesh));
+	TestTrue(TEXT("Its package is marked dirty"), Mesh->GetPackage()->IsDirty());
+	TestEqual(TEXT("Detach adds one step to the undo history"), UndoHistoryLength(), HistoryBefore + 1);
+
+	TestTrue(TEXT("Detach can be undone"), GEditor->UndoTransaction());
+	TestTrue(TEXT("Undo restores the mesh's link, the same import data"), Mesh->GetAssetImportData() == Link && LinksTo(Mesh, Fixture.Grammar));
+	const TArray<FString> BrowserFiles = ContentBrowserSourceFiles(Mesh);
+	TestTrue(TEXT("The Content Browser reads the grammar's package file again, so Reimport is enabled"), BrowserFiles.Num() == 1 && SameFile(BrowserFiles[0], GrammarFile));
+	TestTrue(TEXT("The mesh is among the grammar's outputs again"), ListsOutput(*Fixture.Grammar, Mesh));
+
+	TestTrue(TEXT("Detach can be redone"), GEditor->RedoTransaction());
+	TestTrue(TEXT("Redo detaches the mesh again"), IsDetached(Mesh));
+	TestFalse(TEXT("It is not among the grammar's outputs"), ListsOutput(*Fixture.Grammar, Mesh));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaDetachOfferedTest,
+	"Cambriana.Editor.Detach.DetachFromGrammarIsOfferedInTheAssetActionsOfMeshesLinkedToAGrammarOnly",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaDetachOfferedTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("DetachOffered"));
+	if (!TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked)
+		|| !TestTrue(TEXT("The skeletal mesh bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	FToolMenuContext Context;
+	const TOptional<FToolMenuEntry> StaticEntry = OfferedDetachEntry(UStaticMesh::StaticClass(), { Fixture.FindMesh() }, Context);
+	if (TestTrue(TEXT("A baked static mesh's asset actions offer Detach from Grammar"), StaticEntry.IsSet()))
+	{
+		TestEqual(TEXT("It is labelled Detach from Grammar"), StaticEntry->Label.Get().ToString(), FString(TEXT("Detach from Grammar")));
+	}
+	TestTrue(TEXT("A baked skeletal mesh's asset actions offer it"), IsDetachOffered(USkeletalMesh::StaticClass(), { Fixture.FindSkeletalMesh() }));
+
+	TestFalse(TEXT("A static mesh without import data is not offered it"), IsDetachOffered(UStaticMesh::StaticClass(), { NewObject<UStaticMesh>(GetTransientPackage()) }));
+	TestFalse(TEXT("A static mesh imported from an FBX file is not offered it"), IsDetachOffered(UStaticMesh::StaticClass(), { MeshWithFbxImportData() }));
+	USkeletalMesh* PlainSkeletal = NewObject<USkeletalMesh>(GetTransientPackage());
+	PlainSkeletal->SetAssetImportData(NewObject<UAssetImportData>(PlainSkeletal));
+	TestFalse(TEXT("A skeletal mesh with plain import data is not offered it"), IsDetachOffered(USkeletalMesh::StaticClass(), { PlainSkeletal }));
+
+	if (TestTrue(TEXT("Detach from Grammar runs on the static mesh"), RunDetachEntry(UStaticMesh::StaticClass(), { Fixture.FindMesh() })))
+	{
+		TestFalse(TEXT("Once detached, the static mesh is not offered it"), IsDetachOffered(UStaticMesh::StaticClass(), { Fixture.FindMesh() }));
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaDetachSelectionTest,
+	"Cambriana.Editor.Detach.DetachFromGrammarDetachesEverySelectedLinkedMeshInOneUndoableChangeAndLeavesOthersAlone",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaDetachSelectionTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture First(TEXT("DetachSelectFirst"));
+	FBakeFixture Second(TEXT("DetachSelectSecond"));
+	if (!TestTrue(TEXT("The first static mesh bakes"), First.BakeStatic().Status == ECambrianaBakeStatus::Baked)
+		|| !TestTrue(TEXT("The second static mesh bakes"), Second.BakeStatic().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	UStaticMesh* FromFbx = MeshWithFbxImportData();
+	const UAssetImportData* FbxData = FromFbx->GetAssetImportData();
+	const int32 HistoryBefore = UndoHistoryLength();
+
+	if (!TestTrue(TEXT("Detach from Grammar is offered and runs on the selection"), RunDetachEntry(UStaticMesh::StaticClass(), { First.FindMesh(), FromFbx, Second.FindMesh() })))
+	{
+		return false;
+	}
+	TestTrue(TEXT("The first linked mesh is detached"), IsDetached(First.FindMesh()));
+	TestTrue(TEXT("The second linked mesh is detached"), IsDetached(Second.FindMesh()));
+	TestTrue(TEXT("Both packages are marked dirty"), First.FindMesh()->GetPackage()->IsDirty() && Second.FindMesh()->GetPackage()->IsDirty());
+	TestTrue(TEXT("The FBX mesh keeps its import data"), FromFbx->GetAssetImportData() == FbxData && FbxData->GetSourceFileCount() == 1);
+	TestEqual(TEXT("Detach adds one step to the undo history"), UndoHistoryLength(), HistoryBefore + 1);
+
+	TestTrue(TEXT("Detach can be undone"), GEditor->UndoTransaction());
+	TestTrue(TEXT("One Undo restores both links"), LinksTo(First.FindMesh(), First.Grammar) && LinksTo(Second.FindMesh(), Second.Grammar));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarOutputsTest,
+	"Cambriana.Editor.Detach.TheGrammarsOutputsAreTheMeshesLinkedToItAndNoOthers",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarOutputsTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("OutputsFirst"));
+	FBakeFixture Other(TEXT("OutputsOther"));
+	if (!TestTrue(TEXT("The grammar saves"), Save(Fixture.Grammar)) || !TestTrue(TEXT("The other grammar saves"), Save(Other.Grammar))
+		|| !TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked)
+		|| !TestTrue(TEXT("The skeletal mesh bakes"), Fixture.BakeSkeletal().Status == ECambrianaBakeStatus::Baked)
+		|| !TestTrue(TEXT("The other grammar's static mesh bakes"), Other.BakeStatic().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	const TArray<FAssetData> Outputs = UCambrianaAssetImportData::FindMeshesLinkedTo(*Fixture.Grammar);
+	TestEqual(TEXT("The grammar has two outputs"), Outputs.Num(), 2);
+	TestTrue(TEXT("Its static mesh is one"), ListsOutput(*Fixture.Grammar, Fixture.FindMesh()));
+	TestTrue(TEXT("Its skeletal mesh is the other"), ListsOutput(*Fixture.Grammar, Fixture.FindSkeletalMesh()));
+	TestFalse(TEXT("The other grammar's static mesh is not an output"), ListsOutput(*Fixture.Grammar, Other.FindMesh()));
+	const TArray<FAssetData> OtherOutputs = UCambrianaAssetImportData::FindMeshesLinkedTo(*Other.Grammar);
+	TestTrue(TEXT("The other grammar's only output is its static mesh"), OtherOutputs.Num() == 1 && ListsOutput(*Other.Grammar, Other.FindMesh()));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarOutputsMovedTest,
+	"Cambriana.Editor.Detach.AMovedGrammarsOutputsAreTheMeshesThatReferenceItOnceTheyAreSaved",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaGrammarOutputsMovedTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("OutputsMoved"));
+	const FString MovedPath = FString(BakeTestRoot) / TEXT("OutputsMovedTo");
+	const FString MovedPackage = MovedPath / TEXT("OutputsMovedRenamed");
+	const FString MovedFile = PackageFilename(*MovedPackage);
+	ON_SCOPE_EXIT
+	{
+		if (UPackage* Package = FindPackage(nullptr, *MovedPackage))
+		{
+			UnloadPackage(Package);
+		}
+		IFileManager::Get().Delete(*MovedFile);
+		IFileManager::Get().DeleteDirectory(*FPaths::GetPath(MovedFile), false, true);
+	};
+	if (!PrepareShapeGrammar(*this, Fixture) || !TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	UStaticMesh* Mesh = Fixture.FindMesh();
+	UCambrianaGrammar* Grammar = Fixture.Grammar;
+	// As the moved grammar Reimport test: the test does not tick, so the asset registry reads the saved mesh's dependencies now.
+	IAssetRegistry::GetChecked().ScanFilesSynchronous({ PackageFileOf(Mesh) }, true);
+	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get();
+	if (!TestTrue(TEXT("The grammar is moved and renamed"), AssetTools.RenameAssets({ FAssetRenameData(TWeakObjectPtr<UObject>(Grammar), MovedPath, FString(TEXT("OutputsMovedRenamed"))) })))
+	{
+		return false;
+	}
+	const UCambrianaAssetImportData* ImportData = UCambrianaAssetImportData::Of(Mesh);
+	TestTrue(TEXT("The mesh's source file still names the grammar's old package file"), ImportData && !SameFile(ImportData->GetFirstFilename(), MovedFile));
+	if (!TestTrue(TEXT("The mesh saves"), Save(Mesh)))
+	{
+		return false;
+	}
+	IAssetRegistry::GetChecked().ScanFilesSynchronous({ PackageFileOf(Mesh) }, true);
+
+	TestTrue(TEXT("The mesh is among the moved grammar's outputs"), ListsOutput(*Grammar, Mesh));
 	return true;
 }
 #endif
