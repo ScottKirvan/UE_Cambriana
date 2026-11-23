@@ -6,8 +6,8 @@ outline: [2, 3]
 
 The Cambriana grammar format, file extension `.lsys`, for programmers who write tools that read or generate it, or who implement it. For an introduction, see the [Syntax Guide](./grammar-guide).
 
-::: warning Not usable in Unreal yet; not stable
-**`.lsys` files can't be used in Unreal yet.** The plugin's import and grammar editor for them are still being built. This document describes the grammar engine directly, and that engine is what is normative here. **The format is not stable:** anything in this document may change without notice, and there is no format version number yet.
+::: warning Not stable
+This document describes the grammar engine directly, and that engine is what is normative here. **The format is not stable:** anything in this document may change without notice, and there is no format version number yet.
 :::
 
 Throughout, "the caller" is whatever invokes a build.
@@ -496,4 +496,4 @@ Canonical form:
 
 ## Conversion from `.ls`
 
-Legacy `.ls` files of Lparser, by Laurens Lapré, are specified to convert to this format, with header numbers becoming `generations`, `angle` and `thickness`, symbols becoming single-character modules, each rule becoming a `grow` rule, a symbol with no rule getting an empty replacement, growth marking written with `grows` and `nogrowth` where it differs, comments kept, and a generated seed. The result is specified to build the same production and bone tree. A file holding something this format can't express is code 24, and gives no grammar. This conversion is still being built, so this section describes the intent. Apart from code 24, it has not been checked against an implementation.
+Legacy `.ls` files of Lparser, by Laurens Lapré, convert to this format, with header numbers becoming `generations`, `angle` and `thickness`, symbols becoming single-character modules, each rule becoming a `grow` rule, a symbol with no rule getting an empty replacement, growth marking written with `grows` and `nogrowth` where it differs, comments kept, and a generated seed. The result builds the same production and bone tree. A file holding something this format can't express is code 24, and gives no grammar.
