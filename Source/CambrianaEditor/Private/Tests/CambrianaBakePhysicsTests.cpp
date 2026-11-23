@@ -153,6 +153,36 @@ bool FCambrianaBakePhysicsAssetTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakePhysicsIterationCountsTest,
+	"Cambriana.Editor.Bake.EachBodyTakesThePlacedComponentsSolverIterationCounts",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakePhysicsIterationCountsTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("BakePhysicsIterations"));
+	if (!TestTrue(TEXT("The bake succeeds"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	{
+		return false;
+	}
+	const UPhysicsAsset* PhysicsAsset = Fixture.FindPhysicsAsset();
+	if (!TestNotNull(TEXT("The physics asset is written"), PhysicsAsset))
+	{
+		return false;
+	}
+	// SDD-rigging.md, Physics: each body overrides the solver's iteration counts, so that USkeletalMeshComponent::InitArticulated's
+	// copy of the component's counts to every body applies (SkeletalMeshComponentPhysics.cpp). The counts stay FBodyInstance's
+	// defaults, position 8, velocity 2 and projection 1 (BodyInstance.cpp); a body without the override reports -1.
+	int32 NotOverridden = 0;
+	for (const USkeletalBodySetup* Body : PhysicsAsset->SkeletalBodySetups)
+	{
+		const FBodyInstance& Instance = Body->DefaultInstance;
+		NotOverridden += Instance.GetPositionSolverIterationCount() != 8 || Instance.GetVelocitySolverIterationCount() != 2
+			|| Instance.GetProjectionSolverIterationCount() != 1;
+	}
+	TestEqual(TEXT("Every body overrides the iteration counts with the engine defaults"), NotOverridden, 0);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaRebakePhysicsAssetTest,
 	"Cambriana.Editor.Bake.RebakeRebuildsThePhysicsAssetInPlaceWithAConstraintFromEachBodyToTheBodyAboveIt",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
