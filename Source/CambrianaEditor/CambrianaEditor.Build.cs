@@ -21,6 +21,8 @@ public class CambrianaEditor : ModuleRules
 			"GeometryCore",
 			"GeometryFramework",
 			"InputCore",
+			"InterchangeCore",
+			"InterchangeEngine",
 			"Engine",
 			"MessageLog",
 			"PhysicsUtilities",
