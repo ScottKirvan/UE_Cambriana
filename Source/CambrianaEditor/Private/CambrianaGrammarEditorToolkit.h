@@ -11,6 +11,7 @@
 class FCambrianaGrammarPreview;
 class IMessageLogListing;
 class UCambrianaGrammar;
+enum class ECambrianaBakeChoice : uint8;
 
 class FCambrianaGrammarEditorToolkit : public FAssetEditorToolkit
 {
@@ -52,6 +53,11 @@ public:
 	/** Whether the working copy differs from the asset or a Rules edit is still waiting to reach it. */
 	bool HasUnsavedEdits() const;
 	void SetUnsavedEditsPrompt(FUnsavedEditsPrompt Prompt);
+	/**
+	 * Bakes the grammar asset. Bake writes from the saved asset, so with unsaved edits it first asks, through the unsaved edits prompt
+	 * with Yes and No, whether to save them; Yes saves and bakes, No bakes nothing and leaves the asset as it is.
+	 */
+	void Bake(ECambrianaBakeChoice Choice);
 	/** Asked by Save As for the new asset's long package name; an empty name cancels. */
 	using FSaveAsPrompt = TFunction<FString(const UCambrianaGrammar& Grammar)>;
 	void SetSaveAsPrompt(FSaveAsPrompt Prompt);
@@ -109,3 +115,9 @@ private:
 	FSaveAsPrompt SaveAsPrompt;
 	bool bClosingForSaveAs = false;
 };
+
+namespace Cambriana::Editor
+{
+	/** Adds the Bake combo, Bake to Static Mesh and Bake to Skeletal Mesh, to the grammar editor's toolbar. */
+	void AddGrammarEditorBakeMenu();
+}

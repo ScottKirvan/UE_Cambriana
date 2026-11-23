@@ -1,6 +1,7 @@
 #include "CambrianaGrammarEditorToolkit.h"
 
 #include "Algo/AnyOf.h"
+#include "CambrianaBake.h"
 #include "CambrianaGrammar.h"
 #include "CambrianaGrammarPreview.h"
 #include "CambrianaGrammarWorkingCopy.h"
@@ -17,6 +18,9 @@
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "SCambrianaGrammarViewport.h"
+#include "Styling/AppStyle.h"
+#include "ToolMenus.h"
+#include "Toolkits/AssetEditorToolkitMenuContext.h"
 #include "ScopedTransaction.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
@@ -271,6 +275,26 @@ void FCambrianaGrammarEditorToolkit::SetUnsavedEditsPrompt(FUnsavedEditsPrompt P
 	UnsavedEditsPrompt = MoveTemp(Prompt);
 }
 
+void FCambrianaGrammarEditorToolkit::Bake(ECambrianaBakeChoice Choice)
+{
+	ApplyPendingRulesEdit();
+	UCambrianaGrammar* Grammar = GetGrammar();
+	if (!Grammar)
+	{
+		return;
+	}
+	if (HasUnsavedEdits())
+	{
+		const FText Message = FText::Format(LOCTEXT("BakeSavePrompt", "Bake writes from the saved grammar. Save your changes to {0} first?"),
+			FText::FromString(Grammar->GetPathName()));
+		if (UnsavedEditsPrompt(EAppMsgType::YesNo, Message) != EAppReturnType::Yes || !SaveWorkingCopy())
+		{
+			return;
+		}
+	}
+	Cambriana::Editor::NotifyBakeResult(Grammar->GetPathName(), Cambriana::Editor::BakeGrammar(*Grammar, Choice));
+}
+
 void FCambrianaGrammarEditorToolkit::SetSaveAsPrompt(FSaveAsPrompt Prompt)
 {
 	SaveAsPrompt = MoveTemp(Prompt);
@@ -486,6 +510,44 @@ void FCambrianaGrammarEditorToolkit::UpdatePreview(const UCambrianaGrammar& Gram
 	RulesDiagnostics->ClearMessages();
 	// The build has already logged its diagnostics.
 	RulesDiagnostics->AddMessages(Messages, false);
+}
+
+namespace Cambriana::Editor
+{
+	namespace
+	{
+		const FName ToolbarMenuName(TEXT("AssetEditor.CambrianaGrammarEditor.ToolBar"));
+		const FName BakeMenuName(TEXT("AssetEditor.CambrianaGrammarEditor.ToolBar.Bake"));
+
+		void ExecuteBake(const FToolMenuContext& MenuContext, ECambrianaBakeChoice Choice)
+		{
+			const UAssetEditorToolkitMenuContext* Context = MenuContext.FindContext<UAssetEditorToolkitMenuContext>();
+			const TSharedPtr<FAssetEditorToolkit> Toolkit = Context ? Context->Toolkit.Pin() : nullptr;
+			if (Toolkit && Toolkit->GetToolkitFName() == FCambrianaGrammarEditorToolkit::ToolkitName)
+			{
+				static_cast<FCambrianaGrammarEditorToolkit&>(*Toolkit).Bake(Choice);
+			}
+		}
+	}
+
+	void AddGrammarEditorBakeMenu()
+	{
+		UToolMenu* BakeMenu = UToolMenus::Get()->RegisterMenu(BakeMenuName);
+		FToolMenuSection& Choices = BakeMenu->FindOrAddSection(TEXT("Bake"));
+		Choices.AddMenuEntry(TEXT("BakeToStaticMesh"), LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh"),
+			LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's saved state to a folder beside it."), FSlateIcon(),
+			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::StaticMesh));
+		Choices.AddMenuEntry(TEXT("BakeToSkeletalMesh"), LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh"),
+			LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's saved state to a folder beside it."), FSlateIcon(),
+			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::SkeletalMesh));
+
+		FToolMenuSection& Section = UToolMenus::Get()->ExtendMenu(ToolbarMenuName)->FindOrAddSection(TEXT("Bake"));
+		Section.InsertPosition = FToolMenuInsert(TEXT("Asset"), EToolMenuInsertType::After);
+		FToolMenuEntry& Combo = Section.AddEntry(FToolMenuEntry::InitComboButton(TEXT("Bake"), FUIAction(), FNewToolMenuChoice(),
+			LOCTEXT("BakeLabel", "Bake"), LOCTEXT("BakeTooltip", "Bake the grammar to a static mesh or a skeletal mesh"),
+			FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Package")));
+		Combo.StyleNameOverride = TEXT("CalloutToolbar");
+	}
 }
 
 #undef LOCTEXT_NAMESPACE
