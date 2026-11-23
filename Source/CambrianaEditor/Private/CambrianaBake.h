@@ -61,7 +61,6 @@ namespace Cambriana::Editor
 	FBakeLocationPrompt SetBakeLocationPrompt(FBakeLocationPrompt Prompt);
 
 	inline const FName BakeMenuSection(TEXT("GetAssetActions"));
-	inline const FName BakeMenuEntry(TEXT("CambrianaGrammar_Bake"));
 	inline const FName BakeToStaticMeshMenuEntry(TEXT("CambrianaGrammar_BakeToStaticMesh"));
 	inline const FName BakeToSkeletalMeshMenuEntry(TEXT("CambrianaGrammar_BakeToSkeletalMesh"));
 
@@ -84,6 +83,6 @@ namespace Cambriana::Editor
 	/** Shows a notification of a bake's result; Source names what was baked. A declined overwrite or cancelled location shows nothing. */
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result);
 
-	/** Adds Bake to the grammar asset's right-click menu in the Content Browser, owned by the current tool menu owner. */
+	/** Adds Bake to Static Mesh and Bake to Skeletal Mesh, in that order, to the grammar asset's right-click menu in the Content Browser, owned by the current tool menu owner. */
 	void AddBakeMenuEntry();
 }
