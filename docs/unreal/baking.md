@@ -93,6 +93,15 @@ To rebuild a baked mesh after changing its grammar, right-click the mesh in the 
 
 Meshes not baked from a grammar asset, such as meshes imported from FBX files, reimport from their own source files as usual.
 
+### Detach from Grammar
+
+To keep a baked mesh as it is and stop it from being rebuilt from its grammar, right-click it in the Content Browser and choose **Detach from Grammar**, in the menu's asset actions. The entry is offered on `SM_<name>` and `SK_<name>` meshes that are linked to a grammar, and detaches every selected mesh that is.
+
+- The mesh loses its link: its Source File is cleared, as the Source File row's clear button clears it, and its **Grammar** row goes.
+- The mesh itself is unchanged. Its Reimport is disabled, as for any asset without a source file, and Reimport of the grammar's other meshes leaves it alone.
+- Detach is one change in the editor's undo history; **Edit > Undo** links the mesh to its grammar again. The mesh is left with unsaved changes; save it as usual.
+- To link a detached mesh again, bake its grammar again: Bake rebuilds the mesh at its bake location and links it.
+
 ## The skeletal mesh and skeleton
 
 The skeletal mesh `SK_<name>` uses the skeleton `SKEL_<name>` and the physics asset `PHYS_<name>`.
