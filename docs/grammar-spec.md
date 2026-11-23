@@ -6,9 +6,7 @@ outline: [2, 3]
 
 The Cambriana grammar format, file extension `.lsys`, for programmers who write tools that read or generate it, or who implement it. For an introduction, see the [Syntax Guide](./grammar-guide).
 
-::: warning Not stable
-This document describes the grammar engine directly, and that engine is what is normative here. **The format is not stable:** anything in this document may change without notice, and there is no format version number yet.
-:::
+This document describes the grammar engine directly, and that engine is what is normative here. The format has no version number.
 
 Throughout, "the caller" is whatever invokes a build.
 
@@ -72,7 +70,7 @@ Command words are the names and single-letter glyphs in the [command table](#com
 | `draw` left side | Code 10 | Code 11 | Code 11 | Module |
 | `attr` name, `lsystem` name | Accepted | Accepted | Accepted | Accepted |
 
-`fk`, `ik`, `pole` and `aim` are reserved for rig hints, which are not available yet: using one is code 11. `query` only starts a [query declaration](#environment-queries).
+`fk`, `ik`, `pole` and `aim` are reserved for rig hints: using one is code 11. `query` only starts a [query declaration](#environment-queries).
 
 ## Grammar
 
