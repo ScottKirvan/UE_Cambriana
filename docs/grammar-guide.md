@@ -6,8 +6,8 @@ outline: [2, 3]
 
 A Cambriana grammar is a plain text file, with the extension `.lsys`, that describes how a form grows. Cambriana reads it and builds a rigged mesh from it.
 
-::: warning Not usable in Unreal yet
-**`.lsys` files can't be used in Unreal yet.** The plugin's import and grammar editor for them are still being built. The examples here were checked against the grammar engine directly, not inside Unreal. The format is also still being tested, so names and rules may change.
+::: warning Format still being tested
+**The format is still being tested, so names and rules may change.** In Unreal, `.lsys` files import as grammar assets and are edited in the grammar editor. The examples here were checked against the grammar engine directly.
 :::
 
 ## What is a grammar?
@@ -438,7 +438,7 @@ credit "after a tree by a friend"
 axiom F
 ```
 
-**Queries** declare a word whose values something outside the grammar can change between generations, such as how much light reaches a branch. `query Light(amount)` declares `Light` with one value. When nothing answers, it behaves like any other word. `.lsys` files can't be used in Unreal yet, so nothing answers queries there yet.
+**Queries** declare a word whose values something outside the grammar can change between generations, such as how much light reaches a branch. `query Light(amount)` declares `Light` with one value. When nothing answers, it behaves like any other word. Nothing in Unreal answers queries yet.
 
 ```text
 generations 3
@@ -657,7 +657,7 @@ axiom ] F
 
 ## Legacy `.ls` files
 
-Cambriana also reads the `.ls` files of Lparser, by Laurens Lapré, which this format descends from. The turtle commands are the same. As designed, a `.ls` file is converted to this format when imported, and you then work with the converted grammar. That conversion is still being built, so today's plugin reads `.ls` text directly.
+Cambriana also reads the `.ls` files of Lparser, by Laurens Lapré, which this format descends from. The turtle commands are the same. A `.ls` file is converted to this format when imported, and you then work with the converted grammar. `.ls` text typed into a grammar asset is not converted; it builds as legacy text.
 
 - The three header numbers become `generations`, `angle` and `thickness`.
 - Each rule, like `F=F[+F]F`, becomes a `grow` rule, and each symbol stays a single-character word.
