@@ -73,6 +73,9 @@ void Cambriana::Editor::SetPhysicsAssetFromBuild(UPhysicsAsset& PhysicsAsset, US
 		Setup->RemoveSimpleCollision();
 		Setup->AggGeom.SphylElems = Body.Capsules;
 		Setup->InvalidatePhysicsData();
+		// USkeletalMeshComponent::InitArticulated copies only the component's iteration counts to each body, not the override flag
+		// (SkeletalMeshComponentPhysics.cpp), so the placed component's Position Solver Iteration Count applies only with it on here.
+		Setup->DefaultInstance.SetOverrideIterationCounts(true);
 		if (Body.ParentBodyBone != INDEX_NONE && Params.bCreateConstraints)
 		{
 			ConstrainToParent(PhysicsAsset, Params, Bone, BodyIndex, Skeleton.GetBoneName(Body.ParentBodyBone), float(Stiffness * Body.BendingStiffness));
