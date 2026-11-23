@@ -12,13 +12,15 @@ using namespace Cambriana::Editor::Tests;
 
 namespace
 {
-	// sk.ls: four unbranched branches of 20 bones under Root (SDD-rigging.md, Bone tree), so 4 chains (SDD-rigging.md, Physics),
-	// one body each, holding a capsule per bone; Root has no body, so no body has one above it and there are no constraints.
-	constexpr int32 SkBodies = 4;
-	constexpr int32 SkCapsules = 80;
+	// sk.ls: 80 drawn bones, 4 of them roots under Root (SDD-rigging.md, Bone tree). SDD-rigging.md, Physics: one body per drawn bone,
+	// each holding one capsule, and a constraint from each body to its parent bone's body; Root has no body, so the 4 roots' bodies have
+	// none: 80 - 4 = 76 constraints.
+	constexpr int32 SkBodies = 80;
+	constexpr int32 SkRoots = 4;
+	constexpr int32 SkConstraints = SkBodies - SkRoots;
 
-	// FF[+F]FF: chains {0,1} {2} {3,4} by hand from the chain definition, bodies on skeleton bones 1, 3 and 4; bones 2 and 3 are
-	// children of bone 1, so the bodies on skeleton bones 3 and 4 each hang from the body on skeleton bone 1.
+	// FF[+F]FF by hand (SDD-rigging.md, Bone tree): bone 1 is bone 0's child, bones 2 and 3 are bone 1's, bone 4 is bone 3's. In the
+	// skeleton bone i is at i + 1 under Root, so the bodies on skeleton bones 2, 3, 4 and 5 hang from those on 1, 2, 2 and 4.
 	const TCHAR* const ForkGrammarText = TEXT("1\n25\n50\nFF[+F]FF\n@\n");
 
 	int32 Capsules(const UPhysicsAsset& PhysicsAsset)
@@ -32,16 +34,18 @@ namespace
 	}
 
 	// Step 10 cm, thickness 20%: bones 0 to 4 have length and radius 10 and 1, 10 and 0.7, 9 and 0.9, 10 and 1, 10 and 0.7 (radius half
-	// the length times thickness, SDD-surfacing.md; `!` thickness x 0.7, `'` length x 0.9). Bone 0 forks, so the chains are {0} {1} {2}
-	// {3,4}, bodies on skeleton bones 1 to 4, and the bodies on skeleton bones 2, 3 and 4 hang from the body on skeleton bone 1.
+	// the length times thickness, SDD-surfacing.md; `!` thickness x 0.7, `'` length x 0.9). Bones 1, 2 and 3 are children of bone 0 and
+	// bone 4 of bone 3, so the bodies on skeleton bones 2, 3 and 4 hang from the body on skeleton bone 1, and the one on 5 from 4's.
 	const TCHAR* const ThicknessGrammarText = TEXT("step 10cm\nthickness 20%\naxiom F [ + ! F ] [ - ' F ] F ! F\n");
 
 	struct FExpectedBody
 	{
 		int32 SkeletonBone;
-		/** By hand, SDD-rigging.md, Physics: r^4 / L for one bone, 1 / sum(L / r^4) along a chain. */
+		/** The skeleton bone of the body it hangs from, or INDEX_NONE. */
+		int32 ParentSkeletonBone;
+		/** By hand, SDD-rigging.md, Physics: the bone's r^4 / L. */
 		double BendingStiffness;
-		/** By hand: the capsules' volume, pi r^2 L + 4/3 pi r^3 each, in cm^3. */
+		/** By hand: the capsule's volume, pi r^2 L + 4/3 pi r^3, in cm^3. */
 		double Volume;
 	};
 
@@ -53,10 +57,11 @@ namespace
 	TArray<FExpectedBody> ThicknessGrammarBodies()
 	{
 		return {
-			{ 1, 1.0 / 10.0, CapsuleVolume(1.0, 10.0) },
-			{ 2, 0.2401 / 10.0, CapsuleVolume(0.7, 10.0) },
-			{ 3, 0.6561 / 9.0, CapsuleVolume(0.9, 9.0) },
-			{ 4, 1.0 / (10.0 + 10.0 / 0.2401), CapsuleVolume(1.0, 10.0) + CapsuleVolume(0.7, 10.0) },
+			{ 1, INDEX_NONE, 1.0 / 10.0, CapsuleVolume(1.0, 10.0) },
+			{ 2, 1, 0.2401 / 10.0, CapsuleVolume(0.7, 10.0) },
+			{ 3, 1, 0.6561 / 9.0, CapsuleVolume(0.9, 9.0) },
+			{ 4, 1, 1.0 / 10.0, CapsuleVolume(1.0, 10.0) },
+			{ 5, 4, 0.2401 / 10.0, CapsuleVolume(0.7, 10.0) },
 		};
 	}
 
@@ -70,7 +75,7 @@ namespace
 	void TestDrives(FAutomationTestBase& Test, const UPhysicsAsset& PhysicsAsset, const FReferenceSkeleton& Skeleton, double Stiffness)
 	{
 		const TArray<FExpectedBody> Expected = ThicknessGrammarBodies();
-		Test.TestEqual(TEXT("Three constraints"), PhysicsAsset.ConstraintSetup.Num(), 3);
+		Test.TestEqual(TEXT("Four constraints"), PhysicsAsset.ConstraintSetup.Num(), 4);
 		Test.TestNull(TEXT("The body on skeleton bone 1 has nothing above it and no constraint"), FindConstraintOf(PhysicsAsset, Skeleton.GetBoneName(1)));
 		for (int32 Body = 1; Body < Expected.Num(); ++Body)
 		{
@@ -80,6 +85,8 @@ namespace
 			{
 				continue;
 			}
+			Test.TestEqual(*(Label + TEXT(": to the body it hangs from")), Constraint->DefaultInstance.ConstraintBone2,
+				Skeleton.GetBoneName(Expected[Body].ParentSkeletonBone));
 			const FAngularDriveConstraint& Drive = Constraint->DefaultInstance.ProfileInstance.AngularDrive;
 			const double ExpectedStiffness = Stiffness * Expected[Body].BendingStiffness;
 			Test.TestTrue(*(Label + TEXT(": SLERP drive")), Drive.AngularDriveMode == EAngularDriveMode::SLERP);
@@ -103,7 +110,7 @@ namespace
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakePhysicsAssetTest,
-	"Cambriana.Editor.Bake.WritesTheSkeletalMeshsPhysicsAssetWithOneBodyPerChain",
+	"Cambriana.Editor.Bake.WritesTheSkeletalMeshsPhysicsAssetWithOneBodyPerDrawnBoneJoinedToItsParentBonesBody",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakePhysicsAssetTest::RunTest(const FString& Parameters)
@@ -124,16 +131,25 @@ bool FCambrianaBakePhysicsAssetTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("It previews on the skeletal mesh"), PhysicsAsset->GetPreviewMesh() == Mesh);
 	TestTrue(TEXT("It is saved to disk"), Fixture.PhysicsAssetFileExists());
 	TestFalse(TEXT("Its package has no unsaved changes"), PhysicsAsset->GetPackage()->IsDirty());
-	TestEqual(TEXT("One body per chain"), PhysicsAsset->SkeletalBodySetups.Num(), SkBodies);
-	TestEqual(TEXT("A capsule per bone"), Capsules(*PhysicsAsset), SkCapsules);
-	TestEqual(TEXT("No constraints: no body is above another"), PhysicsAsset->ConstraintSetup.Num(), 0);
-	int32 NotOnARoot = 0;
+	TestEqual(TEXT("One body per drawn bone"), PhysicsAsset->SkeletalBodySetups.Num(), SkBodies);
+	TestEqual(TEXT("One capsule per body"), Capsules(*PhysicsAsset), SkBodies);
+	TestEqual(TEXT("A constraint at every bone but the four under Root"), PhysicsAsset->ConstraintSetup.Num(), SkConstraints);
+
+	const FReferenceSkeleton& Skeleton = Mesh->GetRefSkeleton();
+	int32 NotToItsParent = 0;
+	for (const UPhysicsConstraintTemplate* Constraint : PhysicsAsset->ConstraintSetup)
+	{
+		const int32 Bone = Skeleton.FindBoneIndex(Constraint->DefaultInstance.ConstraintBone1);
+		NotToItsParent += Bone == INDEX_NONE || Skeleton.FindBoneIndex(Constraint->DefaultInstance.ConstraintBone2) != Skeleton.GetParentIndex(Bone);
+	}
+	TestEqual(TEXT("Each constraint joins a bone's body to its parent bone's body"), NotToItsParent, 0);
+	int32 UnconstrainedBelowRoot = 0;
 	for (const USkeletalBodySetup* Body : PhysicsAsset->SkeletalBodySetups)
 	{
-		const int32 Bone = Mesh->GetRefSkeleton().FindBoneIndex(Body->BoneName);
-		NotOnARoot += Bone == INDEX_NONE || Mesh->GetRefSkeleton().GetParentIndex(Bone) != 0;
+		const int32 Bone = Skeleton.FindBoneIndex(Body->BoneName);
+		UnconstrainedBelowRoot += PhysicsAsset->FindConstraintIndex(Body->BoneName) == INDEX_NONE && (Bone == INDEX_NONE || Skeleton.GetParentIndex(Bone) != 0);
 	}
-	TestEqual(TEXT("Each body is on a child of Root, the first bone of its chain"), NotOnARoot, 0);
+	TestEqual(TEXT("Only the bodies on Root's children have no constraint"), UnconstrainedBelowRoot, 0);
 	return true;
 }
 
@@ -162,22 +178,26 @@ bool FCambrianaRebakePhysicsAssetTest::RunTest(const FString& Parameters)
 	}
 	TestTrue(TEXT("The skeletal mesh still uses it"), Mesh->GetPhysicsAsset() == PhysicsAsset);
 	TestFalse(TEXT("It is saved"), PhysicsAsset->GetPackage()->IsDirty());
-	TestEqual(TEXT("Its earlier bodies are replaced: three bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 3);
-	TestEqual(TEXT("A capsule per bone"), Capsules(*PhysicsAsset), 5);
+	TestEqual(TEXT("Its earlier bodies are replaced: five bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 5);
+	TestEqual(TEXT("One capsule per body"), Capsules(*PhysicsAsset), 5);
 
 	const FReferenceSkeleton& Skeleton = Mesh->GetRefSkeleton();
-	const FName Trunk = Skeleton.GetBoneName(1);
-	TSet<FName> Hanging;
-	for (const UPhysicsConstraintTemplate* Constraint : PhysicsAsset->ConstraintSetup)
+	TestEqual(TEXT("Four constraints"), PhysicsAsset->ConstraintSetup.Num(), 4);
+	TestNull(TEXT("The body on skeleton bone 1 has none"), FindConstraintOf(*PhysicsAsset, Skeleton.GetBoneName(1)));
+	const int32 ExpectedPairs[][2] = { { 2, 1 }, { 3, 2 }, { 4, 2 }, { 5, 4 } };
+	for (const auto& Pair : ExpectedPairs)
 	{
-		TestEqual(TEXT("Each constraint is to the trunk's body"), Constraint->DefaultInstance.ConstraintBone2, Trunk);
-		Hanging.Add(Constraint->DefaultInstance.ConstraintBone1);
+		const FString Label = FString::Printf(TEXT("Skeleton bone %d"), Pair[0]);
+		const UPhysicsConstraintTemplate* Constraint = FindConstraintOf(*PhysicsAsset, Skeleton.GetBoneName(Pair[0]));
+		if (!TestNotNull(*(Label + TEXT(" has a constraint")), Constraint))
+		{
+			continue;
+		}
+		TestEqual(*(Label + FString::Printf(TEXT(": to the body on skeleton bone %d"), Pair[1])), Constraint->DefaultInstance.ConstraintBone2,
+			Skeleton.GetBoneName(Pair[1]));
+		TestFalse(*(Label + TEXT(": its body does not collide with the body it hangs from")),
+			PhysicsAsset->IsCollisionEnabled(PhysicsAsset->FindBodyIndex(Skeleton.GetBoneName(Pair[0])), PhysicsAsset->FindBodyIndex(Skeleton.GetBoneName(Pair[1]))));
 	}
-	TestEqual(TEXT("Two constraints"), PhysicsAsset->ConstraintSetup.Num(), 2);
-	TestTrue(TEXT("From the bodies on skeleton bones 3 and 4"), Hanging.Contains(Skeleton.GetBoneName(3)) && Hanging.Contains(Skeleton.GetBoneName(4)));
-	const int32 TrunkBody = PhysicsAsset->FindBodyIndex(Trunk);
-	TestFalse(TEXT("A constrained body does not collide with the body it hangs from"),
-		PhysicsAsset->IsCollisionEnabled(TrunkBody, PhysicsAsset->FindBodyIndex(Skeleton.GetBoneName(3))));
 	return true;
 }
 
@@ -221,7 +241,7 @@ bool FCambrianaBakePhysicsStiffnessTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("Four bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 4);
+	TestEqual(TEXT("Five bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 5);
 	TestDrives(*this, *PhysicsAsset, Mesh->GetRefSkeleton(), 1000.0);
 
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Bake.PhysicsStiffness = 3000.0f; });
@@ -252,7 +272,7 @@ bool FCambrianaBakePhysicsMassTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	TestEqual(TEXT("Four bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 4);
+	TestEqual(TEXT("Five bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 5);
 	for (const FExpectedBody& Expected : ThicknessGrammarBodies())
 	{
 		const FString Label = FString::Printf(TEXT("Skeleton bone %d"), Expected.SkeletonBone);
@@ -267,7 +287,7 @@ bool FCambrianaBakePhysicsMassTest::RunTest(const FString& Parameters)
 		// UBodySetup::CalculateMass (BodySetup.cpp), as the runtime's ApplyMassPropertiesModifiers (BodyUtils.cpp): (volume x density) ^
 		// RaiseMassToPower, with UPhysicalMaterial's defaults density 1 g/cm^3 and RaiseMassToPower 0.75 (PhysicalMaterial.cpp).
 		const double ExpectedMass = FMath::Pow(Expected.Volume * 0.001, 0.75);
-		TestEqual(*(Label + TEXT(": mass from the capsules' volume, in kg")), double(Body.CalculateMass()), ExpectedMass, ExpectedMass * 1e-4);
+		TestEqual(*(Label + TEXT(": mass from the capsule's volume, in kg")), double(Body.CalculateMass()), ExpectedMass, ExpectedMass * 1e-4);
 	}
 	return true;
 }
