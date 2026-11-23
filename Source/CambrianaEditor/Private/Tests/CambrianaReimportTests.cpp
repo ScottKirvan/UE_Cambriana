@@ -1,6 +1,7 @@
 #include "Animation/SkeletalMeshActor.h"
 #include "AssetDefinition.h"
 #include "AssetDefinitionRegistry.h"
+#include "AssetRegistry/IAssetRegistry.h"
 #include "AssetToolsModule.h"
 #include "CambrianaAssetImportData.h"
 #include "CambrianaBakeTestFixture.h"
@@ -56,12 +57,18 @@ namespace
 
 	/**
 	 * Runs the engine's Reimport on the asset as the Content Browser's does once its source file is known, without notifications. An
-	 * asset no handler claims is not reimported, since the engine would ask for a file in a dialog.
+	 * asset no handler claims is not reimported, since the engine would ask for a file in a dialog. Reimport saves the rebuilt assets
+	 * as Bake does, through the engine's save, which saves without asking only for an unattended script.
 	 */
 	bool Reimport(UObject* Asset)
 	{
-		return FReimportManager::Instance()->CanReimport(Asset)
-			&& FReimportManager::Instance()->Reimport(Asset, false, false, FString(), nullptr, INDEX_NONE, false, true);
+		bool bReimported = false;
+		RunWithoutSavePrompt([&]
+		{
+			bReimported = FReimportManager::Instance()->CanReimport(Asset)
+				&& FReimportManager::Instance()->Reimport(Asset, false, false, FString(), nullptr, INDEX_NONE, false, true);
+		});
+		return bReimported;
 	}
 
 	UCambrianaReimportFactory& Handler()
@@ -366,6 +373,12 @@ bool FCambrianaReimportMovedGrammarTest::RunTest(const FString& Parameters)
 	UStaticMesh* Mesh = Fixture.FindMesh();
 	UCambrianaGrammar* Grammar = Fixture.Grammar;
 
+	// The editor's asset registry reads a saved package's dependencies when its directory watcher sees the file, on a later tick; the
+	// test does not tick, so it reads the baked mesh's file now. The rename manager finds the mesh as a referencer from them.
+	IAssetRegistry::GetChecked().ScanFilesSynchronous({ PackageFileOf(Mesh) }, true);
+	TArray<FName> Dependencies;
+	IAssetRegistry::GetChecked().GetDependencies(*Mesh->GetPackage()->GetName(), Dependencies);
+	TestTrue(TEXT("The saved mesh's package records its grammar's package as a dependency"), Dependencies.Contains(FName(*Fixture.GrammarPackage)));
 	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get();
 	if (!TestTrue(TEXT("The grammar is moved and renamed"), AssetTools.RenameAssets({ FAssetRenameData(TWeakObjectPtr<UObject>(Grammar), MovedPath, FString(TEXT("ReimportMovedRenamed"))) })))
 	{
