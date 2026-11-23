@@ -52,7 +52,7 @@ Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-c
 | ATS-41 | Given a grammar asset, when Bake to Static Mesh runs on it, then a static mesh is created, and no skeletal mesh, skeleton or physics asset. | FR-12 |
 | ATS-42 | Given the baked mesh at bind pose in a level, then its vertices match the live actor's within 0.001 cm. | FR-12 |
 | ATS-43 | Given a mesh baked from a grammar and placed in a level, when a shape parameter's value is changed on the grammar and Reimport runs on the baked mesh, then the same asset is rebuilt from the grammar's current state, unsaved changes included, keeps its skeleton, and the placed instance shows the change. | FR-13 |
-| ATS-44 | Given two meshes baked from one grammar, one of them detached, when the grammar is changed and saved and Reimport runs on the linked mesh, then the detached mesh is unchanged, is not offered Reimport, and is not listed in the grammar's outputs. | FR-13 |
+| ATS-44 | Given two meshes baked from one grammar, one of them detached, when the grammar is changed and saved and Reimport runs on the linked mesh, then the detached mesh is unchanged, its Reimport is disabled, and is not listed in the grammar's outputs. | FR-13 |
 | ATS-45 | Given a baked mesh, then the data channels are present in the vertex slots specified in SDD-surfacing.md. | FR-19 |
 | ATS-46 | Given a static mesh baked from a grammar, then its vertices match the live actor's built from that grammar within 0.001 cm. | FR-12 |
 | ATS-47 | Given a live actor with overridden settings, when Bake runs from its Details panel, then a static mesh is written whose vertices match that actor's within 0.001 cm. | FR-12 |

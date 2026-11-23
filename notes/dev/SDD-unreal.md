@@ -33,8 +33,33 @@ display baked results.
   grammar's current state; references to it remain valid, and the mesh's stored
   definition is updated. A change to the bone tree replaces the skeleton in place.
 - **Detach** is a right-click item on a baked mesh that removes its link to its
-  grammar. A detached mesh is not offered Reimport and is not listed in the grammar's
-  outputs.
+  grammar. A detached mesh's Reimport is disabled, as for any asset without a source, and it is
+  not listed in the grammar's outputs.
+- `[Proposed — unconfirmed]` A baked mesh records its grammar in its import data, a
+  `UCambrianaAssetImportData` subclass of `UAssetImportData` holding a soft reference to the
+  grammar asset, as the engine's importers record theirs (`UFbxAssetImportData`,
+  `UInterchangeAssetImportData`). Its source file is the grammar's package file, refreshed from
+  the soft reference on each Bake and Reimport, so it shows in the mesh's Details under Import
+  Settings, Source File (`AssetImportDataCustomization.cpp`), and the Content Browser enables
+  Reimport from it (`AssetFileContextMenu.cpp`). Bake to Static Mesh records it on `SM_<name>`;
+  Bake to Skeletal Mesh records it on `SK_<name>`.
+- `[Proposed — unconfirmed]` Reimport is a reimport factory in the editor module, a `UFactory`
+  and `FReimportHandler` as the engine's FBX reimport factories are
+  (`ReimportFbxStaticMeshFactory.h`), at priority `UFactory::DefaultImportPriority + 20`, above
+  Interchange's handler (`InterchangeReimportHandler.cpp`). It claims only meshes whose import
+  data is `UCambrianaAssetImportData` with a grammar that resolves. Reimport on `SM_<name>` runs
+  Bake to Static Mesh; on `SK_<name>` it runs Bake to Skeletal Mesh, which also rebuilds
+  `SKEL_<name>` and `PHYS_<name>`. It writes to the mesh's own path, offers a grammar without a
+  saved state to the engine's save prompt first as Bake does, and does not ask before
+  rebuilding, as the engine's Reimport does not. Reimport With New File accepts a grammar
+  asset's package file and relinks the mesh to it; any other file fails with a log message.
+- `[Proposed — unconfirmed]` Detach is the `Detach from Grammar` entry in the asset actions
+  section of a baked mesh's right-click menu, offered only on meshes whose import data is
+  `UCambrianaAssetImportData`. It replaces the import data with a plain `UAssetImportData` with
+  no source file, as the Source File row's Clear does (`AssetImportDataCustomization.cpp`), as
+  one undoable change, and marks the mesh's package dirty.
+- `[Proposed — unconfirmed]` A grammar's outputs are the meshes whose
+  `UCambrianaAssetImportData` references it, found through the asset registry.
 - Baked asset names are the grammar asset's name with the Unreal style prefixes
   `SK_`, `SKEL_`, `PHYS_` and `SM_`.
 - `[Proposed — unconfirmed]` The bake settings are one struct on the grammar asset
