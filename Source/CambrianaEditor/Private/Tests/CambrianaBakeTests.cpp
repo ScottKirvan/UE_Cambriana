@@ -58,7 +58,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeStaticMeshTest,
 bool FCambrianaBakeStaticMeshTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakeSk"));
-	const FCambrianaBakeResult Result = Fixture.Bake();
+	const FCambrianaBakeResult Result = Fixture.BakeStatic();
 
 	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
 	UStaticMesh* Mesh = Fixture.FindMesh();
@@ -115,7 +115,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSkeletalTest,
 bool FCambrianaBakeSkeletalTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakeSkeletal"));
-	const FCambrianaBakeResult Result = Fixture.Bake();
+	const FCambrianaBakeResult Result = Fixture.BakeStatic();
 
 	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
 	USkeletalMesh* Mesh = Fixture.FindSkeletalMesh();
@@ -146,7 +146,7 @@ bool FCambrianaBakeStaticMeshOffTest::RunTest(const FString& Parameters)
 	FBakeFixture Fixture(TEXT("BakeOff"));
 	Fixture.Grammar->Bake.bStaticMesh = false;
 
-	const FCambrianaBakeResult Result = Fixture.Bake();
+	const FCambrianaBakeResult Result = Fixture.BakeStatic();
 
 	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
 	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());
@@ -166,7 +166,7 @@ bool FCambrianaBakeErrorsTest::RunTest(const FString& Parameters)
 	AddExpectedMessagePlain(TEXT("Grammar error at line"), ELogVerbosity::Error);
 	AddExpectedMessagePlain(TEXT("the grammar has errors; nothing is baked"), ELogVerbosity::Error);
 	FBakeFixture Fixture(TEXT("BakeErrors"));
-	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
@@ -175,7 +175,7 @@ bool FCambrianaBakeErrorsTest::RunTest(const FString& Parameters)
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.GrammarText = ErrorGrammarText; });
 
 	int32 Asked = 0;
-	const FCambrianaBakeResult Result = Fixture.Bake(Answer(EAppReturnType::Yes, Asked));
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
 
 	TestTrue(TEXT("The bake reports nothing to build"), Result.Status == ECambrianaBakeStatus::NothingToBuild);
 	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
@@ -196,7 +196,7 @@ bool FCambrianaBakeEmptyTextTest::RunTest(const FString& Parameters)
 	FBakeFixture Fixture(TEXT("BakeEmpty"));
 	Fixture.Grammar->GrammarText.Reset();
 
-	const FCambrianaBakeResult Result = Fixture.Bake();
+	const FCambrianaBakeResult Result = Fixture.BakeStatic();
 
 	TestTrue(TEXT("The bake reports nothing to build"), Result.Status == ECambrianaBakeStatus::NothingToBuild);
 	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());
@@ -214,7 +214,7 @@ bool FCambrianaBakeOverwriteTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakeOverwrite"));
 	int32 Asked = 0;
-	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.Bake(Answer(EAppReturnType::Yes, Asked)).Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked)).Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
@@ -224,7 +224,7 @@ bool FCambrianaBakeOverwriteTest::RunTest(const FString& Parameters)
 	USkeleton* Skeleton = Fixture.FindSkeleton();
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Sides = 6; });
 
-	const FCambrianaBakeResult Result = Fixture.Bake(Answer(EAppReturnType::Yes, Asked));
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
 
 	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
 	TestEqual(TEXT("Overwriting is asked once for all the outputs"), Asked, 1);
@@ -246,7 +246,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeOverwriteDeclinedTest,
 bool FCambrianaBakeOverwriteDeclinedTest::RunTest(const FString& Parameters)
 {
 	FBakeFixture Fixture(TEXT("BakeDeclined"));
-	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+	if (!TestTrue(TEXT("The first bake succeeds"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked))
 	{
 		return false;
 	}
@@ -255,7 +255,7 @@ bool FCambrianaBakeOverwriteDeclinedTest::RunTest(const FString& Parameters)
 	Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Sides = 6; });
 
 	int32 Asked = 0;
-	const FCambrianaBakeResult Result = Fixture.Bake(Answer(EAppReturnType::No, Asked));
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::No, Asked));
 
 	TestTrue(TEXT("The bake reports the overwrite declined"), Result.Status == ECambrianaBakeStatus::OverwriteDeclined);
 	TestEqual(TEXT("Overwriting is asked once"), Asked, 1);
@@ -280,7 +280,7 @@ bool FCambrianaBakeNameTakenTest::RunTest(const FString& Parameters)
 	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SM_") + Fixture.Name), RF_Public | RF_Standalone);
 
 	int32 Asked = 0;
-	const FCambrianaBakeResult Result = Fixture.Bake(Answer(EAppReturnType::Yes, Asked));
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
 
 	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
 	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
@@ -302,7 +302,7 @@ bool FCambrianaBakeSkeletalNameTakenTest::RunTest(const FString& Parameters)
 	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SK_") + Fixture.Name), RF_Public | RF_Standalone);
 
 	int32 Asked = 0;
-	const FCambrianaBakeResult Result = Fixture.Bake(Answer(EAppReturnType::Yes, Asked));
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
 
 	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
 	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
@@ -324,7 +324,7 @@ bool FCambrianaBakeUnsavedGrammarTest::RunTest(const FString& Parameters)
 	FBakeFixture Fixture(TEXT("BakeUnsaved"));
 
 	// With -unattended the engine's save prompt cancels.
-	const FCambrianaBakeResult Result = Cambriana::Editor::BakeGrammar(*Fixture.Grammar, nullptr);
+	const FCambrianaBakeResult Result = Cambriana::Editor::BakeGrammar(*Fixture.Grammar, ECambrianaBakeChoice::StaticMesh, nullptr);
 
 	TestTrue(TEXT("The bake reports the grammar not saved"), Result.Status == ECambrianaBakeStatus::GrammarNotSaved);
 	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());

@@ -17,7 +17,7 @@ namespace
 		FBakeFixture Fixture(AssetName);
 		Fixture.Grammar->GrammarText = GrammarText;
 		Fixture.Grammar->Seed = 7177;
-		if (!Test.TestTrue(FString::Printf(TEXT("%s bakes"), Label), Fixture.Bake().Status == ECambrianaBakeStatus::Baked))
+		if (!Test.TestTrue(FString::Printf(TEXT("%s bakes"), Label), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked))
 		{
 			return false;
 		}

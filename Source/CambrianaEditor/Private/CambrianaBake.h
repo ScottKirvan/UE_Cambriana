@@ -27,6 +27,13 @@ enum class ECambrianaBakeStatus : uint8
 	SaveFailed,
 };
 
+/** What a grammar asset's Bake writes: a static mesh, or a skeletal mesh with its skeleton and physics asset. */
+enum class ECambrianaBakeChoice : uint8
+{
+	StaticMesh,
+	SkeletalMesh,
+};
+
 struct FCambrianaBakeResult
 {
 	ECambrianaBakeStatus Status = ECambrianaBakeStatus::NothingToBuild;
@@ -57,12 +64,12 @@ namespace Cambriana::Editor
 	inline const FName BakeMenuEntry(TEXT("CambrianaGrammar_Bake"));
 
 	/**
-	 * Bakes the grammar asset's saved state into a skeleton SKEL_<grammar asset name>, skinned skeletal mesh SK_<grammar asset name> and
-	 * its physics asset PHYS_<grammar asset name>, and a static mesh SM_<grammar asset name> when its bake settings select it, written to a folder beside the asset named after it,
-	 * and saves them. A grammar without saved state is first offered to the engine's save prompt. AskToOverwrite is asked once before
-	 * existing outputs are rebuilt in place; unset, a message dialog asks.
+	 * Bakes the grammar asset's saved state to a folder beside the asset named after it, and saves the outputs. StaticMesh writes
+	 * SM_<grammar asset name>; SkeletalMesh writes the skeleton SKEL_<grammar asset name>, the skinned skeletal mesh SK_<grammar asset
+	 * name> and its physics asset PHYS_<grammar asset name>. A grammar without saved state is first offered to the engine's save
+	 * prompt. AskToOverwrite is asked once before the chosen outputs that exist are rebuilt in place; unset, a message dialog asks.
 	 */
-	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, const FAskToOverwrite& AskToOverwrite = nullptr);
+	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite = nullptr);
 
 	/**
 	 * Bakes a static mesh from the live actor's own build input, overrides included, and saves it where the engine's save-asset
