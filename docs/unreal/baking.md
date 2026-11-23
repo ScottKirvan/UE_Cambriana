@@ -70,6 +70,29 @@ Bake writes nothing, leaves any existing baked assets unchanged and logs the rea
 
 If the assets are built but cannot be saved, the Output Log says so.
 
+## Reimport
+
+A mesh baked from a grammar asset remembers that grammar, as an imported mesh remembers its source file. In the mesh's Details panel, **Import Settings > Source File** shows the grammar asset's package file, and **Grammar** names the grammar asset. `SM_<name>` and `SK_<name>` carry this link; the skeleton and physics asset do not.
+
+To rebuild a baked mesh after changing its grammar, right-click the mesh in the Content Browser and choose **Reimport**. Reimport bakes the grammar again, as the matching Bake does, into the same assets:
+
+| Reimport on | Rebuilds | As |
+|---|---|---|
+| `SM_<name>` | The static mesh | Bake to Static Mesh |
+| `SK_<name>` | The skeletal mesh, the skeleton it uses and its physics asset | Bake to Skeletal Mesh |
+
+- The mesh is rebuilt in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working and shows the change. A skeletal mesh keeps its skeleton.
+- Reimport does not ask before rebuilding, as the engine's Reimport of an imported mesh does not.
+- The rebuilt assets are saved as soon as they are written.
+- The link follows the grammar asset when it is renamed or moved, and Reimport updates the Source File to the grammar's new package file.
+- When Reimport bakes nothing, for the reasons under [When nothing is baked](#when-nothing-is-baked), the mesh is unchanged and the engine's notification says the reimport failed.
+
+### Reimport With New File
+
+**Reimport With New File** links the mesh to another grammar asset and rebuilds it from that grammar. In the file dialog, choose that grammar asset's package file: its `.uasset` file under the project's `Content` folder, for example `Content/Trees/Fern2.uasset` for `/Game/Trees/Fern2`. Any other file, including another kind of asset's package file, fails and leaves the mesh linked to its grammar and unchanged; the Output Log says why (category `LogCambrianaReimport`).
+
+Meshes not baked from a grammar asset, such as meshes imported from FBX files, reimport from their own source files as usual.
+
 ## The skeletal mesh and skeleton
 
 The skeletal mesh `SK_<name>` uses the skeleton `SKEL_<name>` and the physics asset `PHYS_<name>`.
