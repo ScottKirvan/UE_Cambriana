@@ -2,6 +2,7 @@
 
 #include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/IAssetRegistry.h"
+#include "AutoReimport/AssetSourceFilenameCache.h"
 #include "CambrianaGrammar.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
@@ -85,5 +86,33 @@ void UCambrianaAssetImportData::Link(USkeletalMesh& Mesh, const UCambrianaGramma
 
 TArray<FAssetData> UCambrianaAssetImportData::FindMeshesLinkedTo(const UCambrianaGrammar& Grammar)
 {
-	return {};
+	const FSoftObjectPath GrammarPath(&Grammar);
+	IAssetRegistry& Registry = IAssetRegistry::GetChecked();
+
+	// Two registry lookups: the assets whose source file is the grammar's package file, as auto reimport finds a changed file's
+	// assets (AssetSourceFilenameCache.cpp, which reads the registry's in-memory tags, so it follows unsaved links); and the packages
+	// that reference the grammar's, as the Reference Viewer does, which follows a moved grammar once its referencers are saved.
+	TArray<FAssetData> Candidates = FAssetSourceFilenameCache::Get().GetAssetsPertainingToFile(Registry, PackageFilenameOf(GrammarPath));
+	TArray<FName> Referencers;
+	Registry.GetReferencers(GrammarPath.GetLongPackageFName(), Referencers);
+	for (const FName Referencer : Referencers)
+	{
+		Registry.GetAssetsByPackageName(Referencer, Candidates);
+	}
+
+	TArray<FAssetData> Linked;
+	for (const FAssetData& Candidate : Candidates)
+	{
+		const bool bMesh = Candidate.IsInstanceOf(UStaticMesh::StaticClass()) || Candidate.IsInstanceOf(USkeletalMesh::StaticClass());
+		if (!bMesh || Linked.ContainsByPredicate([&Candidate](const FAssetData& Found) { return Found.GetSoftObjectPath() == Candidate.GetSoftObjectPath(); }))
+		{
+			continue;
+		}
+		const UCambrianaAssetImportData* ImportData = Of(Candidate.GetAsset());
+		if (ImportData && ImportData->ResolveGrammarPath() == GrammarPath)
+		{
+			Linked.Add(Candidate);
+		}
+	}
+	return Linked;
 }
