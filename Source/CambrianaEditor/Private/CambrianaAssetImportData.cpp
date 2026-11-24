@@ -84,6 +84,59 @@ void UCambrianaAssetImportData::Link(USkeletalMesh& Mesh, const UCambrianaGramma
 	LinkMesh(Mesh, Grammar);
 }
 
+namespace
+{
+	/** Whether the registry says the package holds a grammar asset, or a redirector to one. */
+	bool PackageHoldsGrammar(const IAssetRegistry& Registry, FName PackageName)
+	{
+		TArray<FAssetData> Assets;
+		Registry.GetAssetsByPackageName(PackageName, Assets);
+		return Assets.ContainsByPredicate([&Registry](const FAssetData& Asset)
+		{
+			const FAssetData Target = Asset.IsRedirector() ? Registry.GetAssetByObjectPath(Registry.GetRedirectedObjectPath(Asset.GetSoftObjectPath())) : Asset;
+			return Target.IsInstanceOf(UCambrianaGrammar::StaticClass());
+		});
+	}
+}
+
+bool UCambrianaAssetImportData::MayLinkToGrammar(const FAssetData& Mesh)
+{
+	if (!Mesh.IsInstanceOf(UStaticMesh::StaticClass()) && !Mesh.IsInstanceOf(USkeletalMesh::StaticClass()))
+	{
+		return false;
+	}
+	const TOptional<FAssetImportInfo> ImportInfo = FAssetSourceFilenameCache::ExtractAssetImportInfo(Mesh);
+	if (!ImportInfo)
+	{
+		return false;
+	}
+	const IAssetRegistry& Registry = IAssetRegistry::GetChecked();
+	const FString MeshFolder = FPackageName::LongPackageNameToFilename(Mesh.PackagePath.ToString() / TEXT(""));
+	for (const FAssetImportInfo::FSourceFile& File : ImportInfo->SourceFiles)
+	{
+		if (FPaths::GetExtension(File.RelativeFilename, true) != FPackageName::GetAssetPackageExtension())
+		{
+			continue;
+		}
+		// Resolved as FAssetSourceFilenameCache::GetAssetsPertainingToFile resolves a source file: relative to the asset's folder, or absolute.
+		const FString Filename = FPaths::ConvertRelativePathToFull(FPaths::IsRelative(File.RelativeFilename) ? MeshFolder / File.RelativeFilename : File.RelativeFilename);
+		FString PackageName;
+		if (FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageName) && PackageHoldsGrammar(Registry, FName(PackageName)))
+		{
+			return true;
+		}
+		// A grammar moved without leaving a redirector: the source file names its old package until the next Bake, but once the
+		// mesh is saved the registry records its reference to the grammar's new package.
+		TArray<FName> Dependencies;
+		Registry.GetDependencies(Mesh.PackageName, Dependencies);
+		if (Dependencies.ContainsByPredicate([&Registry](FName Dependency) { return PackageHoldsGrammar(Registry, Dependency); }))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 TArray<FAssetData> UCambrianaAssetImportData::FindMeshesLinkedTo(const UCambrianaGrammar& Grammar)
 {
 	const FSoftObjectPath GrammarPath(&Grammar);
@@ -103,8 +156,7 @@ TArray<FAssetData> UCambrianaAssetImportData::FindMeshesLinkedTo(const UCambrian
 	TArray<FAssetData> Linked;
 	for (const FAssetData& Candidate : Candidates)
 	{
-		const bool bMesh = Candidate.IsInstanceOf(UStaticMesh::StaticClass()) || Candidate.IsInstanceOf(USkeletalMesh::StaticClass());
-		if (!bMesh || Linked.ContainsByPredicate([&Candidate](const FAssetData& Found) { return Found.GetSoftObjectPath() == Candidate.GetSoftObjectPath(); }))
+		if (!MayLinkToGrammar(Candidate) || Linked.ContainsByPredicate([&Candidate](const FAssetData& Found) { return Found.GetSoftObjectPath() == Candidate.GetSoftObjectPath(); }))
 		{
 			continue;
 		}

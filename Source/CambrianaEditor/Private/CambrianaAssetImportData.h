@@ -42,6 +42,14 @@ public:
 	static void Link(UStaticMesh& Mesh, const UCambrianaGrammar* Grammar);
 	static void Link(USkeletalMesh& Mesh, const UCambrianaGrammar* Grammar);
 
+	/**
+	 * Whether the asset registry's record of the mesh says it may be linked to a grammar, without loading it: a static or skeletal
+	 * mesh whose source file is an asset package file holding a grammar or a redirector to one, or, for a grammar moved since, whose
+	 * package the registry says references a grammar's package. The record does not hold the import data's class, so a mesh this
+	 * passes is confirmed by loading it (Of).
+	 */
+	static bool MayLinkToGrammar(const FAssetData& Mesh);
+
 	/** The grammar's outputs: the static and skeletal meshes whose grammar link resolves to Grammar, found through the asset registry. */
 	static TArray<FAssetData> FindMeshesLinkedTo(const UCambrianaGrammar& Grammar);
 };
