@@ -173,10 +173,6 @@ The gate is light and never holds up development:
    `main` and which are filed as issues for later. No finding blocks the PR on its own. Fixes
    are red/green, the failing test committed on its own before the fix.
 
-Every deferred finding or leftover from a gate or review is recorded as a GitHub issue (after the
-duplicate check), never left only in a report, a PR comment or agent memory. Questions are not
-logged as issues: they are asked of the author directly, or settled by the engine-precedent rule.
-
 No mutation audit. Each step's red/green run is what shows its acceptance test can fail.
 
 Expected values come from the specs, legacy output or hand calculation. A value recorded from
@@ -291,6 +287,8 @@ tool (e.g. an MCP GitHub server's `search_issues`/`list_issues`) in hosted sessi
 that don't have `gh`. Don't skip the check just because the literal command doesn't
 apply in a given environment.
 Create issues only when explicitly asked — don't preemptively file future work.
+GitHub issues are not a worklog, a place for questions, or a record of system state. Questions
+go to the author directly.
 
 ## Sub-Agent Workflow
 
