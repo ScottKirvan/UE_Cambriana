@@ -11,6 +11,7 @@
 #include "CambrianaStaticMesh.h"
 #include "ContentBrowserMenuContexts.h"
 #include "ContentBrowserModule.h"
+#include "Editor.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "FileHelpers.h"
@@ -20,7 +21,6 @@
 #include "ObjectTools.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "ToolMenus.h"
-#include "UObject/ObjectRedirector.h"
 #include "UObject/Package.h"
 #include "Widgets/Notifications/SNotificationList.h"
 
@@ -154,26 +154,18 @@ namespace
 		}
 	};
 
-	/** Finds the object at each output's name; false, logged, when one is a redirector or an asset of another class. */
-	bool FindExistingOutputs(FOutputsToBake& Outputs, const FString& Source)
+	/** Whether an asset of another class, or a redirector, holds the output's name. */
+	bool HoldsAnotherClass(const FOutputToBake& Output)
+	{
+		return Output.Existing && !Output.Existing->IsA(Output.Class);
+	}
+
+	void FindExistingOutputs(FOutputsToBake& Outputs)
 	{
 		for (FOutputToBake* Output : Outputs.All())
 		{
 			Output->Existing = FindExisting(Output->PackageName, Output->Name());
-			if (const UObjectRedirector* Redirector = Cast<UObjectRedirector>(Output->Existing))
-			{
-				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is a redirector to %s; nothing is baked"), *Source, *Redirector->GetPathName(),
-					Redirector->DestinationObject ? *Redirector->DestinationObject->GetPathName() : TEXT("nothing"));
-				return false;
-			}
-			if (Output->Existing && !Output->Existing->IsA(Output->Class))
-			{
-				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is not a %s; nothing is baked"), *Source, *Output->Existing->GetPathName(),
-					*FName::NameToDisplayString(Output->Class->GetName(), false).ToLower());
-				return false;
-			}
 		}
-		return true;
 	}
 
 	/** Whether the build has something to bake into the outputs; false, logged, when it does not. */
@@ -197,11 +189,69 @@ namespace
 		return true;
 	}
 
+	/**
+	 * Asks, for each output an asset of another class or a redirector holds the name of, whether to replace it, as the engine's import
+	 * asks (AssetTools.cpp, ImportAssetsInternal, ImportObjectAlreadyExists_DifferentClass, under its namespace and key so that it
+	 * shares its translations); true when none exists or every answer is Yes. Unset, a message dialog asks.
+	 */
+	bool ConfirmReplace(FOutputsToBake& Outputs, const FString& Source, const Cambriana::Editor::FAskToReplace& AskToReplace)
+	{
+		for (const FOutputToBake* Output : Outputs.All())
+		{
+			if (!HoldsAnotherClass(*Output))
+			{
+				continue;
+			}
+			const FText Question = FText::Format(NSLOCTEXT("AssetTools", "ImportObjectAlreadyExists_DifferentClass",
+				"Do you want to replace the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString(Output->PackageName));
+			if ((AskToReplace ? AskToReplace(Question) : AskWithDialog(Question)) != EAppReturnType::Yes)
+			{
+				UE_LOG(LogCambrianaBake, Display, TEXT("%s: %s is not replaced; nothing is baked"), *Source, *Output->Existing->GetPathName());
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Deletes the assets of another class and the redirectors the user agreed to replace, as the engine's import does (AssetTools.cpp,
+	 * ImportAssetsInternal): through ObjectTools::DeleteObjects without a confirmation, the package kept alive meanwhile. False,
+	 * logged, when one cannot be deleted.
+	 */
+	bool DeleteReplaced(FOutputsToBake& Outputs, const FString& Source)
+	{
+		for (FOutputToBake* Output : Outputs.All())
+		{
+			if (!HoldsAnotherClass(*Output))
+			{
+				continue;
+			}
+			UPackage* Package = Output->Existing->GetPackage();
+			const FString ExistingPath = Output->Existing->GetPathName();
+			TWeakObjectPtr<UPackage> WeakPackage(Package);
+			Package->AddToRoot();
+			const int32 NumDeleted = ObjectTools::DeleteObjects({ Output->Existing }, false);
+			if (WeakPackage.IsValid())
+			{
+				Package->RemoveFromRoot();
+			}
+			FText Reason;
+			if (NumDeleted == 0 || !IsGloballyUniqueObjectName(*ExistingPath, &Reason))
+			{
+				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s cannot be deleted; nothing is baked"), *Source, *ExistingPath);
+				return false;
+			}
+			Output->Existing = nullptr;
+			CreatePackage(*Output->PackageName)->MarkAsFullyLoaded();
+		}
+		return true;
+	}
+
 	/** Asks once, naming the first existing output, before existing outputs are rebuilt in place; true when none exists or the answer is Yes. */
 	bool ConfirmOverwrite(FOutputsToBake& Outputs, const FString& Source, const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
 	{
 		const TArray<FOutputToBake*, TInlineAllocator<4>> All = Outputs.All();
-		FOutputToBake* const* FirstExisting = All.FindByPredicate([](const FOutputToBake* Output) { return Output->Existing != nullptr; });
+		FOutputToBake* const* FirstExisting = All.FindByPredicate([](const FOutputToBake* Output) { return Output->Existing && !HoldsAnotherClass(*Output); });
 		if (!FirstExisting)
 		{
 			return true;
@@ -312,27 +362,28 @@ namespace
 
 	/**
 	 * Builds Input into the outputs and saves them unless the outputs say not to, asking once before any existing output is rebuilt in place; Source names what is
-	 * baked in the log. A redirector or an asset of another class at an output's name bakes nothing.
+	 * baked in the log. A redirector or an asset of another class at an output's name is deleted first when AskToReplace says Yes, and bakes nothing otherwise.
 	 */
 	FCambrianaBakeResult BakeOutputs(const FCambrianaBuildInput& Input, FOutputsToBake Outputs, const FString& Source,
 		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite, const Cambriana::Editor::FAskToReplace& AskToReplace)
 	{
-		if (!FindExistingOutputs(Outputs, Source))
-		{
-			return Failed(ECambrianaBakeStatus::NameTaken);
-		}
+		FindExistingOutputs(Outputs);
 		const FCambrianaBuildResult Build = Cambriana::BuildMesh(Input);
 		if (!HasSomethingToBake(Build, Outputs, Source))
 		{
 			return Failed(ECambrianaBakeStatus::NothingToBuild);
 		}
-		if (!ConfirmOverwrite(Outputs, Source, AskToOverwrite))
+		if (!ConfirmReplace(Outputs, Source, AskToReplace) || !ConfirmOverwrite(Outputs, Source, AskToOverwrite))
 		{
 			return Failed(ECambrianaBakeStatus::OverwriteDeclined);
 		}
 		if (!ConfirmSkeletonUpdate(Build, Outputs, Source))
 		{
 			return Failed(ECambrianaBakeStatus::SkeletonRecreateDeclined);
+		}
+		if (!DeleteReplaced(Outputs, Source))
+		{
+			return Failed(ECambrianaBakeStatus::NameTaken);
 		}
 		TArray<UPackage*> Packages;
 		FCambrianaBakeResult Result = WriteOutputs(Build, Outputs, Packages);
