@@ -53,6 +53,9 @@ namespace Cambriana::Editor
 	/** Asks whether to overwrite an existing asset; given the question, answers Yes or No. */
 	using FAskToOverwrite = TFunction<EAppReturnType::Type(const FText& Question)>;
 
+	/** Asks whether to replace an existing asset of another class, or a redirector, at an output's name; given the question, answers Yes or No. */
+	using FAskToReplace = TFunction<EAppReturnType::Type(const FText& Question)>;
+
 	/** Asks whether to recreate a skeleton's bone tree when the grammar's bones do not merge into it; given the question, answers Yes, No or Cancel. */
 	using FAskToRecreateSkeleton = TFunction<EAppReturnType::Type(const FText& Question)>;
 
@@ -76,11 +79,12 @@ namespace Cambriana::Editor
 	 * records the grammar in its import data for Reimport. AskToOverwrite is asked once before the chosen outputs that exist are
 	 * rebuilt in place; unset, a message dialog asks.
 	 */
-	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite = nullptr);
+	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite = nullptr,
+		const FAskToReplace& AskToReplace = nullptr);
 
 	/** Bakes as BakeGrammar does, building State, such as the grammar editor's working copy, into the outputs of Asset. */
 	FCambrianaBakeResult BakeGrammarState(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice,
-		const FAskToOverwrite& AskToOverwrite = nullptr);
+		const FAskToOverwrite& AskToOverwrite = nullptr, const FAskToReplace& AskToReplace = nullptr);
 
 	/**
 	 * Rebuilds Mesh in place from the grammar asset as BakeGrammar does, without asking before: a static mesh as Bake to Static Mesh,
@@ -97,7 +101,7 @@ namespace Cambriana::Editor
 	 * name>_<actor label> in the grammar's bake folder, or for an actor without a grammar asset to SM_<actor label> at the project's
 	 * content root. A static mesh written over one linked to a grammar loses the link: its import data becomes plain import data with no source file.
 	 */
-	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor);
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToReplace& AskToReplace = nullptr);
 
 	/** The text of a bake result's notification; Source names what was baked. */
 	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result);
