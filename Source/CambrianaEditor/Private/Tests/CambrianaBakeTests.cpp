@@ -509,6 +509,22 @@ bool FCambrianaBakeSavedRedirectorTest::RunTest(const FString& Parameters)
 	return BakeOverRedirector(*this, Fixture, MovedPackage, true);
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSaveFailedMessageTest,
+	"Cambriana.Editor.Bake.ABakeWhoseOutputsDoNotSaveSaysTheyWereBakedButNotSaved",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakeSaveFailedMessageTest::RunTest(const FString& Parameters)
+{
+	// ECambrianaBakeStatus::SaveFailed: the outputs were built but did not all save.
+	FCambrianaBakeResult Result{ ECambrianaBakeStatus::SaveFailed };
+	Result.StaticMesh = NewObject<UStaticMesh>(GetTransientPackage());
+	const FString Message = Cambriana::Editor::BakeResultMessage(TEXT("/Game/Trees/Fern"), Result).ToString();
+	TestTrue(TEXT("It says the outputs were baked but not saved"), Message.Contains(TEXT("baked but not saved")));
+	TestFalse(TEXT("It does not say they were not baked"), Message.Contains(TEXT("was not baked")));
+	TestTrue(TEXT("It names the grammar"), Message.Contains(TEXT("/Game/Trees/Fern")));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeUnsavedGrammarTest,
 	"Cambriana.Editor.Bake.BakeBakesTheGrammarAssetsUnsavedChangesInMemoryWithoutSavingThem",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
