@@ -392,16 +392,22 @@ namespace Cambriana::Editor
 		}
 	}
 
+	void AddBakeChoiceEntry(FToolMenuSection& Section, FName Name, ECambrianaBakeChoice Choice, FExecuteBakeChoice Execute)
+	{
+		const bool bStatic = Choice == ECambrianaBakeChoice::StaticMesh;
+		Section.AddMenuEntry(Name,
+			bStatic ? LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh") : LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh"),
+			bStatic ? LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's current state to a folder beside it.")
+				: LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's current state to a folder beside it."),
+			FSlateIcon(), FToolMenuExecuteAction::CreateStatic(Execute, Choice));
+	}
+
 	void AddBakeMenuEntry()
 	{
 		UToolMenu* Menu = UE::ContentBrowser::ExtendToolMenu_AssetContextMenu(UCambrianaGrammar::StaticClass());
 		FToolMenuSection& Section = Menu->FindOrAddSection(BakeMenuSection);
-		Section.AddMenuEntry(BakeToStaticMeshMenuEntry, LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh"),
-			LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's current state to a folder beside it."), FSlateIcon(),
-			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::StaticMesh));
-		Section.AddMenuEntry(BakeToSkeletalMeshMenuEntry, LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh"),
-			LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's current state to a folder beside it."), FSlateIcon(),
-			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::SkeletalMesh));
+		AddBakeChoiceEntry(Section, BakeToStaticMeshMenuEntry, ECambrianaBakeChoice::StaticMesh, &ExecuteBake);
+		AddBakeChoiceEntry(Section, BakeToSkeletalMeshMenuEntry, ECambrianaBakeChoice::SkeletalMesh, &ExecuteBake);
 	}
 }
 

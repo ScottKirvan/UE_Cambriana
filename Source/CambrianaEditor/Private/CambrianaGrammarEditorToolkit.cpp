@@ -526,12 +526,8 @@ namespace Cambriana::Editor
 	{
 		UToolMenu* BakeMenu = UToolMenus::Get()->RegisterMenu(BakeMenuName);
 		FToolMenuSection& Choices = BakeMenu->FindOrAddSection(TEXT("Bake"));
-		Choices.AddMenuEntry(TEXT("BakeToStaticMesh"), LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh"),
-			LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's current state to a folder beside it."), FSlateIcon(),
-			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::StaticMesh));
-		Choices.AddMenuEntry(TEXT("BakeToSkeletalMesh"), LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh"),
-			LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's current state to a folder beside it."), FSlateIcon(),
-			FToolMenuExecuteAction::CreateStatic(&ExecuteBake, ECambrianaBakeChoice::SkeletalMesh));
+		AddBakeChoiceEntry(Choices, TEXT("BakeToStaticMesh"), ECambrianaBakeChoice::StaticMesh, &ExecuteBake);
+		AddBakeChoiceEntry(Choices, TEXT("BakeToSkeletalMesh"), ECambrianaBakeChoice::SkeletalMesh, &ExecuteBake);
 
 		FToolMenuSection& Section = UToolMenus::Get()->ExtendMenu(ToolbarMenuName)->FindOrAddSection(TEXT("Bake"));
 		Section.InsertPosition = FToolMenuInsert(TEXT("Asset"), EToolMenuInsertType::After);

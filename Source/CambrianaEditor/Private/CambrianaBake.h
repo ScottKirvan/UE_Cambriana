@@ -10,6 +10,8 @@ class UPhysicsAsset;
 class USkeletalMesh;
 class USkeleton;
 class UStaticMesh;
+struct FToolMenuContext;
+struct FToolMenuSection;
 
 enum class ECambrianaBakeStatus : uint8
 {
@@ -95,6 +97,15 @@ namespace Cambriana::Editor
 
 	/** Shows a notification of a bake's result; Source names what was baked. A declined overwrite or cancelled location shows nothing. */
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result);
+
+	/** Runs a Bake choice from a menu entry. */
+	using FExecuteBakeChoice = void (*)(const FToolMenuContext& MenuContext, ECambrianaBakeChoice Choice);
+
+	/**
+	 * Adds the Bake to Static Mesh or Bake to Skeletal Mesh entry for Choice, with the label and tooltip both the grammar asset's
+	 * right-click menu and the grammar editor's Bake menu show, running Execute with Choice.
+	 */
+	void AddBakeChoiceEntry(FToolMenuSection& Section, FName Name, ECambrianaBakeChoice Choice, FExecuteBakeChoice Execute);
 
 	/** Adds Bake to Static Mesh and Bake to Skeletal Mesh, in that order, to the grammar asset's right-click menu in the Content Browser, owned by the current tool menu owner. */
 	void AddBakeMenuEntry();
