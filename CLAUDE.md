@@ -173,8 +173,9 @@ The gate is light and never holds up development:
    `main` and which are filed as issues for later. No finding blocks the PR on its own. Fixes
    are red/green, the failing test committed on its own before the fix.
 
-Every deferred finding, open question or leftover from a gate or review is recorded as a GitHub issue
-(after the duplicate check), never left only in a report, a PR comment or agent memory.
+Every deferred finding or leftover from a gate or review is recorded as a GitHub issue (after the
+duplicate check), never left only in a report, a PR comment or agent memory. Questions are not
+logged as issues: they are asked of the author directly, or settled by the engine-precedent rule.
 
 No mutation audit. Each step's red/green run is what shows its acceptance test can fail.
 
