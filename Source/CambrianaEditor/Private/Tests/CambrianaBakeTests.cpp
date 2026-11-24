@@ -8,9 +8,12 @@
 #include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/PackageName.h"
+#include "Misc/ScopeExit.h"
+#include "ObjectTools.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "StaticMeshResources.h"
 #include "ToolMenus.h"
+#include "UObject/ObjectRedirector.h"
 #include "UObject/Package.h"
 #include "UObject/SavePackage.h"
 
@@ -49,6 +52,81 @@ namespace
 	Cambriana::Editor::FAskToOverwrite Answer(EAppReturnType::Type Reply, int32& Asked)
 	{
 		return [Reply, &Asked](const FText&) { ++Asked; return Reply; };
+	}
+
+	/**
+	 * Moves the mesh to MovedPackage and leaves a redirector to it at its old name, as the Content Browser's move does when the mesh
+	 * has referencers it does not fix up (AssetRenameManager.cpp, which calls ObjectTools::RenameSingleObject to leave a redirector).
+	 */
+	UObjectRedirector* MoveLeavingRedirector(UObject& Mesh, const FString& MovedPackage)
+	{
+		const FString OldPath = Mesh.GetPathName();
+		FPackageGroupName Moved;
+		Moved.PackageName = MovedPackage;
+		Moved.ObjectName = FPackageName::GetShortName(MovedPackage);
+		TSet<UPackage*> RefusedToLoad;
+		FText Error;
+		if (!ObjectTools::RenameSingleObject(&Mesh, Moved, RefusedToLoad, Error, nullptr, true))
+		{
+			return nullptr;
+		}
+		return FindObject<UObjectRedirector>(nullptr, *OldPath);
+	}
+
+	/** Removes the moved package, in memory and on disk. */
+	void RemoveMovedPackage(const FString& MovedPackage)
+	{
+		if (UPackage* Package = FindPackage(nullptr, *MovedPackage))
+		{
+			UnloadPackage(Package);
+		}
+		IFileManager::Get().Delete(*PackageFilename(*MovedPackage));
+		IFileManager::Get().DeleteDirectory(*FPaths::GetPath(PackageFilename(*MovedPackage)), false, true);
+	}
+
+	/**
+	 * Bakes the fixture's static mesh, moves it to MovedPackage leaving a redirector at its name, and optionally saves and unloads
+	 * both, then changes the grammar and bakes the static mesh again; the redirector and the moved mesh must be left as they were.
+	 */
+	bool BakeOverRedirector(FAutomationTestBase& Test, FBakeFixture& Fixture, const FString& MovedPackage, bool bSavedAndUnloaded)
+	{
+		if (!Test.TestTrue(TEXT("The static mesh bakes"), Fixture.BakeStatic().Status == ECambrianaBakeStatus::Baked))
+		{
+			return false;
+		}
+		UObjectRedirector* Redirector = MoveLeavingRedirector(*Fixture.FindMesh(), MovedPackage);
+		if (!Test.TestTrue(TEXT("Moving the mesh leaves a redirector at its name"), Redirector && Redirector->DestinationObject))
+		{
+			return false;
+		}
+		const FString MovedObjectPath = Redirector->DestinationObject->GetPathName();
+		if (bSavedAndUnloaded)
+		{
+			UPackage* RedirectorPackage = Redirector->GetPackage();
+			UPackage* Moved = Redirector->DestinationObject->GetPackage();
+			if (!Test.TestTrue(TEXT("The redirector and the moved mesh save"), UEditorLoadingAndSavingUtils::SavePackages({ RedirectorPackage, Moved }, false))
+				|| !Test.TestTrue(TEXT("Both unload"), UnloadPackage(RedirectorPackage) && UnloadPackage(Moved)))
+			{
+				return false;
+			}
+		}
+		Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Sides = 6; });
+
+		int32 Asked = 0;
+		const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
+
+		Test.TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
+		Test.TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
+		Test.TestNull(TEXT("No static mesh is baked"), Result.StaticMesh);
+		const UObject* AtName = LoadObject<UObject>(nullptr, *Fixture.MeshObjectPath(), nullptr, LOAD_NoRedirects | LOAD_NoWarn | LOAD_Quiet);
+		Test.TestTrue(TEXT("The redirector is still at the static mesh's name"), AtName && AtName->IsA<UObjectRedirector>());
+		UStaticMesh* MovedMesh = LoadObject<UStaticMesh>(nullptr, *MovedObjectPath);
+		if (Test.TestNotNull(TEXT("The moved mesh is there"), MovedMesh))
+		{
+			Test.TestEqual(TEXT("The moved mesh keeps its triangles at 8 sides"), RenderedTriangles(MovedMesh), SkTriangles);
+			Test.TestFalse(TEXT("The moved mesh has no unsaved changes"), bSavedAndUnloaded && MovedMesh->GetPackage()->IsDirty());
+		}
+		return true;
 	}
 }
 
@@ -400,6 +478,35 @@ bool FCambrianaBakeSkeletalNameTakenTest::RunTest(const FString& Parameters)
 	TestNull(TEXT("No physics asset is created"), Fixture.FindPhysicsAsset());
 	TestFalse(TEXT("Nothing is saved"), Fixture.MeshFileExists() || Fixture.AnySkeletalFileExists() || Fixture.PhysicsAssetFileExists());
 	return true;
+}
+
+// SDD-unreal.md: a redirector at an output's name is an asset of another class there, as the engine's import and asset creation
+// treat it without following it (AssetTools.cpp, ImportAssetsInternal with AssetTools.FollowRedirectorsWhenImporting off, and
+// CanCreateAsset).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeRedirectorTest,
+	"Cambriana.Editor.Bake.BakeToStaticMeshLeavesARedirectorAtTheStaticMeshNameAndTheMovedMeshAloneAndBakesNothing",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakeRedirectorTest::RunTest(const FString& Parameters)
+{
+	AddExpectedMessagePlain(TEXT("is a redirector to"), ELogVerbosity::Error);
+	FBakeFixture Fixture(TEXT("BakeRedirector"));
+	const FString MovedPackage = FString(BakeTestRoot) / TEXT("BakeRedirectorMoved") / TEXT("SM_Moved");
+	ON_SCOPE_EXIT { RemoveMovedPackage(MovedPackage); };
+	return BakeOverRedirector(*this, Fixture, MovedPackage, false);
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSavedRedirectorTest,
+	"Cambriana.Editor.Bake.BakeToStaticMeshLeavesASavedUnloadedRedirectorAtTheStaticMeshNameAndTheMovedMeshAloneAndBakesNothing",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakeSavedRedirectorTest::RunTest(const FString& Parameters)
+{
+	AddExpectedMessagePlain(TEXT("is a redirector to"), ELogVerbosity::Error);
+	FBakeFixture Fixture(TEXT("BakeSavedRedirector"));
+	const FString MovedPackage = FString(BakeTestRoot) / TEXT("BakeSavedRedirectorMoved") / TEXT("SM_Moved");
+	ON_SCOPE_EXIT { RemoveMovedPackage(MovedPackage); };
+	return BakeOverRedirector(*this, Fixture, MovedPackage, true);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeUnsavedGrammarTest,
