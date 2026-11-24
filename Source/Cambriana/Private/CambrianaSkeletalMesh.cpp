@@ -70,10 +70,10 @@ namespace
 		return Bone.Parent == INDEX_NONE ? 0 : Bone.Parent + 1;
 	}
 
-	void AddBones(FReferenceSkeleton& Skeleton, TConstArrayView<FCambrianaBone> Bones)
+	void AddBones(FReferenceSkeleton& Skeleton, TConstArrayView<FCambrianaBone> Bones, const USkeleton* SkeletonAsset)
 	{
 		const TArray<FTransform> Poses = LocalBindPoses(Bones);
-		FReferenceSkeletonModifier Modifier(Skeleton, nullptr);
+		FReferenceSkeletonModifier Modifier(Skeleton, SkeletonAsset);
 		Modifier.Add(FMeshBoneInfo(Cambriana::RootBoneName, Cambriana::RootBoneName.ToString(), INDEX_NONE), Poses[0]);
 		for (int32 Index = 0; Index < Bones.Num(); ++Index)
 		{
@@ -167,14 +167,14 @@ FTransform Cambriana::BoneBindPose(const FCambrianaBone& Bone)
 	return FTransform(FRotationMatrix::MakeFromXZ(Bone.Forward, Bone.Up).ToQuat(), Bone.Start);
 }
 
-FReferenceSkeleton Cambriana::MakeReferenceSkeleton(const FCambrianaBuildResult& Result)
+FReferenceSkeleton Cambriana::MakeReferenceSkeleton(const FCambrianaBuildResult& Result, const USkeleton* SkeletonAsset)
 {
 	FReferenceSkeleton Skeleton;
 	if (!CanMakeReferenceSkeleton(Result.Bones))
 	{
 		return Skeleton;
 	}
-	AddBones(Skeleton, Result.Bones);
+	AddBones(Skeleton, Result.Bones, SkeletonAsset);
 	return Skeleton;
 }
 
@@ -218,9 +218,13 @@ UE::AnimationCore::FBoneWeights Cambriana::MakeBoneWeights(TConstArrayView<FCamb
 }
 
 #if WITH_EDITOR
-bool Cambriana::SetSkeletalMeshFromBuild(USkeletalMesh& SkeletalMesh, USkeleton& Skeleton, const FCambrianaBuildResult& Result)
+bool Cambriana::SetSkeletalMeshFromBuild(USkeletalMesh& SkeletalMesh, USkeleton& Skeleton, const FCambrianaBuildResult& Result,
+	ECambrianaSkeletonUpdate Update)
 {
-	const FReferenceSkeleton ReferenceSkeleton = MakeReferenceSkeleton(Result);
+	const bool bMerge = Update == ECambrianaSkeletonUpdate::MergeBones;
+	// As the FBX import makes a mesh's reference skeleton against the existing skeleton it merges into
+	// (FbxSkeletalMeshImport.cpp, SkeletalMeshImportUtils::ProcessImportMeshSkeleton with ExistingSkeleton).
+	const FReferenceSkeleton ReferenceSkeleton = MakeReferenceSkeleton(Result, bMerge ? &Skeleton : nullptr);
 	if (ReferenceSkeleton.GetRawBoneNum() == 0)
 	{
 		return false;
@@ -248,12 +252,23 @@ bool Cambriana::SetSkeletalMeshFromBuild(USkeletalMesh& SkeletalMesh, USkeleton&
 	SkeletalMesh.SetHasVertexColors(true);
 	SkeletalMesh.SetVertexColorGuid(FGuid::NewGuid());
 
-	// As the procedural vegetation export makes a skeleton for the skeletal mesh it writes (PVExportHelper.cpp,
-	// ExportCollectionToSkeletalMesh): the mesh's skeleton is set and its bone tree recreated from the mesh, which also replaces the
-	// tree of a skeleton rebuilt in place.
-	SkeletalMesh.SetSkeleton(&Skeleton);
-	Skeleton.RecreateBoneTree(&SkeletalMesh);
+	bool bSkeletonUpdated = true;
+	if (bMerge)
+	{
+		// As the FBX import merges a mesh's bones into the skeleton it keeps, then sets it as the mesh's skeleton
+		// (FbxSkeletalMeshImport.cpp, MergeAllBonesToBoneTree and SetSkeleton).
+		bSkeletonUpdated = Skeleton.MergeAllBonesToBoneTree(&SkeletalMesh);
+		SkeletalMesh.SetSkeleton(&Skeleton);
+	}
+	else
+	{
+		// As the procedural vegetation export makes a skeleton for the skeletal mesh it writes (PVExportHelper.cpp,
+		// ExportCollectionToSkeletalMesh): the mesh's skeleton is set and its bone tree recreated from the mesh, which also replaces
+		// the tree of a skeleton rebuilt in place.
+		SkeletalMesh.SetSkeleton(&Skeleton);
+		Skeleton.RecreateBoneTree(&SkeletalMesh);
+	}
 	SkeletalMesh.PostEditChange();
-	return true;
+	return bSkeletonUpdated;
 }
 #endif

@@ -84,8 +84,10 @@ namespace Cambriana::Editor
 
 	/**
 	 * Rebuilds Mesh in place from the grammar asset as BakeGrammar does, without asking before: a static mesh as Bake to Static Mesh,
-	 * a skeletal mesh as Bake to Skeletal Mesh with the skeleton and physics asset it uses (SKEL_ and PHYS_ beside the grammar when it
-	 * has none). Links the mesh to the grammar, and leaves the rebuilt assets with unsaved changes.
+	 * a skeletal mesh as Bake to Skeletal Mesh with the grammar's bones merged into the skeleton it uses (SKEL_ beside the grammar
+	 * when it has none), and its physics asset rebuilt only when that is the grammar's own PHYS_ beside it. When the bones do not
+	 * merge, AskToRecreateSkeleton is asked, or unset a message dialog: Yes recreates the skeleton's bone tree, and No or Cancel
+	 * rebuilds nothing. Links the mesh to the grammar, and leaves the rebuilt assets with unsaved changes.
 	 */
 	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh, const FAskToRecreateSkeleton& AskToRecreateSkeleton = nullptr);
 

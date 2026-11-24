@@ -133,6 +133,10 @@ namespace
 		float PhysicsStiffness = 0.0f;
 		/** The grammar the baked mesh is linked to for Reimport, or none. */
 		const UCambrianaGrammar* Grammar = nullptr;
+		/** How the skeleton gets the skeletal mesh's bones. */
+		Cambriana::ECambrianaSkeletonUpdate SkeletonUpdate = Cambriana::ECambrianaSkeletonUpdate::RecreateBoneTree;
+		/** Asks before an existing skeleton the bones cannot merge into is recreated; unset, a message dialog asks. */
+		Cambriana::Editor::FAskToRecreateSkeleton AskToRecreateSkeleton;
 		/** Whether the outputs are saved; otherwise they are left with unsaved changes. */
 		bool bSave = true;
 
@@ -213,6 +217,51 @@ namespace
 		return false;
 	}
 
+	/**
+	 * Whether the build's bones merge into the skeleton, decided as USkeleton::MergeBonesToBoneTree decides it (Skeleton.cpp): an
+	 * empty bone tree is created from them, and otherwise they merge when IsCompatibleMesh accepts a mesh with their reference
+	 * skeleton, its parent chain check off only under a.Skeleton.AllowIncompatibleSkeletalMeshMerge.
+	 */
+	bool BonesMerge(const USkeleton& Skeleton, const FCambrianaBuildResult& Build)
+	{
+		if (Skeleton.GetReferenceSkeleton().GetRawBoneNum() == 0)
+		{
+			return true;
+		}
+		USkeletalMesh* Probe = NewObject<USkeletalMesh>(GetTransientPackage());
+		Probe->SetRefSkeleton(Cambriana::MakeReferenceSkeleton(Build, &Skeleton));
+		const IConsoleVariable* AllowIncompatible = IConsoleManager::Get().FindConsoleVariable(TEXT("a.Skeleton.AllowIncompatibleSkeletalMeshMerge"));
+		const bool bMerge = Skeleton.IsCompatibleMesh(Probe, !(AllowIncompatible && AllowIncompatible->GetBool()));
+		Probe->MarkAsGarbage();
+		return bMerge;
+	}
+
+	/**
+	 * For bones to merge into an existing skeleton that they cannot merge into, asks whether to recreate its bone tree, as the FBX
+	 * import asks (FbxSkeletalMeshImport.cpp), before anything is rebuilt; true when they merge or the answer is Yes, which recreates
+	 * it. Unset, a message dialog asks, answering Cancel when unattended.
+	 */
+	bool ConfirmSkeletonUpdate(const FCambrianaBuildResult& Build, FOutputsToBake& Outputs, const FString& Source)
+	{
+		const USkeleton* Skeleton = Outputs.Skeleton ? Cast<USkeleton>(Outputs.Skeleton->Existing) : nullptr;
+		if (Outputs.SkeletonUpdate != Cambriana::ECambrianaSkeletonUpdate::MergeBones || !Skeleton || BonesMerge(*Skeleton, Build))
+		{
+			return true;
+		}
+		// The FBX import's question, under its namespace and key so that it shares its translations.
+		const FText Question = NSLOCTEXT("FBXImpoter", "SkeletonFailed_BoneMerge", "FAILED TO MERGE BONES:\n\n This could happen if significant hierarchical changes have been made\ne.g. inserting a bone between nodes.\nWould you like to regenerate the Skeleton from this mesh?\n\n***WARNING: THIS MAY INVALIDATE OR REQUIRE RECOMPRESSION OF ANIMATION DATA.***\n");
+		const EAppReturnType::Type Answer = Outputs.AskToRecreateSkeleton ? Outputs.AskToRecreateSkeleton(Question)
+			: FMessageDialog::Open(EAppMsgType::YesNoCancel, EAppReturnType::Cancel, Question);
+		if (Answer == EAppReturnType::Yes)
+		{
+			Outputs.SkeletonUpdate = Cambriana::ECambrianaSkeletonUpdate::RecreateBoneTree;
+			return true;
+		}
+		UE_LOG(LogCambrianaBake, Display, TEXT("%s: the grammar's bones do not merge into %s, which is not recreated; nothing is rebuilt"), *Source,
+			*Skeleton->GetPathName());
+		return false;
+	}
+
 	/** Builds Build into the outputs, linking the baked mesh to the outputs' grammar, and marks their packages dirty; Packages gets them. */
 	FCambrianaBakeResult WriteOutputs(const FCambrianaBuildResult& Build, const FOutputsToBake& Outputs, TArray<UPackage*>& Packages)
 	{
@@ -221,13 +270,16 @@ namespace
 		{
 			Result.Skeleton = Outputs.Skeleton->MakeAsset<USkeleton>();
 			Result.SkeletalMesh = Outputs.SkeletalMesh->MakeAsset<USkeletalMesh>();
-			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build);
+			Cambriana::SetSkeletalMeshFromBuild(*Result.SkeletalMesh, *Result.Skeleton, Build, Outputs.SkeletonUpdate);
 			UCambrianaAssetImportData::Link(*Result.SkeletalMesh, Outputs.Grammar);
-			Result.PhysicsAsset = Outputs.PhysicsAsset->MakeAsset<UPhysicsAsset>();
-			Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build, Outputs.PhysicsStiffness);
 			Packages.Add(Result.SkeletalMesh->GetPackage());
 			Packages.Add(Result.Skeleton->GetPackage());
-			Packages.Add(Result.PhysicsAsset->GetPackage());
+			if (Outputs.PhysicsAsset)
+			{
+				Result.PhysicsAsset = Outputs.PhysicsAsset->MakeAsset<UPhysicsAsset>();
+				Cambriana::Editor::SetPhysicsAssetFromBuild(*Result.PhysicsAsset, *Result.SkeletalMesh, Build, Outputs.PhysicsStiffness);
+				Packages.Add(Result.PhysicsAsset->GetPackage());
+			}
 		}
 		if (Outputs.StaticMesh)
 		{
@@ -277,6 +329,10 @@ namespace
 		if (!ConfirmOverwrite(Outputs, Source, AskToOverwrite))
 		{
 			return Failed(ECambrianaBakeStatus::OverwriteDeclined);
+		}
+		if (!ConfirmSkeletonUpdate(Build, Outputs, Source))
+		{
+			return Failed(ECambrianaBakeStatus::SkeletonRecreateDeclined);
 		}
 		TArray<UPackage*> Packages;
 		FCambrianaBakeResult Result = WriteOutputs(Build, Outputs, Packages);
@@ -346,13 +402,20 @@ namespace Cambriana::Editor
 		{
 			Outputs = OutputsBesideGrammar(Grammar, Grammar, ECambrianaBakeChoice::SkeletalMesh);
 			Outputs.SkeletalMesh = FOutputToBake::At(*SkeletalMesh, USkeletalMesh::StaticClass());
+			// As the FBX reimport keeps the mesh's skeleton and merges the bones into it (FbxSkeletalMeshImport.cpp), or into the
+			// skeleton it finds or makes at its own name when the mesh has none.
 			if (const USkeleton* Skeleton = SkeletalMesh->GetSkeleton())
 			{
 				Outputs.Skeleton = FOutputToBake::At(*Skeleton, USkeleton::StaticClass());
 			}
-			if (const UPhysicsAsset* PhysicsAsset = SkeletalMesh->GetPhysicsAsset())
+			Outputs.SkeletonUpdate = Cambriana::ECambrianaSkeletonUpdate::MergeBones;
+			Outputs.AskToRecreateSkeleton = AskToRecreateSkeleton;
+			// As the FBX reimport keeps the mesh's physics asset and makes none (EditorFactories.cpp, UReimportFbxSkeletalMeshFactory,
+			// bCreatePhysicsAsset false): only the grammar's own physics asset is rebuilt.
+			const UPhysicsAsset* PhysicsAsset = SkeletalMesh->GetPhysicsAsset();
+			if (!PhysicsAsset || PhysicsAsset->GetPackage()->GetName() != Outputs.PhysicsAsset->PackageName || PhysicsAsset->GetName() != Outputs.PhysicsAsset->Name())
 			{
-				Outputs.PhysicsAsset = FOutputToBake::At(*PhysicsAsset, UPhysicsAsset::StaticClass());
+				Outputs.PhysicsAsset.Reset();
 			}
 		}
 		else if (const UStaticMesh* StaticMesh = Cast<UStaticMesh>(&Mesh))
@@ -418,7 +481,7 @@ namespace Cambriana::Editor
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result)
 	{
 		if (Result.Status == ECambrianaBakeStatus::OverwriteDeclined || Result.Status == ECambrianaBakeStatus::LocationNotChosen
-			|| !FSlateApplication::IsInitialized())
+			|| Result.Status == ECambrianaBakeStatus::SkeletonRecreateDeclined || !FSlateApplication::IsInitialized())
 		{
 			return;
 		}
