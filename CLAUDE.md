@@ -166,15 +166,15 @@ next time, not just a process note relying on memory.
 
 ### Milestone gates
 
-A milestone's PR opens only after these steps, in order:
+The gate is light and never holds up development:
 
-1. **Code review.** A read-only reviewer agent reads every changed line, looking for defects,
-   dead or repeated code, over-long units and tests that can't fail.
-2. **Fixes.** Findings are fixed red/green. The failing test is committed on its own before the
-   fix, so the red step is in the history.
-3. **Test audit.** A read-only agent breaks the behaviour each acceptance test and each new or
-   changed test claims to check (mutation testing), and lists every test that still passes.
-4. **Test fixes.** Every surviving test is repaired the same way.
+1. **Code review.** One read-only reviewer agent reads the milestone's changed product code for
+   defects, running while the author tests. It reports defects, not style.
+2. **Findings.** The author decides which findings are fixed before the milestone's PR into
+   `main` and which are filed as issues for later. No finding blocks the PR on its own. Fixes
+   are red/green, the failing test committed on its own before the fix.
+
+No mutation audit. Each step's red/green run is what shows its acceptance test can fail.
 
 Expected values come from the specs, legacy output or hand calculation. A value recorded from
 the code under test is a regression pin and is labelled as one: a passing pin is not evidence
@@ -379,7 +379,7 @@ Every implementation brief states:
   `Cambriana_Base_dev1` (created with `scripts/New-BaseProject.ps1 -ProjectDir <path>`,
   junctioned to that worktree). Never rebuild the author's own `Cambriana_Base` unless asked.
 - While iterating on a step, build incrementally and run only the new or changed tests. Run
-  the full `Cambriana.*` suite once before a step's push, and at milestone gates.
+  the full `Cambriana.*` suite once before a step's push.
 - Batch red/green: commit each failing test, then one build and run shows them all red;
   commit each fix, then one run shows them all green.
 - Be lean with tokens: short messages, few re-runs, small briefs. Wait for builds and agents
@@ -387,8 +387,8 @@ Every implementation brief states:
   agent and keep the main session for decisions. Use a lighter model for mechanical briefs
   (refactors, helper consolidation). The session does planning and spec writing itself
   rather than through an agent.
-- Mutation audits at milestone gates cover the acceptance tests and the milestone's new and
-  changed tests, with mutants batched per build.
+- Gates must not disrupt development or spend the token budget: no mutation audits, and no
+  extra full-suite runs beyond the one before each step's push.
 
 ### Messages
 
