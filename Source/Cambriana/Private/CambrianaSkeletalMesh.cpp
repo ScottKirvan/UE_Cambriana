@@ -3,6 +3,7 @@
 #include "Algo/Transform.h"
 #include "CambrianaBuild.h"
 #include "CambrianaCoreLoader.h"
+#include "CambrianaMaterialSlots.h"
 #include "CambrianaStaticMesh.h"
 
 #if WITH_EDITOR
@@ -13,7 +14,6 @@
 #include "DynamicMesh/DynamicVertexSkinWeightsAttribute.h"
 #include "DynamicMeshToMeshDescription.h"
 #include "Engine/SkeletalMesh.h"
-#include "Materials/Material.h"
 #include "MeshDescription.h"
 #include "Rendering/SkeletalMeshLODModel.h"
 #include "Rendering/SkeletalMeshModel.h"
@@ -105,29 +105,8 @@ namespace
 		const UE::Geometry::FDynamicMesh3 Skinned = MakeSkinnedMesh(Result, Skeleton);
 		Converter.Convert(&Skinned, Description);
 
-		TPolygonGroupAttributesRef<FName> GroupSlotNames = Attributes.GetPolygonGroupMaterialSlotNames();
-		for (const FPolygonGroupID Group : Description.PolygonGroups().GetElementIDs())
-		{
-			if (SlotNames.IsValidIndex(Group.GetValue()))
-			{
-				GroupSlotNames[Group] = SlotNames[Group.GetValue()];
-			}
-		}
+		Cambriana::Private::NamePolygonGroupSlots(Description, SlotNames);
 		return Description;
-	}
-
-	TArray<FSkeletalMaterial> MakeSlots(const USkeletalMesh& SkeletalMesh, TConstArrayView<FName> SlotNames)
-	{
-		const TArray<FSkeletalMaterial>& Existing = SkeletalMesh.GetMaterials();
-		TArray<FSkeletalMaterial> Slots;
-		Slots.Reserve(SlotNames.Num());
-		for (const FName SlotName : SlotNames)
-		{
-			const FSkeletalMaterial* Kept = Existing.FindByPredicate([SlotName](const FSkeletalMaterial& Slot) { return Slot.MaterialSlotName == SlotName; });
-			FSkeletalMaterial& Slot = Slots.Emplace_GetRef(Kept ? Kept->MaterialInterface.Get() : UMaterial::GetDefaultMaterial(MD_Surface), SlotName, SlotName);
-			Slot.UVChannelData = FMeshUVChannelInfo(1.0f);
-		}
-		return Slots;
 	}
 
 	/**
@@ -259,7 +238,7 @@ bool Cambriana::SetSkeletalMeshFromBuild(USkeletalMesh& SkeletalMesh, USkeleton&
 	RemoveLodsAfterFirst(SkeletalMesh);
 	SkeletalMesh.SetRefSkeleton(ReferenceSkeleton);
 	SkeletalMesh.CalculateInvRefMatrices();
-	SkeletalMesh.SetMaterials(MakeSlots(SkeletalMesh, SlotNames));
+	SkeletalMesh.SetMaterials(Cambriana::Private::MakeMaterialSlots<FSkeletalMaterial>(SkeletalMesh.GetMaterials(), SlotNames));
 	SetBuildSettings(*SkeletalMesh.GetLODInfo(0));
 	SkeletalMesh.CreateMeshDescription(0, MoveTemp(Description));
 	SkeletalMesh.CommitMeshDescription(0);
