@@ -18,8 +18,9 @@ enum class ECambrianaBakeStatus : uint8
 	Baked,
 	/** The grammar has errors, builds no triangles, or its bone tree makes no skeleton. */
 	NothingToBuild,
-	/** An asset of another class, or a redirector, holds an output's name. */
+	/** An asset of another class, or a redirector, holds an output's name and cannot be deleted. */
 	NameTaken,
+	/** The answer to the overwrite or the replace question was No. */
 	OverwriteDeclined,
 	/** The save-asset dialog for the static mesh's location was cancelled. */
 	LocationNotChosen,
