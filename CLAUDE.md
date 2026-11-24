@@ -173,6 +173,9 @@ The gate is light and never holds up development:
    `main` and which are filed as issues for later. No finding blocks the PR on its own. Fixes
    are red/green, the failing test committed on its own before the fix.
 
+Every deferred finding, open question or leftover from a gate or review is recorded as a GitHub issue
+(after the duplicate check), never left only in a report, a PR comment or agent memory.
+
 No mutation audit. Each step's red/green run is what shows its acceptance test can fail.
 
 Expected values come from the specs, legacy output or hand calculation. A value recorded from
@@ -316,6 +319,9 @@ When using sub-agents for implementation:
 
 These rules come from the author over many sessions. They apply on every machine and override
 any per-machine agent memory that disagrees.
+
+A new standing rule from the author goes into this section in the next commit, not only into an
+agent's per-machine memory, so it holds on every machine.
 
 ### Workflow and steps
 
