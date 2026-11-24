@@ -249,6 +249,72 @@ bool FCambrianaLiveActorBakeChosenLocationTest::RunTest(const FString& Parameter
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeReplaceYesTest,
+	"Cambriana.Editor.Bake.LiveActorBakeReplacesAnAssetOfAnotherClassAtTheChosenLocationOnYes",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorBakeReplaceYesTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("ActorBakeReplaceYes"));
+	ACambrianaLiveActor* Actor = PlaceOverriddenActor(Fixture);
+	if (!TestNotNull(TEXT("A live actor is placed from the grammar"), Actor))
+	{
+		return false;
+	}
+	ON_SCOPE_EXIT { DestroyActor(Actor); };
+	const FString Chosen = FString(BakeTestRoot) / TEXT("ActorBakeReplaceYes") / TEXT("SM_Chosen");
+	ON_SCOPE_EXIT { RemoveBakedMesh(Chosen); };
+	const TWeakObjectPtr<UObject> Occupant = NewObject<UCambrianaGrammar>(CreatePackage(*Chosen), TEXT("SM_Chosen"), RF_Public | RF_Standalone);
+
+	FAnswerBakeLocation Answer([Chosen](const FString&) { return Chosen; });
+	TArray<FString> Questions;
+	FCambrianaBakeResult Result;
+	RunWithoutSavePrompt([&]
+	{
+		Result = Cambriana::Editor::BakeLiveActor(*Actor, [&Questions](const FText& Question) { Questions.Add(Question.ToString()); return EAppReturnType::Yes; });
+	});
+
+	TestTrue(TEXT("The bake succeeds"), Result.Status == ECambrianaBakeStatus::Baked);
+	TestTrue(TEXT("Replacing is asked once, naming the asset"),
+		Questions.Num() == 1 && Questions[0].StartsWith(TEXT("Do you want to replace the existing asset?")) && Questions[0].EndsWith(Chosen));
+	TestFalse(TEXT("The other asset is deleted"), Occupant.IsValid());
+	TestTrue(TEXT("A static mesh is at the chosen location"), Result.StaticMesh && FindObject<UStaticMesh>(nullptr, *ObjectPathOf(Chosen)) == Result.StaticMesh);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeReplaceNoTest,
+	"Cambriana.Editor.Bake.LiveActorBakeLeavesAnAssetOfAnotherClassAtTheChosenLocationOnNoAndBakesNothing",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaLiveActorBakeReplaceNoTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("ActorBakeReplaceNo"));
+	ACambrianaLiveActor* Actor = PlaceOverriddenActor(Fixture);
+	if (!TestNotNull(TEXT("A live actor is placed from the grammar"), Actor))
+	{
+		return false;
+	}
+	ON_SCOPE_EXIT { DestroyActor(Actor); };
+	const FString Chosen = FString(BakeTestRoot) / TEXT("ActorBakeReplaceNo") / TEXT("SM_Chosen");
+	ON_SCOPE_EXIT { RemoveBakedMesh(Chosen); };
+	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(CreatePackage(*Chosen), TEXT("SM_Chosen"), RF_Public | RF_Standalone);
+
+	FAnswerBakeLocation Answer([Chosen](const FString&) { return Chosen; });
+	int32 Asked = 0;
+	FCambrianaBakeResult Result;
+	RunWithoutSavePrompt([&]
+	{
+		Result = Cambriana::Editor::BakeLiveActor(*Actor, [&Asked](const FText&) { ++Asked; return EAppReturnType::No; });
+	});
+
+	TestTrue(TEXT("The bake reports the overwrite declined"), Result.Status == ECambrianaBakeStatus::OverwriteDeclined);
+	TestEqual(TEXT("Replacing is asked once"), Asked, 1);
+	TestTrue(TEXT("The other asset is untouched"), FindObject<UObject>(nullptr, *ObjectPathOf(Chosen)) == Occupant && IsValid(Occupant));
+	TestNull(TEXT("No static mesh is created"), Result.StaticMesh);
+	TestFalse(TEXT("Nothing is saved"), IFileManager::Get().FileExists(*PackageFilename(*Chosen)));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaInlineLiveActorBakeTest,
 	"Cambriana.Editor.Bake.InlineLiveActorBakeDefaultsToTheContentRoot",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
