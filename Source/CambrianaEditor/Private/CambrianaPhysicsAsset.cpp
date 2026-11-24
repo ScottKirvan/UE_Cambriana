@@ -84,4 +84,7 @@ void Cambriana::Editor::SetPhysicsAssetFromBuild(UPhysicsAsset& PhysicsAsset, US
 	PhysicsAsset.UpdateBodySetupIndexMap();
 	PhysicsAsset.UpdateBoundsBodiesArray();
 	SkeletalMesh.SetPhysicsAsset(&PhysicsAsset);
+	// Placed components using the physics asset keep bodies built from the emptied body setups until their physics state is
+	// recreated, as the physics asset editor recreates it after each change (PhysicsAssetEditorSharedData.cpp, RefreshPhysicsAssetChange).
+	PhysicsAsset.RefreshPhysicsAssetChange();
 }
