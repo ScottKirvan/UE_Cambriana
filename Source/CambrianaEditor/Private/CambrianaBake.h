@@ -90,6 +90,9 @@ namespace Cambriana::Editor
 	 */
 	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor);
 
+	/** The text of a bake result's notification; Source names what was baked. */
+	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result);
+
 	/** Shows a notification of a bake's result; Source names what was baked. A declined overwrite or cancelled location shows nothing. */
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result);
 
