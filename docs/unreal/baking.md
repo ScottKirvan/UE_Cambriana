@@ -18,7 +18,7 @@ There are four ways to bake:
 
 ## Baking a grammar asset
 
-In the Content Browser, right-click one or more grammar assets and choose **Bake to Static Mesh** or **Bake to Skeletal Mesh**. Each choice writes only its own assets, so the two can be used one after the other on the same grammar. Each selected grammar is baked in turn, and a notification shows each result: `Baked <path>` on success, or `<grammar> was not baked; see the Output Log`.
+In the Content Browser, right-click one or more grammar assets and choose **Bake to Static Mesh** or **Bake to Skeletal Mesh**. Each choice writes only its own assets, so the two can be used one after the other on the same grammar. Each selected grammar is baked in turn, and a notification shows each result: `Baked <path>` on success, `<grammar> was baked but not saved; see the Output Log` when the baked assets are built but cannot be saved, or `<grammar> was not baked; see the Output Log`.
 
 Bake builds the grammar as the grammar editor's preview does: with the asset's text, seed, settings and stored parameter values, and no live actor overrides.
 
@@ -55,7 +55,7 @@ When any of the assets the chosen bake would write already exists, it asks once.
 
 The path named is the first existing one of that choice's assets, in the order skeletal mesh, skeleton, physics asset for Bake to Skeletal Mesh.
 
-- **Yes** rebuilds every existing asset of that choice in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working. A rebuilt mesh keeps the material assigned to each slot whose name it already had. The skeleton's bone tree follows any change to the grammar's bones. The physics asset's bodies and constraints are cleared and generated again, so hand edits to them are replaced.
+- **Yes** rebuilds every existing asset of that choice in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working. A rebuilt mesh keeps the material assigned to each slot whose name it already had. The skeleton's bone tree follows any change to the grammar's bones. A rebuilt skeletal mesh has one LOD: LODs added to it since the last bake are removed. The physics asset's bodies and constraints are cleared and generated again, so hand edits to them are replaced, and placed skeletal meshes using it take the new bodies at once.
 - **No** bakes nothing and changes nothing.
 
 ### When nothing is baked
@@ -66,9 +66,10 @@ Bake writes nothing, leaves any existing baked assets unchanged and logs the rea
 - the grammar builds no triangles, including empty text;
 - the grammar's bone tree cannot make a skeleton;
 - an asset of a different type already holds one of the chosen bake's names, for example a texture called `SK_Fern`. That asset is left alone;
+- a redirector holds one of the chosen bake's names, left there when a baked asset was moved. The redirector and the moved asset are left alone; fix up the redirectors (right-click the folder, **Update Redirector References**) or bake to the moved asset with Reimport;
 - you answer **No** to the overwrite question.
 
-If the assets are built but cannot be saved, the Output Log says so.
+If the assets are built but cannot be saved, they are left in memory with unsaved changes and the Output Log says so.
 
 ## Reimport
 

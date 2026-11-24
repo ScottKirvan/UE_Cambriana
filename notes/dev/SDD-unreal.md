@@ -60,8 +60,18 @@ display baked results.
   `UCambrianaAssetImportData`. It replaces the import data with a plain `UAssetImportData` with
   no source file, as the Source File row's Clear does (`AssetImportDataCustomization.cpp`), as
   one undoable change, and marks the mesh's package dirty.
+- `[Proposed — unconfirmed]` Whether to offer Detach is decided from the selection's asset
+  registry records without loading the selected meshes, as the Content Browser asks of its menus
+  (`ContentBrowserMenuContexts.h`) and as the static mesh's Nanite entries decide
+  (`AssetDefinition_StaticMesh.cpp`): a static or skeletal mesh whose source file tag
+  (`FAssetSourceFilenameCache::ExtractAssetImportInfo`) is an asset package file holding a grammar
+  or a redirector to one, or, for a grammar moved since, whose package the registry says references
+  a grammar's package. The record does not hold the import data's class, so Detach loads the
+  selection when it runs and detaches only the meshes whose import data is
+  `UCambrianaAssetImportData`.
 - `[Proposed — unconfirmed]` A grammar's outputs are the meshes whose
-  `UCambrianaAssetImportData` references it, found through the asset registry.
+  `UCambrianaAssetImportData` references it, found through the asset registry; only the
+  candidates whose registry record passes Detach's test above are loaded to confirm the link.
 - Baked asset names are the grammar asset's name with the Unreal style prefixes
   `SK_`, `SKEL_`, `PHYS_` and `SM_`.
 - `[Proposed — unconfirmed]` The bake settings are one struct on the grammar asset
@@ -116,6 +126,15 @@ display baked results.
   file (`AssetTools.cpp`, `ImportObjectAlreadyExists_SameClass`). Yes rebuilds every existing
   output as the same object in place, so references to it stay valid; No bakes nothing. An asset
   of another class at any output's name is left alone, an error is logged and nothing is baked.
+- `[Proposed — unconfirmed]` A redirector at an output's name, left by a move, counts as an asset of
+  another class: it is not followed, as the engine's import and asset creation do not follow one
+  (`AssetTools.cpp`: `ImportAssetsInternal` finds the existing object in the destination package
+  with `AssetTools.FollowRedirectorsWhenImporting` off by default, and `CanCreateAsset`). The
+  redirector and the moved asset are left alone, an error naming both is logged and nothing is
+  baked.
+- `[Proposed — unconfirmed]` A bake whose outputs are built but do not all save leaves them with
+  unsaved changes, and its notification says `<grammar> was baked but not saved; see the Output
+  Log`.
 - `[Proposed — unconfirmed]` The skeletal mesh is built in the runtime module
   (`Cambriana::SetSkeletalMeshFromBuild`) from the same build result as the static mesh, in the
   sequence of Geometry Script's `CopyMeshToSkeletalMesh` with a new reference skeleton
@@ -133,6 +152,12 @@ display baked results.
   recreated from the mesh (`USkeleton::RecreateBoneTree`), as the procedural vegetation export
   does for the skeleton it writes (`PVExportHelper.cpp`). A rebake rebuilds an existing skeleton
   in place the same way, so its tree follows a changed bone tree.
+- `[Proposed — unconfirmed]` A skeletal mesh rebuilt in place loses its LODs after LOD 0, removed
+  last first as `FLODUtilities::RegenerateLOD` removes LODs through `FLODUtilities::RemoveLOD`
+  (`LODUtilities.cpp`): each LOD's morph target data, LOD model and source model.
+- `[Proposed — unconfirmed]` A physics asset rebuilt in place recreates the physics state of the
+  placed components using it (`UPhysicsAsset::RefreshPhysicsAssetChange`), as the physics asset
+  editor does after each change (`PhysicsAssetEditorSharedData.cpp`).
 - `[Proposed — unconfirmed]` The physics asset's bodies and capsules are computed in the runtime
   module from the build result (`Cambriana::MakePhysicsBodies`, SDD-rigging.md, Physics). The
   editor module writes them into `PHYS_<name>` with the engine's physics asset functions

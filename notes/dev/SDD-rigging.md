@@ -159,3 +159,6 @@ and all descendants; bone indices of the remaining tree are compacted and names 
   (`LODUtilities.cpp`, `FLODUtilities::ProcessImportMeshInfluences`): a vertex's weights are
   normalised, the strongest 12 at or above `BoneWeightThreshold` kept and renormalised. A
   vertex with no influence is bound to `Root` with weight 1, as that import binds one to bone 0.
+- `[Proposed — unconfirmed]` A vertex whose influences are all below `BoneWeightThreshold` keeps
+  its strongest with weight 1 rather than binding to `Root`, so only a vertex with no influence is
+  bound to `Root`.
