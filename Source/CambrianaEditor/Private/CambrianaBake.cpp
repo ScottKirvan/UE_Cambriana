@@ -150,14 +150,9 @@ namespace
 		}
 	};
 
-	/**
-	 * Builds Input into the outputs and saves them unless the outputs say not to, asking once before any existing output is rebuilt in place; Source names what is
-	 * baked in the log. An asset of another class at an output's name bakes nothing.
-	 */
-	FCambrianaBakeResult BakeOutputs(const FCambrianaBuildInput& Input, FOutputsToBake Outputs, const FString& Source,
-		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+	/** Finds the object at each output's name; false, logged, when one is a redirector or an asset of another class. */
+	bool FindExistingOutputs(FOutputsToBake& Outputs, const FString& Source)
 	{
-		const FOutputToBake* FirstExisting = nullptr;
 		for (FOutputToBake* Output : Outputs.All())
 		{
 			Output->Existing = FindExisting(Output->PackageName, Output->Name());
@@ -165,48 +160,63 @@ namespace
 			{
 				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is a redirector to %s; nothing is baked"), *Source, *Redirector->GetPathName(),
 					Redirector->DestinationObject ? *Redirector->DestinationObject->GetPathName() : TEXT("nothing"));
-				return Failed(ECambrianaBakeStatus::NameTaken);
+				return false;
 			}
 			if (Output->Existing && !Output->Existing->IsA(Output->Class))
 			{
 				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is not a %s; nothing is baked"), *Source, *Output->Existing->GetPathName(),
 					*FName::NameToDisplayString(Output->Class->GetName(), false).ToLower());
-				return Failed(ECambrianaBakeStatus::NameTaken);
+				return false;
 			}
-			FirstExisting = FirstExisting ? FirstExisting : (Output->Existing ? Output : nullptr);
 		}
+		return true;
+	}
 
-		const FCambrianaBuildResult Build = Cambriana::BuildMesh(Input);
+	/** Whether the build has something to bake into the outputs; false, logged, when it does not. */
+	bool HasSomethingToBake(const FCambrianaBuildResult& Build, const FOutputsToBake& Outputs, const FString& Source)
+	{
 		if (Build.Report.bHasErrors)
 		{
 			UE_LOG(LogCambrianaBake, Error, TEXT("%s: the grammar has errors; nothing is baked"), *Source);
-			return Failed(ECambrianaBakeStatus::NothingToBuild);
+			return false;
 		}
 		if (Build.Mesh.TriangleCount() == 0)
 		{
 			UE_LOG(LogCambrianaBake, Error, TEXT("%s: the grammar builds no triangles; nothing is baked"), *Source);
-			return Failed(ECambrianaBakeStatus::NothingToBuild);
+			return false;
 		}
 		if (Outputs.SkeletalMesh && Cambriana::MakeReferenceSkeleton(Build).GetRawBoneNum() == 0)
 		{
 			UE_LOG(LogCambrianaBake, Error, TEXT("%s: the grammar's bone tree makes no skeleton; nothing is baked"), *Source);
-			return Failed(ECambrianaBakeStatus::NothingToBuild);
+			return false;
 		}
+		return true;
+	}
 
-		if (FirstExisting)
+	/** Asks once, naming the first existing output, before existing outputs are rebuilt in place; true when none exists or the answer is Yes. */
+	bool ConfirmOverwrite(FOutputsToBake& Outputs, const FString& Source, const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+	{
+		const TArray<FOutputToBake*, TInlineAllocator<4>> All = Outputs.All();
+		FOutputToBake* const* FirstExisting = All.FindByPredicate([](const FOutputToBake* Output) { return Output->Existing != nullptr; });
+		if (!FirstExisting)
 		{
-			const FText Question = FText::Format(
-				LOCTEXT("Overwrite", "Do you want to overwrite the existing asset?\n\nAn asset already exists at the bake location: {0}"),
-				FText::FromString(FirstExisting->PackageName));
-			if ((AskToOverwrite ? AskToOverwrite(Question) : AskWithDialog(Question)) != EAppReturnType::Yes)
-			{
-				UE_LOG(LogCambrianaBake, Display, TEXT("%s: %s is not overwritten; nothing is baked"), *Source, *FirstExisting->Existing->GetPathName());
-				return Failed(ECambrianaBakeStatus::OverwriteDeclined);
-			}
+			return true;
 		}
+		const FText Question = FText::Format(
+			LOCTEXT("Overwrite", "Do you want to overwrite the existing asset?\n\nAn asset already exists at the bake location: {0}"),
+			FText::FromString((*FirstExisting)->PackageName));
+		if ((AskToOverwrite ? AskToOverwrite(Question) : AskWithDialog(Question)) == EAppReturnType::Yes)
+		{
+			return true;
+		}
+		UE_LOG(LogCambrianaBake, Display, TEXT("%s: %s is not overwritten; nothing is baked"), *Source, *(*FirstExisting)->Existing->GetPathName());
+		return false;
+	}
 
+	/** Builds Build into the outputs, linking the baked mesh to the outputs' grammar, and marks their packages dirty; Packages gets them. */
+	FCambrianaBakeResult WriteOutputs(const FCambrianaBuildResult& Build, const FOutputsToBake& Outputs, TArray<UPackage*>& Packages)
+	{
 		FCambrianaBakeResult Result{ ECambrianaBakeStatus::Baked };
-		TArray<UPackage*> Packages;
 		if (Outputs.SkeletalMesh)
 		{
 			Result.Skeleton = Outputs.Skeleton->MakeAsset<USkeleton>();
@@ -230,20 +240,49 @@ namespace
 		{
 			Package->MarkPackageDirty();
 		}
-		if (!Outputs.bSave)
-		{
-			return Result;
-		}
+		return Result;
+	}
 
+	/** Saves the written packages; the result becomes SaveFailed, logged, when they do not all save. */
+	void SaveOutputs(TArray<UPackage*>& Packages, const FString& Source, FCambrianaBakeResult& Result)
+	{
 		if (FEditorFileUtils::PromptForCheckoutAndSave(Packages, false, false) != FEditorFileUtils::PR_Success)
 		{
 			UE_LOG(LogCambrianaBake, Error, TEXT("%s: the baked assets are built but not saved"), *Source);
 			Result.Status = ECambrianaBakeStatus::SaveFailed;
-			return Result;
+			return;
 		}
-		for (UPackage* Package : Packages)
+		for (const UPackage* Package : Packages)
 		{
 			UE_LOG(LogCambrianaBake, Display, TEXT("%s: baked %s"), *Source, *Package->GetName());
+		}
+	}
+
+	/**
+	 * Builds Input into the outputs and saves them unless the outputs say not to, asking once before any existing output is rebuilt in place; Source names what is
+	 * baked in the log. A redirector or an asset of another class at an output's name bakes nothing.
+	 */
+	FCambrianaBakeResult BakeOutputs(const FCambrianaBuildInput& Input, FOutputsToBake Outputs, const FString& Source,
+		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+	{
+		if (!FindExistingOutputs(Outputs, Source))
+		{
+			return Failed(ECambrianaBakeStatus::NameTaken);
+		}
+		const FCambrianaBuildResult Build = Cambriana::BuildMesh(Input);
+		if (!HasSomethingToBake(Build, Outputs, Source))
+		{
+			return Failed(ECambrianaBakeStatus::NothingToBuild);
+		}
+		if (!ConfirmOverwrite(Outputs, Source, AskToOverwrite))
+		{
+			return Failed(ECambrianaBakeStatus::OverwriteDeclined);
+		}
+		TArray<UPackage*> Packages;
+		FCambrianaBakeResult Result = WriteOutputs(Build, Outputs, Packages);
+		if (Outputs.bSave)
+		{
+			SaveOutputs(Packages, Source, Result);
 		}
 		return Result;
 	}
