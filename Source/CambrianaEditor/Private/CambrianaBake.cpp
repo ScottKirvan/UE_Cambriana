@@ -354,9 +354,15 @@ namespace Cambriana::Editor
 	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result)
 	{
 		const UObject* Baked = Result.SkeletalMesh ? static_cast<const UObject*>(Result.SkeletalMesh) : Result.StaticMesh;
-		return Result.Status == ECambrianaBakeStatus::Baked && Baked
-			? FText::Format(LOCTEXT("Baked", "Baked {0}"), FText::FromString(Baked->GetPathName()))
-			: FText::Format(LOCTEXT("NotBaked", "{0} was not baked; see the Output Log"), FText::FromString(Source));
+		if (Result.Status == ECambrianaBakeStatus::Baked && Baked)
+		{
+			return FText::Format(LOCTEXT("Baked", "Baked {0}"), FText::FromString(Baked->GetPathName()));
+		}
+		if (Result.Status == ECambrianaBakeStatus::SaveFailed)
+		{
+			return FText::Format(LOCTEXT("BakedNotSaved", "{0} was baked but not saved; see the Output Log"), FText::FromString(Source));
+		}
+		return FText::Format(LOCTEXT("NotBaked", "{0} was not baked; see the Output Log"), FText::FromString(Source));
 	}
 
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result)
