@@ -133,14 +133,16 @@ display baked results.
   Bake asks once "Do you want to overwrite the existing asset?" (Yes/No), naming the first
   existing one in the order `SK_`, `SKEL_`, `PHYS_`, `SM_`, as the engine's import asks once per imported
   file (`AssetTools.cpp`, `ImportObjectAlreadyExists_SameClass`). Yes rebuilds every existing
-  output as the same object in place, so references to it stay valid; No bakes nothing. An asset
-  of another class at any output's name is left alone, an error is logged and nothing is baked.
-- `[Proposed — unconfirmed]` A redirector at an output's name, left by a move, counts as an asset of
-  another class: it is not followed, as the engine's import and asset creation do not follow one
-  (`AssetTools.cpp`: `ImportAssetsInternal` finds the existing object in the destination package
-  with `AssetTools.FollowRedirectorsWhenImporting` off by default, and `CanCreateAsset`). The
-  redirector and the moved asset are left alone, an error naming both is logged and nothing is
-  baked.
+  output as the same object in place, so references to it stay valid; No bakes nothing.
+- `[Proposed — unconfirmed]` An asset of another class at an output's name is handled as the
+  engine's import handles one (`AssetTools.cpp`, `ImportAssetsInternal`,
+  `ImportObjectAlreadyExists_DifferentClass`): Bake asks "Do you want to replace the existing
+  asset?" naming it; Yes deletes it through `ObjectTools::DeleteObjects` without a further
+  confirmation and bakes the output in its place, and when it cannot be deleted an error is logged
+  and nothing is baked; No bakes nothing. A redirector at an output's name, left by a move, is an
+  asset of another class: it is not followed, as the engine's import does not follow one with
+  `AssetTools.FollowRedirectorsWhenImporting` off by default, and the moved asset is never touched.
+  Tests answer the question through a seam like `AskToOverwrite`.
 - `[Proposed — unconfirmed]` A bake whose outputs are built but do not all save leaves them with
   unsaved changes, and its notification says `<grammar> was baked but not saved; see the Output
   Log`.
@@ -205,8 +207,8 @@ display baked results.
   the actor at the content root (`MeshMergingTool.cpp`, `GetDefaultPackageName`;
   `MeshMergeUtilities.cpp`). The label is sanitised as an object name
   (`ObjectTools::SanitizeObjectName`).
-- `[Proposed — unconfirmed]` The live actor's Details Bake shares the grammar Bake's refusal of
-  an asset of another class, nothing baked for errors or no triangles, and saving without a
+- `[Proposed — unconfirmed]` The live actor's Details Bake shares the grammar Bake's replace
+  question for an asset of another class, nothing baked for errors or no triangles, and saving without a
   prompt. The grammar's own bake
   settings do not apply. The grammar right-click Bake keeps its fixed location and its own
   overwrite question.
