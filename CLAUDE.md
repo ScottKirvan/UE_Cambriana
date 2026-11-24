@@ -360,6 +360,9 @@ agent's per-machine memory, so it holds on every machine.
   implements the normal native Unreal pattern. Find the nearest engine equivalent in the
   engine source, follow it, and cite it. No shortcuts and minimal improvising. If no native
   equivalent exists, say so and keep the choice small and conventional.
+- A behaviour decision that Epic's own code already settles is not a question for the author:
+  do what the engine does, cite the example, call the decision out in the step's review, and add
+  it to the spec marked `[Proposed — unconfirmed]`. Ask only when no engine example exists.
 
 ### Sub-agent briefs
 
