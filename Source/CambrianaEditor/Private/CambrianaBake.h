@@ -25,6 +25,8 @@ enum class ECambrianaBakeStatus : uint8
 	LocationNotChosen,
 	/** The outputs were built but did not all save. */
 	SaveFailed,
+	/** Reimport's bones did not merge into the skeleton, and recreating its bone tree was declined. */
+	SkeletonRecreateDeclined,
 };
 
 /** What a grammar asset's Bake writes: a static mesh, or a skeletal mesh with its skeleton and physics asset. */
@@ -50,6 +52,9 @@ namespace Cambriana::Editor
 {
 	/** Asks whether to overwrite an existing asset; given the question, answers Yes or No. */
 	using FAskToOverwrite = TFunction<EAppReturnType::Type(const FText& Question)>;
+
+	/** Asks whether to recreate a skeleton's bone tree when the grammar's bones do not merge into it; given the question, answers Yes, No or Cancel. */
+	using FAskToRecreateSkeleton = TFunction<EAppReturnType::Type(const FText& Question)>;
 
 	/** Asks where to write a live actor's static mesh, given the default package name; answers the chosen package name, or nothing to cancel. */
 	using FBakeLocationPrompt = TFunction<FString(const FString& DefaultPackageName)>;
@@ -82,7 +87,7 @@ namespace Cambriana::Editor
 	 * a skeletal mesh as Bake to Skeletal Mesh with the skeleton and physics asset it uses (SKEL_ and PHYS_ beside the grammar when it
 	 * has none). Links the mesh to the grammar, and leaves the rebuilt assets with unsaved changes.
 	 */
-	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh);
+	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh, const FAskToRecreateSkeleton& AskToRecreateSkeleton = nullptr);
 
 	/**
 	 * Bakes a static mesh from the live actor's own build input, overrides included, and saves it where the engine's save-asset
