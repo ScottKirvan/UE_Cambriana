@@ -70,6 +70,18 @@ namespace
 		return Bone.Parent == INDEX_NONE ? 0 : Bone.Parent + 1;
 	}
 
+	void AddBones(FReferenceSkeleton& Skeleton, TConstArrayView<FCambrianaBone> Bones)
+	{
+		const TArray<FTransform> Poses = LocalBindPoses(Bones);
+		FReferenceSkeletonModifier Modifier(Skeleton, nullptr);
+		Modifier.Add(FMeshBoneInfo(Cambriana::RootBoneName, Cambriana::RootBoneName.ToString(), INDEX_NONE), Poses[0]);
+		for (int32 Index = 0; Index < Bones.Num(); ++Index)
+		{
+			const FCambrianaBone& Bone = Bones[Index];
+			Modifier.Add(FMeshBoneInfo(Bone.Name, Bone.Name.ToString(), SkeletonParent(Bone)), Poses[Index + 1]);
+		}
+	}
+
 #if WITH_EDITOR
 	/** The build's mesh with the reference skeleton's bones and each vertex's skin weights, as Geometry Script's skinned meshes carry them. */
 	UE::Geometry::FDynamicMesh3 MakeSkinnedMesh(const FCambrianaBuildResult& Result, const FReferenceSkeleton& Skeleton)
@@ -162,17 +174,7 @@ FReferenceSkeleton Cambriana::MakeReferenceSkeleton(const FCambrianaBuildResult&
 	{
 		return Skeleton;
 	}
-	const TArray<FTransform> Poses = LocalBindPoses(Result.Bones);
-	{
-		// The modifier completes the skeleton when it goes out of scope.
-		FReferenceSkeletonModifier Modifier(Skeleton, nullptr);
-		Modifier.Add(FMeshBoneInfo(RootBoneName, RootBoneName.ToString(), INDEX_NONE), Poses[0]);
-		for (int32 Index = 0; Index < Result.Bones.Num(); ++Index)
-		{
-			const FCambrianaBone& Bone = Result.Bones[Index];
-			Modifier.Add(FMeshBoneInfo(Bone.Name, Bone.Name.ToString(), SkeletonParent(Bone)), Poses[Index + 1]);
-		}
-	}
+	AddBones(Skeleton, Result.Bones);
 	return Skeleton;
 }
 

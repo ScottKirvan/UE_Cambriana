@@ -49,7 +49,6 @@ TArray<FCambrianaPhysicsBody> Cambriana::MakePhysicsBodies(const FCambrianaBuild
 		const double Length = FVector3d::Distance(Bone.Start, Bone.End);
 		FKSphylElem& Capsule = Body.Capsules.Emplace_GetRef(float(Bone.Radius), float(Length));
 		Capsule.SetTransform(CapsulePose(Bone).GetRelativeTransform(BoneBindPose(Bone)));
-		// A bone without thickness or length has no stiffness.
 		Body.BendingStiffness = Bone.Radius > 0.0 && Length > 0.0 ? FMath::Pow(Bone.Radius, 4.0) / Length : 0.0;
 	}
 	return Bodies;
