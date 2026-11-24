@@ -31,7 +31,16 @@ display baked results.
 - **Reimport** is the standard right-click Reimport on a baked skeletal or static
   mesh, with the grammar asset recorded as its source. It rebuilds the asset in place from the
   grammar's current state; references to it remain valid, and the mesh's stored
-  definition is updated. A change to the bone tree replaces the skeleton in place.
+  definition is updated. Bake to Skeletal Mesh replaces `SKEL_<name>`'s bone tree in place.
+- Reimport on a skeletal mesh keeps the skeleton the mesh uses and merges the grammar's bones
+  into it (`USkeleton::MergeAllBonesToBoneTree`), as the engine's FBX reimport does
+  (`FbxSkeletalMeshImport.cpp`). When the bones cannot be merged, it asks the engine's question
+  with its warning that animation data may be invalidated, offering Yes, No and Cancel: Yes
+  recreates the skeleton's bone tree from the mesh (`USkeleton::RecreateBoneTree`); No and Cancel
+  rebuild nothing and leave every asset as it was.
+- Reimport rebuilds the mesh's physics asset only when it is the grammar's own `PHYS_<name>`
+  beside the grammar. A physics asset assigned by the user is left as it is, as the FBX
+  reimport keeps the mesh's physics asset (`EditorFactories.cpp`).
 - **Detach** is a right-click item on a baked mesh that removes its link to its
   grammar. A detached mesh's Reimport is disabled, as for any asset without a source, and it is
   not listed in the grammar's outputs.
@@ -48,8 +57,8 @@ display baked results.
   (`ReimportFbxStaticMeshFactory.h`), at priority `UFactory::DefaultImportPriority + 20`, above
   Interchange's handler (`InterchangeReimportHandler.cpp`). It claims only meshes whose import
   data is `UCambrianaAssetImportData` with a grammar that resolves. Reimport on `SM_<name>` runs
-  Bake to Static Mesh; on `SK_<name>` it runs Bake to Skeletal Mesh, which also rebuilds
-  `SKEL_<name>` and `PHYS_<name>`. It writes to the mesh's own path, bakes the grammar's current state as Bake does, and
+  Bake to Static Mesh; on `SK_<name>` it runs Bake to Skeletal Mesh into the mesh, its
+  skeleton and its physics asset, as the bullets above say. It writes to the mesh's own path, bakes the grammar's current state as Bake does, and
   does not ask before rebuilding, as the engine's Reimport does not. Reimport With New File
   accepts a grammar asset's package file and relinks the mesh to it; any other file fails with a
   log message.
