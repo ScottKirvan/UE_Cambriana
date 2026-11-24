@@ -80,10 +80,14 @@ To rebuild a baked mesh after changing its grammar, right-click the mesh in the 
 | Reimport on | Rebuilds | As |
 |---|---|---|
 | `SM_<name>` | The static mesh | Bake to Static Mesh |
-| `SK_<name>` | The skeletal mesh, the skeleton it uses and its physics asset | Bake to Skeletal Mesh |
+| `SK_<name>` | The skeletal mesh, the skeleton it uses and its physics asset, as below | Bake to Skeletal Mesh |
 
-- The mesh is rebuilt in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working and shows the change. A skeletal mesh keeps its skeleton.
-- Reimport does not ask before rebuilding, as the engine's Reimport of an imported mesh does not.
+- The mesh is rebuilt in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working and shows the change.
+- A skeletal mesh keeps the skeleton it uses, even one shared with other skeletal meshes, and the grammar's bones are merged into it, as the engine's FBX reimport merges them: new bones are added and every bone the skeleton has is kept, so the other meshes on it keep working. A mesh without a skeleton gets `SKEL_<name>` beside the grammar.
+- When the grammar's bones cannot be merged, for example because a bone the skeleton has now sits below a different parent, Reimport asks the engine's question, **FAILED TO MERGE BONES**, with its warning that animation data may be invalidated. **Yes** recreates the skeleton's bones from the mesh, which drops any bone only other meshes use; **No** and **Cancel** rebuild nothing and leave the mesh, its skeleton and its physics asset as they were.
+- The physics asset is rebuilt only when it is the grammar's own `PHYS_<name>` in the folder beside the grammar. A physics asset you assigned to the mesh yourself is left as it is, as the FBX reimport keeps the mesh's physics asset, and a mesh without one is given none.
+- Bake to Skeletal Mesh, by contrast, always recreates `SKEL_<name>`'s bones from the grammar.
+- Apart from that question, Reimport does not ask before rebuilding, as the engine's Reimport of an imported mesh does not.
 - The rebuilt assets are left with unsaved changes, as after reimporting an FBX file; save them as usual. Bake, by contrast, saves the assets it writes.
 - The link follows the grammar asset when it is renamed or moved, and Reimport updates the Source File to the grammar's new package file.
 - When Reimport bakes nothing, for the reasons under [When nothing is baked](#when-nothing-is-baked), the mesh is unchanged and the engine's notification says the reimport failed.
