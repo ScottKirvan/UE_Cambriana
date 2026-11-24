@@ -351,6 +351,14 @@ namespace Cambriana::Editor
 		return BakeOutputs(Actor.MakeBuildInput(), MoveTemp(Outputs), ActorPath, [](const FText&) { return EAppReturnType::Yes; });
 	}
 
+	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result)
+	{
+		const UObject* Baked = Result.SkeletalMesh ? static_cast<const UObject*>(Result.SkeletalMesh) : Result.StaticMesh;
+		return Result.Status == ECambrianaBakeStatus::Baked && Baked
+			? FText::Format(LOCTEXT("Baked", "Baked {0}"), FText::FromString(Baked->GetPathName()))
+			: FText::Format(LOCTEXT("NotBaked", "{0} was not baked; see the Output Log"), FText::FromString(Source));
+	}
+
 	void NotifyBakeResult(const FString& Source, const FCambrianaBakeResult& Result)
 	{
 		if (Result.Status == ECambrianaBakeStatus::OverwriteDeclined || Result.Status == ECambrianaBakeStatus::LocationNotChosen
@@ -359,10 +367,7 @@ namespace Cambriana::Editor
 			return;
 		}
 		const bool bBaked = Result.Status == ECambrianaBakeStatus::Baked;
-		const UObject* Baked = Result.SkeletalMesh ? static_cast<const UObject*>(Result.SkeletalMesh) : Result.StaticMesh;
-		FNotificationInfo Info(bBaked && Baked
-			? FText::Format(LOCTEXT("Baked", "Baked {0}"), FText::FromString(Baked->GetPathName()))
-			: FText::Format(LOCTEXT("NotBaked", "{0} was not baked; see the Output Log"), FText::FromString(Source)));
+		FNotificationInfo Info(BakeResultMessage(Source, Result));
 		Info.ExpireDuration = 5.0f;
 		if (const TSharedPtr<SNotificationItem> Item = FSlateNotificationManager::Get().AddNotification(Info))
 		{
