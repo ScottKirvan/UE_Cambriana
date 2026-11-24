@@ -20,6 +20,7 @@
 #include "ObjectTools.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "ToolMenus.h"
+#include "UObject/ObjectRedirector.h"
 #include "UObject/Package.h"
 #include "Widgets/Notifications/SNotificationList.h"
 
@@ -48,15 +49,19 @@ namespace
 			: FString(TEXT("/Game")) / (TEXT("SM_") + Label);
 	}
 
-	/** The asset at the static mesh's name, loading it when only its package file exists. */
+	/**
+	 * The object at an output's name, loading its package when only the package file exists. A redirector there is returned, not
+	 * followed, as the engine's import finds the existing object in the destination package (AssetTools.cpp, ImportAssetsInternal,
+	 * with AssetTools.FollowRedirectorsWhenImporting off by default) and as CanCreateAsset does.
+	 */
 	UObject* FindExisting(const FString& PackageName, const FString& Name)
 	{
-		const FString ObjectPath = PackageName + TEXT(".") + Name;
-		if (UObject* Loaded = FindObject<UObject>(nullptr, *ObjectPath))
+		UPackage* Package = FindPackage(nullptr, *PackageName);
+		if (!Package && FPackageName::DoesPackageExist(PackageName))
 		{
-			return Loaded;
+			Package = LoadPackage(nullptr, *PackageName, LOAD_NoWarn | LOAD_Quiet);
 		}
-		return FPackageName::DoesPackageExist(PackageName) ? LoadObject<UObject>(nullptr, *ObjectPath, nullptr, LOAD_NoWarn | LOAD_Quiet) : nullptr;
+		return Package ? StaticFindObject(UObject::StaticClass(), Package, *Name) : nullptr;
 	}
 
 	EAppReturnType::Type AskWithDialog(const FText& Question)
@@ -156,6 +161,12 @@ namespace
 		for (FOutputToBake* Output : Outputs.All())
 		{
 			Output->Existing = FindExisting(Output->PackageName, Output->Name());
+			if (const UObjectRedirector* Redirector = Cast<UObjectRedirector>(Output->Existing))
+			{
+				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is a redirector to %s; nothing is baked"), *Source, *Redirector->GetPathName(),
+					Redirector->DestinationObject ? *Redirector->DestinationObject->GetPathName() : TEXT("nothing"));
+				return Failed(ECambrianaBakeStatus::NameTaken);
+			}
 			if (Output->Existing && !Output->Existing->IsA(Output->Class))
 			{
 				UE_LOG(LogCambrianaBake, Error, TEXT("%s: %s is not a %s; nothing is baked"), *Source, *Output->Existing->GetPathName(),
