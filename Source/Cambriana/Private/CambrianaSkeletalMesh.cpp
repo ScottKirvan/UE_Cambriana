@@ -179,7 +179,8 @@ UE::AnimationCore::FBoneWeights Cambriana::MakeBoneWeights(TConstArrayView<FCamb
 {
 	// As the engine's skeletal mesh import processes influences (LODUtilities.cpp, FLODUtilities::ProcessImportMeshInfluences): the
 	// weights normalised, the strongest MAX_TOTAL_INFLUENCES above BoneWeightThreshold kept and renormalised, and a vertex left
-	// without any bound to bone 0, here Root.
+	// without any bound to bone 0, here Root. Unlike the import, a vertex whose influences are all below the threshold keeps its
+	// strongest, so that only a vertex with no influence at all is bound to Root.
 	TArray<FCambrianaInfluence, TInlineAllocator<UE::AnimationCore::MaxInlineBoneWeightCount>> Kept;
 	double Total = 0.0;
 	for (const FCambrianaInfluence& Influence : Influences)
@@ -191,7 +192,11 @@ UE::AnimationCore::FBoneWeights Cambriana::MakeBoneWeights(TConstArrayView<FCamb
 		}
 	}
 	Kept.StableSort([](const FCambrianaInfluence& A, const FCambrianaInfluence& B) { return A.Weight > B.Weight; });
-	Kept.RemoveAll([Total](const FCambrianaInfluence& Influence) { return Influence.Weight / Total < UE::AnimationCore::BoneWeightThreshold; });
+	const int32 FirstBelowThreshold = Kept.IndexOfByPredicate([Total](const FCambrianaInfluence& Influence) { return Influence.Weight / Total < UE::AnimationCore::BoneWeightThreshold; });
+	if (FirstBelowThreshold != INDEX_NONE)
+	{
+		Kept.SetNum(FMath::Max(FirstBelowThreshold, 1));
+	}
 	Kept.SetNum(FMath::Min(Kept.Num(), MAX_TOTAL_INFLUENCES));
 
 	double KeptTotal = 0.0;
