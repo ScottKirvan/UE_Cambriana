@@ -339,7 +339,7 @@ namespace Cambriana::Editor
 		return BakeGrammarTo(Asset, State, OutputsBesideGrammar(Asset, State, Choice), AskToOverwrite);
 	}
 
-	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh)
+	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh, const FAskToRecreateSkeleton& AskToRecreateSkeleton)
 	{
 		FOutputsToBake Outputs;
 		if (const USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(&Mesh))
