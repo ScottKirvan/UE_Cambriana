@@ -6,6 +6,7 @@
 #include "CambrianaStaticMesh.h"
 
 #if WITH_EDITOR
+#include "Animation/MorphTarget.h"
 #include "Animation/Skeleton.h"
 #include "DynamicMesh/DynamicBoneAttribute.h"
 #include "DynamicMesh/DynamicMeshAttributeSet.h"
@@ -129,6 +130,27 @@ namespace
 		return Slots;
 	}
 
+	/**
+	 * Removes every LOD after LOD 0, last first, as FLODUtilities::RegenerateLOD removes LODs down to a count through
+	 * FLODUtilities::RemoveLOD (LODUtilities.cpp): its morph target data, its LOD model and its source model. LOD 0 is rebuilt from
+	 * a new bone tree, which the other LODs' bone maps would not follow.
+	 */
+	void RemoveLodsAfterFirst(USkeletalMesh& SkeletalMesh)
+	{
+		for (int32 Lod = SkeletalMesh.GetLODNum() - 1; Lod > 0; --Lod)
+		{
+			for (UMorphTarget* MorphTarget : SkeletalMesh.GetMorphTargets())
+			{
+				if (MorphTarget && MorphTarget->HasDataForLOD(Lod))
+				{
+					MorphTarget->GetMorphLODModels().RemoveAt(Lod);
+				}
+			}
+			SkeletalMesh.GetImportedModel()->LODModels.RemoveAt(Lod);
+			SkeletalMesh.RemoveSourceModel(Lod);
+		}
+	}
+
 	void SetBuildSettings(FSkeletalMeshLODInfo& Lod)
 	{
 		FSkeletalMeshBuildSettings& Settings = Lod.BuildSettings;
@@ -234,6 +256,7 @@ bool Cambriana::SetSkeletalMeshFromBuild(USkeletalMesh& SkeletalMesh, USkeleton&
 		SkeletalMesh.AddLODInfo();
 		SkeletalMesh.GetImportedModel()->LODModels.Add(new FSkeletalMeshLODModel);
 	}
+	RemoveLodsAfterFirst(SkeletalMesh);
 	SkeletalMesh.SetRefSkeleton(ReferenceSkeleton);
 	SkeletalMesh.CalculateInvRefMatrices();
 	SkeletalMesh.SetMaterials(MakeSlots(SkeletalMesh, SlotNames));
