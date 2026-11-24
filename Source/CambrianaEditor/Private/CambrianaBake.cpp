@@ -315,7 +315,7 @@ namespace
 	 * baked in the log. A redirector or an asset of another class at an output's name bakes nothing.
 	 */
 	FCambrianaBakeResult BakeOutputs(const FCambrianaBuildInput& Input, FOutputsToBake Outputs, const FString& Source,
-		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite, const Cambriana::Editor::FAskToReplace& AskToReplace)
 	{
 		if (!FindExistingOutputs(Outputs, Source))
 		{
@@ -363,10 +363,10 @@ namespace
 
 	/** Bakes State, as it is in memory, into the outputs, linking the baked mesh to the grammar asset Asset. */
 	FCambrianaBakeResult BakeGrammarTo(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, FOutputsToBake Outputs,
-		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
+		const Cambriana::Editor::FAskToOverwrite& AskToOverwrite, const Cambriana::Editor::FAskToReplace& AskToReplace)
 	{
 		Outputs.Grammar = &Asset;
-		return BakeOutputs(ACambrianaLiveActor::MakeBuildInputFor(State), MoveTemp(Outputs), Asset.GetPathName(), AskToOverwrite);
+		return BakeOutputs(ACambrianaLiveActor::MakeBuildInputFor(State), MoveTemp(Outputs), Asset.GetPathName(), AskToOverwrite, AskToReplace);
 	}
 	void ExecuteBake(const FToolMenuContext& MenuContext, ECambrianaBakeChoice Choice)
 	{
@@ -384,15 +384,16 @@ namespace
 
 namespace Cambriana::Editor
 {
-	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite)
+	FCambrianaBakeResult BakeGrammar(UCambrianaGrammar& Grammar, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite,
+		const FAskToReplace& AskToReplace)
 	{
-		return BakeGrammarState(Grammar, Grammar, Choice, AskToOverwrite);
+		return BakeGrammarState(Grammar, Grammar, Choice, AskToOverwrite, AskToReplace);
 	}
 
 	FCambrianaBakeResult BakeGrammarState(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice,
-		const FAskToOverwrite& AskToOverwrite)
+		const FAskToOverwrite& AskToOverwrite, const FAskToReplace& AskToReplace)
 	{
-		return BakeGrammarTo(Asset, State, OutputsBesideGrammar(Asset, State, Choice), AskToOverwrite);
+		return BakeGrammarTo(Asset, State, OutputsBesideGrammar(Asset, State, Choice), AskToOverwrite, AskToReplace);
 	}
 
 	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh, const FAskToRecreateSkeleton& AskToRecreateSkeleton)
@@ -429,7 +430,7 @@ namespace Cambriana::Editor
 		// Reimport rebuilds without asking and leaves the rebuilt assets unsaved, as the engine's FBX reimport does
 		// (EditorFactories.cpp, UReimportFbxStaticMeshFactory::Reimport, which marks the package dirty).
 		Outputs.bSave = false;
-		return BakeGrammarTo(Grammar, Grammar, MoveTemp(Outputs), [](const FText&) { return EAppReturnType::Yes; });
+		return BakeGrammarTo(Grammar, Grammar, MoveTemp(Outputs), [](const FText&) { return EAppReturnType::Yes; }, [](const FText&) { return EAppReturnType::No; });
 	}
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
 	{
@@ -449,7 +450,7 @@ namespace Cambriana::Editor
 		return Previous;
 	}
 
-	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor)
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToReplace& AskToReplace)
 	{
 		const FString ActorPath = Actor.GetPathName();
 		const FString PackageName = AskForBakeLocation(StaticMeshPackageName(Actor));
@@ -461,7 +462,7 @@ namespace Cambriana::Editor
 		// The dialog has already asked before replacing an existing static mesh (SAssetDialog, AllowButWarn).
 		FOutputsToBake Outputs;
 		Outputs.StaticMesh = FOutputToBake{ PackageName, UStaticMesh::StaticClass() };
-		return BakeOutputs(Actor.MakeBuildInput(), MoveTemp(Outputs), ActorPath, [](const FText&) { return EAppReturnType::Yes; });
+		return BakeOutputs(Actor.MakeBuildInput(), MoveTemp(Outputs), ActorPath, [](const FText&) { return EAppReturnType::Yes; }, AskToReplace);
 	}
 
 	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result)
