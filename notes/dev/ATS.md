@@ -57,6 +57,7 @@ Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-c
 | ATS-46 | Given a static mesh baked from a grammar, then its vertices match the live actor's built from that grammar within 0.001 cm. | FR-12 |
 | ATS-47 | Given a live actor with overridden settings, when Bake runs from its Details panel, then a static mesh is written whose vertices match that actor's within 0.001 cm. | FR-12 |
 | ATS-48 | Given a grammar editor with unsaved edits, when either Bake choice runs from the editor, then nothing asks to save, the baked mesh matches the editor's edits, and the asset and the editor's unsaved edits are unchanged. | FR-12 |
+| ATS-49 | Given a skeletal mesh baked from a grammar whose skeleton is shared with another skeletal mesh, when the grammar gains bones and Reimport runs on the baked mesh, then the shared skeleton keeps every bone it had and gains the new ones, the other mesh still renders on it, and no question is asked; when the grammar's bones no longer merge into the skeleton and the question is answered No, then the mesh, the skeleton and the physics asset are unchanged; and a physics asset not named `PHYS_<grammar name>` is never rebuilt. | FR-13 |
 
 ## Physics
 
