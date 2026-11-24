@@ -232,23 +232,23 @@ bool FCambrianaRebakePhysicsAssetTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakePhysicsNameTakenTest,
-	"Cambriana.Editor.Bake.AssetOfAnotherClassWithThePhysicsAssetNameIsLeftAndNothingIsBaked",
+	"Cambriana.Editor.Bake.BakeToSkeletalMeshReplacesAnAssetOfAnotherClassWithThePhysicsAssetNameOnYes",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakePhysicsNameTakenTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("is not a physics asset; nothing is baked"), ELogVerbosity::Error);
 	FBakeFixture Fixture(TEXT("BakePhysicsNameTaken"));
 	UPackage* Package = CreatePackage(*Fixture.PhysicsAssetPackage);
-	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("PHYS_") + Fixture.Name), RF_Public | RF_Standalone);
+	const TWeakObjectPtr<UObject> Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("PHYS_") + Fixture.Name), RF_Public | RF_Standalone);
 
-	const FCambrianaBakeResult Result = Fixture.BakeSkeletal(AnswerYes());
+	TArray<FString> Questions;
+	const FCambrianaBakeResult Result = Fixture.BakeSkeletal(AnswerYes(), [&Questions](const FText& Question) { Questions.Add(Question.ToString()); return EAppReturnType::Yes; });
 
-	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
-	TestTrue(TEXT("The other asset is untouched"),
-		FindObject<UObject>(nullptr, *(Fixture.PhysicsAssetPackage + TEXT(".PHYS_") + Fixture.Name)) == Occupant && IsValid(Occupant));
-	TestNull(TEXT("No skeletal mesh is created"), Fixture.FindSkeletalMesh());
-	TestFalse(TEXT("Nothing is saved"), Fixture.MeshFileExists() || Fixture.AnySkeletalFileExists() || Fixture.PhysicsAssetFileExists());
+	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
+	TestTrue(TEXT("Replacing is asked once, naming the physics asset"), Questions.Num() == 1 && Questions[0].EndsWith(Fixture.PhysicsAssetPackage));
+	TestFalse(TEXT("The other asset is deleted"), Occupant.IsValid());
+	TestNotNull(TEXT("The skeletal mesh is created"), Fixture.FindSkeletalMesh());
+	TestNotNull(TEXT("A physics asset is at the name"), Fixture.FindPhysicsAsset());
 	return true;
 }
 
