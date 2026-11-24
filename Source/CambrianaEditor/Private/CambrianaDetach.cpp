@@ -1,5 +1,7 @@
 #include "CambrianaDetach.h"
 
+#include "Algo/AnyOf.h"
+#include "AssetRegistry/AssetData.h"
 #include "CambrianaAssetImportData.h"
 #include "ContentBrowserMenuContexts.h"
 #include "Engine/SkeletalMesh.h"
@@ -23,13 +25,6 @@ namespace
 		}
 	}
 
-	TArray<UObject*> SelectedLinkedMeshes(const UContentBrowserAssetContextMenuContext& Context)
-	{
-		TArray<UObject*> Linked = Context.LoadSelectedObjects<UObject>();
-		Linked.RemoveAll([](const UObject* Mesh) { return !UCambrianaAssetImportData::Of(Mesh); });
-		return Linked;
-	}
-
 	void ExecuteDetach(const FToolMenuContext& MenuContext)
 	{
 		if (const UContentBrowserAssetContextMenuContext* Context = UContentBrowserAssetContextMenuContext::FindContextWithAssets(MenuContext))
@@ -38,12 +33,14 @@ namespace
 		}
 	}
 
-	// As CADKernelRetessellateAction.cpp extends the static mesh menu: a dynamic entry in GetAssetActions that loads the selected
-	// meshes to decide whether its entry applies.
+	// A dynamic entry in GetAssetActions decided from the selection's registry records without loading it, as the Content Browser
+	// asks of its menus (ContentBrowserMenuContexts.h, GetSelectedObjects) and as the static mesh's Nanite entries decide
+	// (AssetDefinition_StaticMesh.cpp). CADKernelRetessellateAction.cpp also reads a registry tag in its dynamic entry, but its
+	// visibility check loads the selection. The selection is loaded only when the entry runs.
 	void AddDetachEntryIfLinked(FToolMenuSection& Section)
 	{
 		const UContentBrowserAssetContextMenuContext* Context = UContentBrowserAssetContextMenuContext::FindContextWithAssets(Section);
-		if (!Context || SelectedLinkedMeshes(*Context).IsEmpty())
+		if (!Context || !Algo::AnyOf(Context->SelectedAssets, &UCambrianaAssetImportData::MayLinkToGrammar))
 		{
 			return;
 		}
