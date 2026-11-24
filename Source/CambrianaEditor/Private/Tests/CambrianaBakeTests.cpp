@@ -3,6 +3,7 @@
 #include "CambrianaEditorTestUtilities.h"
 #include "CambrianaGrammar.h"
 #include "ContentBrowserMenuContexts.h"
+#include "Editor.h"
 #include "Engine/StaticMesh.h"
 #include "FileHelpers.h"
 #include "HAL/FileManager.h"
@@ -52,6 +53,18 @@ namespace
 	Cambriana::Editor::FAskToOverwrite Answer(EAppReturnType::Type Reply, int32& Asked)
 	{
 		return [Reply, &Asked](const FText&) { ++Asked; return Reply; };
+	}
+
+	/** Answers the replace question with Reply, recording each question it is asked. */
+	Cambriana::Editor::FAskToReplace AnswerReplace(EAppReturnType::Type Reply, TArray<FString>& Questions)
+	{
+		return [Reply, &Questions](const FText& Question) { Questions.Add(Question.ToString()); return Reply; };
+	}
+
+	/** Whether the replace question is the engine's (AssetTools.cpp, ImportObjectAlreadyExists_DifferentClass) naming PackageName. */
+	bool IsReplaceQuestionFor(const TArray<FString>& Questions, const FString& PackageName)
+	{
+		return Questions.Num() == 1 && Questions[0].StartsWith(TEXT("Do you want to replace the existing asset?")) && Questions[0].EndsWith(PackageName);
 	}
 
 	/**
@@ -113,13 +126,15 @@ namespace
 		Fixture.Edit([](UCambrianaGrammar& Grammar) { Grammar.Sides = 6; });
 
 		int32 Asked = 0;
-		const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
+		TArray<FString> Questions;
+		const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked), AnswerReplace(EAppReturnType::Yes, Questions));
 
-		Test.TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
+		Test.TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
+		Test.TestTrue(TEXT("Replacing the redirector is asked once, naming it"), IsReplaceQuestionFor(Questions, Fixture.MeshPackage));
 		Test.TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
-		Test.TestNull(TEXT("No static mesh is baked"), Result.StaticMesh);
 		const UObject* AtName = LoadObject<UObject>(nullptr, *Fixture.MeshObjectPath(), nullptr, LOAD_NoRedirects | LOAD_NoWarn | LOAD_Quiet);
-		Test.TestTrue(TEXT("The redirector is still at the static mesh's name"), AtName && AtName->IsA<UObjectRedirector>());
+		Test.TestTrue(TEXT("A static mesh, not the redirector, is at the static mesh's name"), AtName && AtName->IsA<UStaticMesh>());
+		Test.TestEqual(TEXT("The static mesh has the 6 sides"), RenderedTriangles(Result.StaticMesh), SkTrianglesAtSixSides);
 		UStaticMesh* MovedMesh = LoadObject<UStaticMesh>(nullptr, *MovedObjectPath);
 		if (Test.TestNotNull(TEXT("The moved mesh is there"), MovedMesh))
 		{
@@ -434,20 +449,48 @@ bool FCambrianaBakeOverwriteDeclinedTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeNameTakenTest,
-	"Cambriana.Editor.Bake.BakeToStaticMeshLeavesAnAssetOfAnotherClassAtTheStaticMeshNameAndBakesNothing",
+	"Cambriana.Editor.Bake.BakeToStaticMeshReplacesAnAssetOfAnotherClassAtTheStaticMeshNameOnYes",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeNameTakenTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("is not a static mesh; nothing is baked"), ELogVerbosity::Error);
 	FBakeFixture Fixture(TEXT("BakeNameTaken"));
+	UPackage* Package = CreatePackage(*Fixture.MeshPackage);
+	const TWeakObjectPtr<UObject> Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SM_") + Fixture.Name), RF_Public | RF_Standalone);
+
+	int32 Asked = 0;
+	TArray<FString> Questions;
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked), AnswerReplace(EAppReturnType::Yes, Questions));
+
+	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
+	TestTrue(TEXT("Replacing is asked once, as the engine's import asks, naming the asset"), IsReplaceQuestionFor(Questions, Fixture.MeshPackage));
+	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
+	TestFalse(TEXT("The other asset is deleted"), Occupant.IsValid());
+	UStaticMesh* Mesh = Fixture.FindMesh();
+	if (TestNotNull(TEXT("A static mesh is at the name"), Mesh))
+	{
+		TestEqual(TEXT("It has the grammar's triangles"), RenderedTriangles(Mesh), SkTriangles);
+	}
+	TestTrue(TEXT("The static mesh is saved"), Fixture.MeshFileExists());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeNameTakenNoTest,
+	"Cambriana.Editor.Bake.BakeToStaticMeshLeavesAnAssetOfAnotherClassAtTheStaticMeshNameOnNoAndBakesNothing",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakeNameTakenNoTest::RunTest(const FString& Parameters)
+{
+	FBakeFixture Fixture(TEXT("BakeNameTakenNo"));
 	UPackage* Package = CreatePackage(*Fixture.MeshPackage);
 	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SM_") + Fixture.Name), RF_Public | RF_Standalone);
 
 	int32 Asked = 0;
-	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked));
+	TArray<FString> Questions;
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked), AnswerReplace(EAppReturnType::No, Questions));
 
-	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
+	TestTrue(TEXT("The bake reports the overwrite declined"), Result.Status == ECambrianaBakeStatus::OverwriteDeclined);
+	TestTrue(TEXT("Replacing is asked once, naming the asset"), IsReplaceQuestionFor(Questions, Fixture.MeshPackage));
 	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
 	TestTrue(TEXT("The other asset is untouched"), FindObject<UObject>(nullptr, *Fixture.MeshObjectPath()) == Occupant && IsValid(Occupant));
 	TestNull(TEXT("No static mesh is created"), Fixture.FindMesh());
@@ -456,27 +499,64 @@ bool FCambrianaBakeNameTakenTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeNameTakenUndeletableTest,
+	"Cambriana.Editor.Bake.BakeToStaticMeshLogsAnErrorAndBakesNothingWhenTheAssetAtTheNameCannotBeDeleted",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaBakeNameTakenUndeletableTest::RunTest(const FString& Parameters)
+{
+	// ObjectTools::DeleteItems deletes nothing, with a warning, when an OnPreDestructiveAssetAction handler fails the action.
+	const FString Refusal = TEXT("Deleting is refused by the test");
+	AddExpectedMessagePlain(Refusal, ELogVerbosity::Warning);
+	AddExpectedMessagePlain(TEXT("cannot be deleted; nothing is baked"), ELogVerbosity::Error);
+	FBakeFixture Fixture(TEXT("BakeNameTakenUndeletable"));
+	UPackage* Package = CreatePackage(*Fixture.MeshPackage);
+	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SM_") + Fixture.Name), RF_Public | RF_Standalone);
+
+	const FDelegateHandle Refuse = FEditorDelegates::OnPreDestructiveAssetActionWithArgs.AddLambda([&Refusal](FOnPreDestructiveAssetActionArgs& Args)
+	{
+		Args.Result.bSuccess = false;
+		Args.Result.ErrorMessage = Refusal;
+	});
+	ON_SCOPE_EXIT { FEditorDelegates::OnPreDestructiveAssetActionWithArgs.Remove(Refuse); };
+
+	int32 Asked = 0;
+	TArray<FString> Questions;
+	const FCambrianaBakeResult Result = Fixture.BakeStatic(Answer(EAppReturnType::Yes, Asked), AnswerReplace(EAppReturnType::Yes, Questions));
+
+	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
+	TestTrue(TEXT("Replacing is asked once"), IsReplaceQuestionFor(Questions, Fixture.MeshPackage));
+	TestTrue(TEXT("The other asset is untouched"), FindObject<UObject>(nullptr, *Fixture.MeshObjectPath()) == Occupant && IsValid(Occupant));
+	TestNull(TEXT("No static mesh is created"), Result.StaticMesh);
+	TestFalse(TEXT("Nothing is saved at the name"), Fixture.MeshFileExists());
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSkeletalNameTakenTest,
-	"Cambriana.Editor.Bake.BakeToSkeletalMeshLeavesAnAssetOfAnotherClassAtTheSkeletalMeshNameAndBakesNothing",
+	"Cambriana.Editor.Bake.BakeToSkeletalMeshReplacesAnAssetOfAnotherClassAtTheSkeletalMeshNameOnYes",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeSkeletalNameTakenTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("is not a skeletal mesh; nothing is baked"), ELogVerbosity::Error);
 	FBakeFixture Fixture(TEXT("BakeSkeletalNameTaken"));
 	UPackage* Package = CreatePackage(*Fixture.SkeletalMeshPackage);
-	UCambrianaGrammar* Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SK_") + Fixture.Name), RF_Public | RF_Standalone);
+	const TWeakObjectPtr<UObject> Occupant = NewObject<UCambrianaGrammar>(Package, *(TEXT("SK_") + Fixture.Name), RF_Public | RF_Standalone);
 
 	int32 Asked = 0;
-	const FCambrianaBakeResult Result = Fixture.BakeSkeletal(Answer(EAppReturnType::Yes, Asked));
+	TArray<FString> Questions;
+	const FCambrianaBakeResult Result = Fixture.BakeSkeletal(Answer(EAppReturnType::Yes, Asked), AnswerReplace(EAppReturnType::Yes, Questions));
 
-	TestTrue(TEXT("The bake reports the name taken"), Result.Status == ECambrianaBakeStatus::NameTaken);
+	TestTrue(TEXT("The bake reports success"), Result.Status == ECambrianaBakeStatus::Baked);
+	TestTrue(TEXT("Replacing is asked once, naming the asset"), IsReplaceQuestionFor(Questions, Fixture.SkeletalMeshPackage));
 	TestEqual(TEXT("Overwriting is not asked about"), Asked, 0);
-	TestTrue(TEXT("The other asset is untouched"),
-		FindObject<UObject>(nullptr, *(Fixture.SkeletalMeshPackage + TEXT(".SK_") + Fixture.Name)) == Occupant && IsValid(Occupant));
-	TestNull(TEXT("No skeleton is created"), Fixture.FindSkeleton());
-	TestNull(TEXT("No physics asset is created"), Fixture.FindPhysicsAsset());
-	TestFalse(TEXT("Nothing is saved"), Fixture.MeshFileExists() || Fixture.AnySkeletalFileExists() || Fixture.PhysicsAssetFileExists());
+	TestFalse(TEXT("The other asset is deleted"), Occupant.IsValid());
+	USkeletalMesh* SkeletalMesh = Fixture.FindSkeletalMesh();
+	if (TestNotNull(TEXT("A skeletal mesh is at the name"), SkeletalMesh))
+	{
+		TestEqual(TEXT("It has the grammar's triangles"), RenderedTriangles(SkeletalMesh), SkTriangles);
+	}
+	TestNotNull(TEXT("The skeleton is written"), Fixture.FindSkeleton());
+	TestNotNull(TEXT("The physics asset is written"), Fixture.FindPhysicsAsset());
 	return true;
 }
 
@@ -484,12 +564,11 @@ bool FCambrianaBakeSkeletalNameTakenTest::RunTest(const FString& Parameters)
 // treat it without following it (AssetTools.cpp, ImportAssetsInternal with AssetTools.FollowRedirectorsWhenImporting off, and
 // CanCreateAsset).
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeRedirectorTest,
-	"Cambriana.Editor.Bake.BakeToStaticMeshLeavesARedirectorAtTheStaticMeshNameAndTheMovedMeshAloneAndBakesNothing",
+	"Cambriana.Editor.Bake.BakeToStaticMeshReplacesARedirectorAtTheStaticMeshNameOnYesAndLeavesTheMovedMeshAlone",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeRedirectorTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("is a redirector to"), ELogVerbosity::Error);
 	FBakeFixture Fixture(TEXT("BakeRedirector"));
 	const FString MovedPackage = FString(BakeTestRoot) / TEXT("BakeRedirectorMoved") / TEXT("SM_Moved");
 	ON_SCOPE_EXIT { RemoveMovedPackage(MovedPackage); };
@@ -497,12 +576,11 @@ bool FCambrianaBakeRedirectorTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaBakeSavedRedirectorTest,
-	"Cambriana.Editor.Bake.BakeToStaticMeshLeavesASavedUnloadedRedirectorAtTheStaticMeshNameAndTheMovedMeshAloneAndBakesNothing",
+	"Cambriana.Editor.Bake.BakeToStaticMeshReplacesASavedUnloadedRedirectorAtTheStaticMeshNameOnYesAndLeavesTheMovedMeshAlone",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaBakeSavedRedirectorTest::RunTest(const FString& Parameters)
 {
-	AddExpectedMessagePlain(TEXT("is a redirector to"), ELogVerbosity::Error);
 	FBakeFixture Fixture(TEXT("BakeSavedRedirector"));
 	const FString MovedPackage = FString(BakeTestRoot) / TEXT("BakeSavedRedirectorMoved") / TEXT("SM_Moved");
 	ON_SCOPE_EXIT { RemoveMovedPackage(MovedPackage); };
