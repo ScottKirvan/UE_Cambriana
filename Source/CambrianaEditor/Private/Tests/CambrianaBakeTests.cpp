@@ -61,7 +61,7 @@ namespace
 	UObjectRedirector* MoveLeavingRedirector(UObject& Mesh, const FString& MovedPackage)
 	{
 		const FString OldPath = Mesh.GetPathName();
-		FPackageGroupName Moved;
+		ObjectTools::FPackageGroupName Moved;
 		Moved.PackageName = MovedPackage;
 		Moved.ObjectName = FPackageName::GetShortName(MovedPackage);
 		TSet<UPackage*> RefusedToLoad;

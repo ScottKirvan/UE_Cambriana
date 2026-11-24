@@ -700,7 +700,7 @@ namespace
 		return OfferedDetachEntry(MeshClass, Selected, Context).IsSet();
 	}
 
-	bool IsDetachOffered(UClass* MeshClass, const FAssetData& Selected)
+	bool IsDetachOfferedForAsset(UClass* MeshClass, const FAssetData& Selected)
 	{
 		FToolMenuContext Context;
 		return OfferedDetachEntryForAssets(MeshClass, TConstArrayView<FAssetData>(&Selected, 1), Context).IsSet();
@@ -899,8 +899,8 @@ bool FCambrianaDetachOfferedWithoutLoadingTest::RunTest(const FString& Parameter
 	}
 
 	// ContentBrowserMenuContexts.h: the Content Browser no longer loads assets on right click; a menu decides from SelectedAssets.
-	TestTrue(TEXT("A linked mesh's asset actions offer Detach from Grammar"), IsDetachOffered(UStaticMesh::StaticClass(), Linked));
-	TestFalse(TEXT("A mesh imported from an FBX file is not offered it"), IsDetachOffered(UStaticMesh::StaticClass(), Fbx));
+	TestTrue(TEXT("A linked mesh's asset actions offer Detach from Grammar"), IsDetachOfferedForAsset(UStaticMesh::StaticClass(), Linked));
+	TestFalse(TEXT("A mesh imported from an FBX file is not offered it"), IsDetachOfferedForAsset(UStaticMesh::StaticClass(), Fbx));
 	TestNull(TEXT("The linked mesh is not loaded to decide"), FindPackage(nullptr, *Fixture.MeshPackage));
 	TestNull(TEXT("The FBX mesh is not loaded to decide"), FindPackage(nullptr, *Imported.MeshPackage));
 	return true;

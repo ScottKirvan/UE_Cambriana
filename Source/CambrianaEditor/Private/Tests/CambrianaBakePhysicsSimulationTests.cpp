@@ -231,10 +231,7 @@ bool FCambrianaBakePhysicsRebuildRefreshesComponentsTest::RunTest(const FString&
 
 	// By hand (SDD-rigging.md, Physics): a run of three bones has three bodies, on skeleton bones 1 to 3.
 	FCambrianaBuildInput ShorterRun;
-	ShorterRun.GrammarText = TEXT("step 10cm
-thickness 20%
-axiom F F F
-");
+	ShorterRun.GrammarText = TEXT("step 10cm\nthickness 20%\naxiom F F F\n");
 	Cambriana::Editor::SetPhysicsAssetFromBuild(*PhysicsAsset, *Mesh, Cambriana::BuildMesh(ShorterRun), 0.0f);
 
 	TestEqual(TEXT("The physics asset has three bodies"), PhysicsAsset->SkeletalBodySetups.Num(), 3);
