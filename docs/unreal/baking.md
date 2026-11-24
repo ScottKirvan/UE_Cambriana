@@ -58,6 +58,19 @@ The path named is the first existing one of that choice's assets, in the order s
 - **Yes** rebuilds every existing asset of that choice in place, as the same object, so everything that references it, such as placed actors and Blueprints, keeps working. A rebuilt mesh keeps the material assigned to each slot whose name it already had. The skeleton's bone tree follows any change to the grammar's bones. A rebuilt skeletal mesh has one LOD: LODs added to it since the last bake are removed. The physics asset's bodies and constraints are cleared and generated again, so hand edits to them are replaced, and placed skeletal meshes using it take the new bodies at once.
 - **No** bakes nothing and changes nothing.
 
+### Replacing an asset of another type
+
+When an asset of a different type, or a redirector, holds one of the chosen bake's names, Bake asks the engine's import question, naming it, before it writes anything. A redirector is left where an asset was moved from; it is never followed, and the moved asset is never touched.
+
+> Do you want to replace the existing asset?
+>
+> An asset already exists at the import location: `<path>`
+
+- **Yes** deletes that asset, with no further confirmation, and bakes the output in its place.
+- **No** bakes nothing and changes nothing.
+
+The grammar asset's Bake to Static Mesh, Bake to Skeletal Mesh and a live actor's Details **Bake** all ask it. Reimport never replaces such an asset: it rebuilds nothing.
+
 ### When nothing is baked
 
 Bake writes nothing, leaves any existing baked assets unchanged and logs the reason to the Output Log (category `LogCambrianaBake`) when:
@@ -65,9 +78,8 @@ Bake writes nothing, leaves any existing baked assets unchanged and logs the rea
 - the grammar has errors;
 - the grammar builds no triangles, including empty text;
 - the grammar's bone tree cannot make a skeleton;
-- an asset of a different type already holds one of the chosen bake's names, for example a texture called `SK_Fern`. That asset is left alone;
-- a redirector holds one of the chosen bake's names, left there when a baked asset was moved. The redirector and the moved asset are left alone; fix up the redirectors (right-click the folder, **Update Redirector References**) or bake to the moved asset with Reimport;
-- you answer **No** to the overwrite question.
+- you answer **No** to the overwrite question or to the replace question;
+- an asset of a different type, or a redirector, holds one of the chosen bake's names and cannot be deleted after you answer **Yes** to the replace question. The Output Log gives the error and nothing else is deleted or written;
 
 If the assets are built but cannot be saved, they are left in memory with unsaved changes and the Output Log says so.
 
@@ -167,6 +179,6 @@ The engine's **Bake Static Mesh** save dialog asks where to write it. It default
 - Choosing an existing static mesh makes the dialog ask whether to replace it. Bake then rebuilds that static mesh in place, without asking again. If that static mesh was baked from a grammar asset, it loses its link to the grammar: its Source File is cleared and its Reimport is disabled, since Reimport cannot rebuild the actor's overrides.
 - The actor is baked as it shows in the level, whether or not its grammar asset is saved. The grammar asset is not saved.
 
-The same rules as a grammar bake apply for errors, empty results and names held by another asset type: nothing is baked and the Output Log says why. The static mesh is saved as soon as it is written.
+The same rules as a grammar bake apply for errors and empty results: nothing is baked and the Output Log says why. An asset of another type, or a redirector, at the chosen location is replaced on Yes to the engine's question as under [Replacing an asset of another type](#replacing-an-asset-of-another-type). The static mesh is saved as soon as it is written.
 
 The button is disabled in Blueprint class defaults, which have no placed actor to bake.
