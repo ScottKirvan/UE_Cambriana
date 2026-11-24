@@ -87,7 +87,7 @@ void UCambrianaAssetImportData::Link(USkeletalMesh& Mesh, const UCambrianaGramma
 namespace
 {
 	/** Whether the registry says the package holds a grammar asset, or a redirector to one. */
-	bool PackageHoldsGrammar(const IAssetRegistry& Registry, FName PackageName)
+	bool PackageHoldsGrammar(IAssetRegistry& Registry, FName PackageName)
 	{
 		TArray<FAssetData> Assets;
 		Registry.GetAssetsByPackageName(PackageName, Assets);
@@ -110,7 +110,7 @@ bool UCambrianaAssetImportData::MayLinkToGrammar(const FAssetData& Mesh)
 	{
 		return false;
 	}
-	const IAssetRegistry& Registry = IAssetRegistry::GetChecked();
+	IAssetRegistry& Registry = IAssetRegistry::GetChecked();
 	const FString MeshFolder = FPackageName::LongPackageNameToFilename(Mesh.PackagePath.ToString() / TEXT(""));
 	for (const FAssetImportInfo::FSourceFile& File : ImportInfo->SourceFiles)
 	{
