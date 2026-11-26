@@ -283,7 +283,7 @@ bool FCambrianaImportSettingsDiscardTest::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaImportSettingsUndoTest,
-	"Cambriana.Editor.GrammarEditor.ImportSettings.UndoRestoresAClearedSourceFileAndRedoClearsItAgain",
+	"Cambriana.Editor.GrammarEditor.ImportSettings.AClearedSourceFileStaysAfterUndoAsTheEnginesClearIsNotUndoableAndDiscardIsTheWayBack",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaImportSettingsUndoTest::RunTest(const FString& Parameters)
@@ -297,25 +297,24 @@ bool FCambrianaImportSettingsUndoTest::RunTest(const FString& Parameters)
 		DiscardGrammar(Grammar);
 		return false;
 	}
-	const TSharedRef<IPropertyRowGenerator> WorkingRows = MakeRows({ Toolkit->GetWorkingCopy() });
-	if (!TestTrue(TEXT("Source File has a clear button"), ClickClearSourceFile(FindSourceFileRow(*WorkingRows))))
+	GEditor->ResetTransaction(FText::FromString(TEXT("Import Settings undo test")));
 	{
-		DiscardGrammar(Grammar);
-		return false;
+		const TSharedRef<IPropertyRowGenerator> WorkingRows = MakeRows({ Toolkit->GetWorkingCopy() });
+		if (!TestTrue(TEXT("Source File has a clear button"), ClickClearSourceFile(FindSourceFileRow(*WorkingRows))))
+		{
+			DiscardGrammar(Grammar);
+			return false;
+		}
 	}
-	TestTrue(TEXT("The working copy's source file is cleared"), RecordedSourceFile(*Toolkit->GetWorkingCopy()).IsEmpty());
+	// FImportDataSourceFileTransactionScope (AssetImportDataCustomization.cpp) ends its transaction before the change, so the undo buffer drops it.
+	TestEqual(TEXT("The engine's clear adds no undo step"), Cambriana::Editor::Tests::UndoHistoryLength(), 0);
+	TestFalse(TEXT("There is nothing to undo"), GEditor->UndoTransaction());
+	TestTrue(TEXT("The clear stays after Undo"), RecordedSourceFile(*Toolkit->GetWorkingCopy()).IsEmpty());
+	TestEqual(TEXT("The tab still marks the unsaved edit"), Toolkit->GetTabSuffix().ToString(), FString(TEXT("*")));
 
-	TestTrue(TEXT("The clear can be undone"), GEditor->UndoTransaction());
-	TestEqualSensitive(TEXT("Undo restores the working copy's source file"), RecordedSourceFile(*Toolkit->GetWorkingCopy()), Recorded);
-	TestEqualSensitive(TEXT("Source File shows the restored path"), ShownSourceFile(FindSourceFileRow(*WorkingRows)), Recorded);
-	TestFalse(TEXT("Undoing back to the asset's source file leaves nothing unsaved"), Toolkit->HasUnsavedEdits());
-	TestTrue(TEXT("The tab shows no unsaved mark"), Toolkit->GetTabSuffix().IsEmpty());
-
-	TestTrue(TEXT("The clear can be redone"), GEditor->RedoTransaction());
-	TestTrue(TEXT("Redo clears the working copy's source file again"), RecordedSourceFile(*Toolkit->GetWorkingCopy()).IsEmpty());
-	TestEqual(TEXT("The tab marks the unsaved edit again"), Toolkit->GetTabSuffix().ToString(), FString(TEXT("*")));
-	TestEqualSensitive(TEXT("The asset's source file stays unchanged"), RecordedSourceFile(*Grammar), Recorded);
-	DiscardGrammar(Grammar);
+	CloseGrammarEditor(Grammar);
+	TestEqualSensitive(TEXT("Discarding the edits keeps the asset's source file"), RecordedSourceFile(*Grammar), Recorded);
+	UnloadPackage(Grammar->GetPackage());
 	return true;
 }
 
