@@ -337,8 +337,9 @@ agent's per-machine memory, so it holds on every machine.
   author has tested them: rebase merge, delete the branch, then rebase the stack on top. PRs
   into `main` are the author's to merge. Merges always use rebase merge (release-please).
 - The session pushes its own and its sub-agents' work, and never hands the author a push.
-  Push a step as soon as it's committed, then test. Before saying a PR is ready to test,
-  `git fetch` and confirm the remote head equals the tested head, and name that hash.
+  Push a step and open its PR as a draft as soon as its code builds, so the author can test
+  while its tests run; the PR leaves draft when its tests pass. Before saying a PR is ready
+  to test, `git fetch` and confirm the remote head equals the pushed head, and name that hash.
 - Before opening any PR for sub-agent work, read the full product-code diff line by line.
   Report defects in the same message as the PR.
 - Do decided work and your own fixes without asking. Ask only about real scope or
@@ -387,7 +388,7 @@ Every implementation brief states:
   `Cambriana_Base_dev1` (created with `scripts/New-BaseProject.ps1 -ProjectDir <path>`,
   junctioned to that worktree). Never rebuild the author's own `Cambriana_Base` unless asked.
 - While iterating on a step, build incrementally and run only the new or changed tests. Run
-  the full `Cambriana.*` suite once before a step's push.
+  the full `Cambriana.*` suite once before a step's PR leaves draft.
 - Batch red/green: commit each failing test, then one build and run shows them all red;
   commit each fix, then one run shows them all green.
 - Be lean with tokens: short messages, few re-runs, small briefs. Wait for builds and agents
