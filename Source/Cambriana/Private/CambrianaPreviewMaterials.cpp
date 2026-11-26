@@ -9,19 +9,20 @@ namespace
 	const FName PreviewColorParameter(TEXT("Color"));
 }
 
-void Cambriana::ApplyPreviewMaterials(UDynamicMeshComponent& Component, TConstArrayView<int64> SlotMaterialIds,
-	UMaterialInterface* BaseMaterial, TArray<TObjectPtr<UMaterialInstanceDynamic>>& Palette, UObject* Outer)
+void Cambriana::ApplyPreviewMaterials(UDynamicMeshComponent &Component, TConstArrayView<int64> SlotMaterialIds,
+									  UMaterialInterface *BaseMaterial, TArray<TObjectPtr<UMaterialInstanceDynamic>> &Palette, UObject *Outer)
 {
 	Palette.SetNum(PreviewPaletteSize);
-	TArray<UMaterialInterface*> MaterialSet;
+	TArray<UMaterialInterface *> MaterialSet;
 	MaterialSet.Reserve(SlotMaterialIds.Num());
 	for (const int64 MaterialId : SlotMaterialIds)
 	{
-		TObjectPtr<UMaterialInstanceDynamic>& Material = Palette[PreviewPaletteIndex(MaterialId)];
+		TObjectPtr<UMaterialInstanceDynamic> &Material = Palette[PreviewPaletteIndex(MaterialId)];
 		if (!Material && BaseMaterial)
 		{
 			Material = UMaterialInstanceDynamic::Create(BaseMaterial, Outer);
 			Material->SetVectorParameterValue(PreviewColorParameter, PreviewPaletteColor(MaterialId));
+			Material->SetScalarParameterValue(TEXT("Roughness"), 0.1f); // Example additional parameter
 		}
 		MaterialSet.Add(Material);
 	}
