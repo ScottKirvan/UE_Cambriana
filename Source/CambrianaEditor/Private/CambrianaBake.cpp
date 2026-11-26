@@ -83,7 +83,7 @@ namespace
 			return BakeLocationPrompt()(DefaultPackageName);
 		}
 		const FContentBrowserModule& ContentBrowser = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-		const FString ObjectPath = ContentBrowser.Get().CreateModalSaveAssetDialog(Cambriana::Editor::MakeBakeLocationDialogConfig(DefaultPackageName));
+		const FString ObjectPath = ContentBrowser.Get().CreateModalSaveAssetDialog(Cambriana::Editor::MakeBakeLocationDialogConfig(DefaultPackageName, ECambrianaBakeChoice::StaticMesh));
 		return ObjectPath.IsEmpty() ? FString() : FPackageName::ObjectPathToPackageName(ObjectPath);
 	}
 
@@ -483,7 +483,7 @@ namespace Cambriana::Editor
 		Outputs.bSave = false;
 		return BakeGrammarTo(Grammar, Grammar, MoveTemp(Outputs), [](const FText&) { return EAppReturnType::Yes; }, [](const FText&) { return EAppReturnType::No; });
 	}
-	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName)
+	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName, ECambrianaBakeChoice Choice)
 	{
 		FSaveAssetDialogConfig Config;
 		Config.DialogTitleOverride = LOCTEXT("BakeLocationTitle", "Bake Static Mesh");
@@ -501,7 +501,8 @@ namespace Cambriana::Editor
 		return Previous;
 	}
 
-	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToReplace& AskToReplace)
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite,
+		const FAskToReplace& AskToReplace)
 	{
 		const FString ActorPath = Actor.GetPathName();
 		const FString PackageName = AskForBakeLocation(StaticMeshPackageName(Actor));

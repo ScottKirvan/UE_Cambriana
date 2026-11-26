@@ -619,7 +619,7 @@ bool FCambrianaLiveActorBakeClearsLinkTest::RunTest(const FString& Parameters)
 	Cambriana::Editor::FBakeLocationPrompt Previous = Cambriana::Editor::SetBakeLocationPrompt([MeshPackage](const FString&) { return MeshPackage; });
 	ON_SCOPE_EXIT { Cambriana::Editor::SetBakeLocationPrompt(MoveTemp(Previous)); };
 	FCambrianaBakeResult Result;
-	RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeLiveActor(*Actor); });
+	RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeLiveActor(*Actor, ECambrianaBakeChoice::StaticMesh); });
 
 	TestTrue(TEXT("The live actor bakes over the grammar's static mesh"), Result.Status == ECambrianaBakeStatus::Baked && Result.StaticMesh == Mesh);
 	const UAssetImportData* ImportData = Mesh->GetAssetImportData();

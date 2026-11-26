@@ -146,7 +146,7 @@ namespace Cambriana::Editor
 				{
 					for (ACambrianaLiveActor* Actor : PlacedLiveActors(Objects))
 					{
-						NotifyBakeResult(Actor->GetActorLabel(), BakeLiveActor(*Actor));
+						NotifyBakeResult(Actor->GetActorLabel(), BakeLiveActor(*Actor, ECambrianaBakeChoice::StaticMesh));
 					}
 					return FReply::Handled();
 				})

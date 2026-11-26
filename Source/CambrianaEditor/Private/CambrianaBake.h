@@ -60,11 +60,11 @@ namespace Cambriana::Editor
 	/** Asks whether to recreate a skeleton's bone tree when the grammar's bones do not merge into it; given the question, answers Yes, No or Cancel. */
 	using FAskToRecreateSkeleton = TFunction<EAppReturnType::Type(const FText& Question)>;
 
-	/** Asks where to write a live actor's static mesh, given the default package name; answers the chosen package name, or nothing to cancel. */
+	/** Asks where to write a live actor's static or skeletal mesh, given the default package name; answers the chosen package name, or nothing to cancel. */
 	using FBakeLocationPrompt = TFunction<FString(const FString& DefaultPackageName)>;
 
-	/** The save-asset dialog's settings for a live actor's static mesh, defaulting to DefaultPackageName. */
-	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName);
+	/** The save-asset dialog's settings for the mesh a live actor's Bake choice writes, defaulting to DefaultPackageName. */
+	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName, ECambrianaBakeChoice Choice);
 
 	/** Answers the live actor Bake's location dialog instead of showing it, for tests; unset, the dialog shows. Returns the previous prompt. */
 	FBakeLocationPrompt SetBakeLocationPrompt(FBakeLocationPrompt Prompt);
@@ -102,7 +102,8 @@ namespace Cambriana::Editor
 	 * name>_<actor label> in the grammar's bake folder, or for an actor without a grammar asset to SM_<actor label> at the project's
 	 * content root. A static mesh written over one linked to a grammar loses the link: its import data becomes plain import data with no source file.
 	 */
-	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, const FAskToReplace& AskToReplace = nullptr);
+	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite = nullptr,
+		const FAskToReplace& AskToReplace = nullptr);
 
 	/** The text of a bake result's notification; Source names what was baked. */
 	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result);

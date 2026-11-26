@@ -118,7 +118,7 @@ namespace
 	FCambrianaBakeResult BakeWithoutSavePrompt(ACambrianaLiveActor& Actor)
 	{
 		FCambrianaBakeResult Result;
-		RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeLiveActor(Actor); });
+		RunWithoutSavePrompt([&] { Result = Cambriana::Editor::BakeLiveActor(Actor, ECambrianaBakeChoice::StaticMesh); });
 		return Result;
 	}
 }
@@ -167,7 +167,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaLiveActorBakeDialogTest,
 
 bool FCambrianaLiveActorBakeDialogTest::RunTest(const FString& Parameters)
 {
-	const FSaveAssetDialogConfig Config = Cambriana::Editor::MakeBakeLocationDialogConfig(TEXT("/Game/Trees/Fern/SM_Fern_Fern2"));
+	const FSaveAssetDialogConfig Config = Cambriana::Editor::MakeBakeLocationDialogConfig(TEXT("/Game/Trees/Fern/SM_Fern_Fern2"), ECambrianaBakeChoice::StaticMesh);
 	TestEqual(TEXT("Default folder"), Config.DefaultPath, FString(TEXT("/Game/Trees/Fern")));
 	TestEqual(TEXT("Default name"), Config.DefaultAssetName, FString(TEXT("SM_Fern_Fern2")));
 	TestTrue(TEXT("Static meshes only"), Config.AssetClassNames == TArray<FTopLevelAssetPath>{ UStaticMesh::StaticClass()->GetClassPathName() });
@@ -271,7 +271,7 @@ bool FCambrianaLiveActorBakeReplaceYesTest::RunTest(const FString& Parameters)
 	FCambrianaBakeResult Result;
 	RunWithoutSavePrompt([&]
 	{
-		Result = Cambriana::Editor::BakeLiveActor(*Actor, [&Questions](const FText& Question) { Questions.Add(Question.ToString()); return EAppReturnType::Yes; });
+		Result = Cambriana::Editor::BakeLiveActor(*Actor, ECambrianaBakeChoice::StaticMesh, nullptr, [&Questions](const FText& Question) { Questions.Add(Question.ToString()); return EAppReturnType::Yes; });
 	});
 
 	TestTrue(TEXT("The bake succeeds"), Result.Status == ECambrianaBakeStatus::Baked);
@@ -304,7 +304,7 @@ bool FCambrianaLiveActorBakeReplaceNoTest::RunTest(const FString& Parameters)
 	FCambrianaBakeResult Result;
 	RunWithoutSavePrompt([&]
 	{
-		Result = Cambriana::Editor::BakeLiveActor(*Actor, [&Asked](const FText&) { ++Asked; return EAppReturnType::No; });
+		Result = Cambriana::Editor::BakeLiveActor(*Actor, ECambrianaBakeChoice::StaticMesh, nullptr, [&Asked](const FText&) { ++Asked; return EAppReturnType::No; });
 	});
 
 	TestTrue(TEXT("The bake reports the overwrite declined"), Result.Status == ECambrianaBakeStatus::OverwriteDeclined);
