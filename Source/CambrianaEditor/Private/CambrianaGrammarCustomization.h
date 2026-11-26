@@ -16,7 +16,7 @@ namespace Cambriana::Editor
 	void ResetParameterValue(UCambrianaGrammar& Grammar, const FString& Name);
 }
 
-/** Grammar asset Details: the seed row, and the text's parameters in one category per tier. */
+/** Grammar asset Details: the seed row, the text's parameters in one category per tier, and Import Settings. */
 class FCambrianaGrammarCustomization : public IDetailCustomization
 {
 public:

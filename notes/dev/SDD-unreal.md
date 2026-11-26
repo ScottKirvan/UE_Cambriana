@@ -302,6 +302,17 @@ Standalone asset editor, opened from the grammar asset.
   without edits. When it does not complete (checkout or save cancelled or failed), the asset
   takes back its previous values and its package its previous dirty state; actors see no
   change and the editor keeps its edits.
+- `[Proposed — unconfirmed]` The grammar declares its import data as `UStaticMesh` does
+  (`EditAnywhere`, `Instanced`, category `ImportSettings`), and the grammar's Details
+  customization adds it to Import Settings with its name only, without the instanced object's
+  class picker, as `FStaticMeshDetails::CustomizeDetails` does (`StaticMeshEditorTools.cpp`);
+  the asset's own Details shows it the same way. The working copy's compare and copy cover the
+  import data's source file record (each file's path, compared case-sensitively, timestamp,
+  hash and label), never the import data object. The engine's Source File rows and their undo
+  change import data without a change event for the grammar, so the editor watches the
+  working copy's and the asset's import data (`FCoreUObjectDelegates::OnObjectModified`,
+  `OnObjectTransacted`): a working copy change counts as an edit, and an asset change reaches a
+  working copy without edits on the next tick.
 - `[Proposed — unconfirmed]` Save As asks for the new asset in the Content Browser's save
   asset dialog and writes the working copy, not the asset, to a new asset there, then saves
   it, closes this editor and opens one on the new asset. The original asset, its package's

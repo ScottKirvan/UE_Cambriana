@@ -7,6 +7,7 @@
 #include "CambrianaGrammarWorkingCopy.h"
 #include "ContentBrowserModule.h"
 #include "Editor.h"
+#include "EditorFramework/AssetImportData.h"
 #include "FileHelpers.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "IContentBrowserSingleton.h"
@@ -15,6 +16,7 @@
 #include "MessageLogModule.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/PackageName.h"
+#include "Misc/TransactionObjectEvent.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "SCambrianaGrammarViewport.h"
@@ -58,6 +60,14 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 	UpdatePreview(*WorkingCopy);
 
 	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
+	ObjectModifiedHandle = FCoreUObjectDelegates::OnObjectModified.AddSP(this, &FCambrianaGrammarEditorToolkit::HandleImportDataChanging);
+	ObjectTransactedHandle = FCoreUObjectDelegates::OnObjectTransacted.AddSPLambda(this, [this](UObject* Object, const FTransactionObjectEvent& Event)
+	{
+		if (Event.GetEventType() == ETransactionObjectEventType::UndoRedo)
+		{
+			HandleImportDataChanging(Object);
+		}
+	});
 
 	// As the Material and Blueprint editors do, the editor's own undo and redo first finish what is in progress.
 	ToolkitCommands->MapAction(FGenericCommands::Get().Undo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::UndoAfterPendingRulesEdit));
@@ -117,6 +127,9 @@ TSharedRef<FTabManager::FLayout> FCambrianaGrammarEditorToolkit::MakeLayout()
 FCambrianaGrammarEditorToolkit::~FCambrianaGrammarEditorToolkit()
 {
 	UCambrianaGrammar::OnGrammarChanged().Remove(GrammarChangedHandle);
+	FCoreUObjectDelegates::OnObjectModified.Remove(ObjectModifiedHandle);
+	FCoreUObjectDelegates::OnObjectTransacted.Remove(ObjectTransactedHandle);
+	FTSTicker::RemoveTicker(ImportDataSyncTimer);
 	FTSTicker::RemoveTicker(RulesApplyTimer);
 }
 
@@ -320,10 +333,10 @@ TArray<TWeakObjectPtr<UObject>> FCambrianaGrammarEditorToolkit::GetDetailsObject
 
 bool FCambrianaGrammarEditorToolkit::IsDetailsPropertyVisible(FName PropertyName, TConstArrayView<FName> ParentPropertyNames) const
 {
-	// Rules shows the text. The import data stays with the asset, so a save would drop changes made to the working copy's.
+	// Rules shows the text.
 	const auto IsHidden = [](FName Name)
 	{
-		return Name == GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText) || Name == GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData);
+		return Name == GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, GrammarText);
 	};
 	return !IsHidden(PropertyName) && !Algo::AnyOf(ParentPropertyNames, IsHidden);
 }
@@ -398,6 +411,45 @@ void FCambrianaGrammarEditorToolkit::HandleGrammarChanged(const UCambrianaGramma
 		// Setting the text reports it as typed, though it already matches the working copy.
 		CancelPendingRulesEdit();
 	}
+}
+
+void FCambrianaGrammarEditorToolkit::HandleImportDataChanging(UObject* Object)
+{
+	const UCambrianaGrammar* Grammar = GetGrammar();
+	if (!Object || !Grammar || (Object != Grammar->AssetImportData && Object != WorkingCopy->AssetImportData))
+	{
+		return;
+	}
+	// The Source File rows (AssetImportDataCustomization.cpp) and their undo change import data with no change event for its grammar.
+	if (Object == WorkingCopy->AssetImportData)
+	{
+		bWorkingCopyEdited = true;
+		bUnsavedEditsDiscarded = false;
+	}
+	else if (!bWorkingCopyEdited && !bRulesEditPending)
+	{
+		bFollowAssetImportData = true;
+	}
+	if (!ImportDataSyncTimer.IsValid())
+	{
+		ImportDataSyncTimer = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateSP(this, &FCambrianaGrammarEditorToolkit::HandleImportDataSyncTimer));
+	}
+}
+
+bool FCambrianaGrammarEditorToolkit::HandleImportDataSyncTimer(float DeltaTime)
+{
+	ImportDataSyncTimer.Reset();
+	UCambrianaGrammar* Grammar = GetGrammar();
+	if (Grammar && bFollowAssetImportData && !bRulesEditPending)
+	{
+		Cambriana::Editor::CopyGrammar(*Grammar, *WorkingCopy);
+	}
+	bFollowAssetImportData = false;
+	if (Grammar)
+	{
+		bWorkingCopyEdited = !Cambriana::Editor::HoldSameGrammar(*WorkingCopy, *Grammar);
+	}
+	return false;
 }
 
 void FCambrianaGrammarEditorToolkit::HandleRulesTextChanged(const FText& NewText)
