@@ -12,6 +12,7 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 
@@ -125,33 +126,50 @@ namespace Cambriana::Editor
 		return Actors;
 	}
 
+	TSharedRef<SWidget> MakeBakeButton(const TArray<TWeakObjectPtr<UObject>>& Objects, ECambrianaBakeChoice Choice)
+	{
+		return SNew(SButton)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			.ToolTipText(Choice == ECambrianaBakeChoice::StaticMesh
+				? LOCTEXT("LiveActorBakeTooltip", "Writes a static mesh from this actor's own settings, overrides included. Does not modify the actor.")
+				: LOCTEXT("LiveActorBakeSkeletalTooltip", "Writes a skeletal mesh, skeleton and physics asset from this actor's own settings, overrides included. Does not modify the actor."))
+			.IsEnabled_Lambda([Objects] { return !PlacedLiveActors(Objects).IsEmpty(); })
+			.OnClicked_Lambda([Objects, Choice]
+			{
+				for (ACambrianaLiveActor* Actor : PlacedLiveActors(Objects))
+				{
+					NotifyBakeResult(Actor->GetActorLabel(), BakeLiveActor(*Actor, Choice));
+				}
+				return FReply::Handled();
+			})
+			[
+				SNew(STextBlock).Text(BakeChoiceLabel(Choice))
+			];
+	}
+
+	/** One row of buttons, laid out as the particle system component's Details lays out its two (ParticleSystemComponentDetails.cpp). */
 	void AddBakeRow(IDetailLayoutBuilder& DetailBuilder)
 	{
-		const FText BakeText = LOCTEXT("LiveActorBake", "Bake");
 		const TArray<TWeakObjectPtr<UObject>> Objects = DetailBuilder.GetSelectedObjects();
-		DetailBuilder.EditCategory(TEXT("Cambriana")).AddCustomRow(BakeText, false)
+		DetailBuilder.EditCategory(TEXT("Cambriana")).AddCustomRow(LOCTEXT("LiveActorBake", "Bake"), false)
 			.NameContent()
 			[
 				SNullWidget::NullWidget
 			]
 			.ValueContent()
 			.VAlign(VAlign_Center)
-			.MaxDesiredWidth(250.0f)
+			.MaxDesiredWidth(500.0f)
 			[
-				SNew(SButton)
-				.VAlign(VAlign_Center)
-				.ToolTipText(LOCTEXT("LiveActorBakeTooltip", "Writes a static mesh from this actor's own settings, overrides included. Does not modify the actor."))
-				.IsEnabled_Lambda([Objects] { return !PlacedLiveActors(Objects).IsEmpty(); })
-				.OnClicked_Lambda([Objects]
-				{
-					for (ACambrianaLiveActor* Actor : PlacedLiveActors(Objects))
-					{
-						NotifyBakeResult(Actor->GetActorLabel(), BakeLiveActor(*Actor, ECambrianaBakeChoice::StaticMesh));
-					}
-					return FReply::Handled();
-				})
+				SNew(SUniformGridPanel)
+				.SlotPadding(2.0f)
+				+ SUniformGridPanel::Slot(0, 0)
 				[
-					SNew(STextBlock).Text(BakeText)
+					MakeBakeButton(Objects, ECambrianaBakeChoice::StaticMesh)
+				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					MakeBakeButton(Objects, ECambrianaBakeChoice::SkeletalMesh)
 				]
 			];
 	}

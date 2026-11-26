@@ -4,7 +4,7 @@ outline: [2, 3]
 
 # Live Actor
 
-A **Cambriana Live Actor** builds a grammar's mesh in the level and rebuilds it whenever its inputs change. Use it to see a grammar in place, try settings on one instance, and bake that instance as a static mesh.
+A **Cambriana Live Actor** builds a grammar's mesh in the level and rebuilds it whenever its inputs change. Use it to see a grammar in place, try settings on one instance, and bake that instance as a static or skeletal mesh.
 
 ## Placing a live actor
 
@@ -31,7 +31,7 @@ The actor's settings are in the **Cambriana** category of its Details panel.
 | **Size Mode** | Fit scales the whole form so its largest dimension is **Size Value**; Step makes one bone **Size Value** long |
 | **Size Value** | The target size in Fit mode, the step length in Step mode, in centimetres |
 
-At the end of the category, **Bake** writes a static mesh from this actor. See [Baking from a live actor](./baking#baking-from-a-live-actor).
+At the end of the category, **Bake to Static Mesh** writes a static mesh from this actor, and **Bake to Skeletal Mesh** writes a skeletal mesh, skeleton and physics asset. See [Baking from a live actor](./baking#baking-from-a-live-actor).
 
 Inline `.ls` text is not converted; it builds as legacy text. The actor detects the format from the text, as a grammar asset does; see [Grammar text formats](./grammar-assets#grammar-text-formats).
 
@@ -79,4 +79,4 @@ A grammar asset changes for its actors when the grammar editor saves it, when it
 
 Errors in the grammar leave the actor's mesh empty, and are written to the Output Log with their line and column. The actor's material IDs show in the preview colours listed under [Viewport](./grammar-editor#viewport).
 
-The live actor has no skeleton. To get a skeletal mesh, [bake](./baking) the grammar asset.
+The live actor itself has no skeleton. To get a skeletal mesh, use its **Bake to Skeletal Mesh**, or [bake](./baking) the grammar asset.
