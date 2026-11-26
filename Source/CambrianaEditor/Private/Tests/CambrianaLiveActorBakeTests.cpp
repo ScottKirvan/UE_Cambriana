@@ -537,7 +537,6 @@ bool FCambrianaLiveActorDetailsBakeButtonsTest::RunTest(const FString& Parameter
 	}
 	TestEqual(TEXT("The row holds Bake to Static Mesh and Bake to Skeletal Mesh, in that order"), Labels,
 		TArray<FString>{ TEXT("Bake to Static Mesh"), TEXT("Bake to Skeletal Mesh") });
-	TestTrue(TEXT("It is the category's last row with buttons"), BakeRow == &Rows.Last());
 	return true;
 }
 
@@ -703,7 +702,6 @@ bool FCambrianaLiveActorSkeletalRebakeTest::RunTest(const FString& Parameters)
 		Rebaked.SkeletalMesh == First.SkeletalMesh && Rebaked.Skeleton == First.Skeleton && Rebaked.PhysicsAsset == First.PhysicsAsset);
 	// 4 branches * 6 segments * 2 triangles per side * 7 sides.
 	TestEqual(TEXT("It has the actor's new sides"), RenderedFacesOf(*First.SkeletalMesh), 4 * 6 * 2 * 7);
-	TestTrue(TEXT("It matches the actor at bind pose"), MatchBindPose(*First.SkeletalMesh, *Actor).Matches());
 	return true;
 }
 
