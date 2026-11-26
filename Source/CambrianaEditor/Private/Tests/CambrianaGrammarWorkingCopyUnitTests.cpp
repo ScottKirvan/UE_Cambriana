@@ -99,13 +99,14 @@ bool FCambrianaWorkingCopySourceFileTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Copying a grammar with a different source file changes the target"), CopyGrammarValues(*From, *To));
 	TestTrue(TEXT("The target keeps its own import data object"), To->AssetImportData == TargetImportData && To->AssetImportData != From->AssetImportData);
 	TestTrue(TEXT("The target's import data is still the target's subobject"), To->AssetImportData->GetOuter() == To);
-	if (TestEqual(TEXT("The target holds one source file"), To->AssetImportData->SourceData.SourceFiles.Num(), 1))
+	if (!TestEqual(TEXT("The target holds one source file"), To->AssetImportData->SourceData.SourceFiles.Num(), 1))
 	{
-		const FAssetImportInfo::FSourceFile& Copied = To->AssetImportData->SourceData.SourceFiles[0];
-		TestEqualSensitive(TEXT("The copied path"), Copied.RelativeFilename, FString(TEXT("C:/Sources/tree.lsys")));
-		TestTrue(TEXT("The copied timestamp"), Copied.Timestamp == FDateTime(2026, 1, 2));
-		TestEqualSensitive(TEXT("The copied label"), Copied.DisplayLabelName, FString(TEXT("Label")));
+		return false;
 	}
+	const FAssetImportInfo::FSourceFile& Copied = To->AssetImportData->SourceData.SourceFiles[0];
+	TestEqualSensitive(TEXT("The copied path"), Copied.RelativeFilename, FString(TEXT("C:/Sources/tree.lsys")));
+	TestTrue(TEXT("The copied timestamp"), Copied.Timestamp == FDateTime(2026, 1, 2));
+	TestEqualSensitive(TEXT("The copied label"), Copied.DisplayLabelName, FString(TEXT("Label")));
 	TestTrue(TEXT("The target holds the same grammar"), HoldSameGrammar(*From, *To));
 
 	To->AssetImportData->SourceData.SourceFiles[0].RelativeFilename = TEXT("C:/Sources/TREE.lsys");
