@@ -41,10 +41,16 @@ namespace
 		return Parameter;
 	}
 
+	FString SourceFileOf(const UCambrianaGrammar& Grammar)
+	{
+		const TArray<FAssetImportInfo::FSourceFile>& Files = Grammar.AssetImportData->SourceData.SourceFiles;
+		return Files.Num() ? Files[0].RelativeFilename : FString();
+	}
+
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyDuplicateTest,
-	"Cambriana.Editor.WorkingCopy.ADuplicateIsTransientTransactionalAndHoldsTheGrammarExceptItsImportData",
+	"Cambriana.Editor.WorkingCopy.ADuplicateIsTransientTransactionalAndHoldsTheGrammarAndItsSourceFileInItsOwnImportData",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
 bool FCambrianaWorkingCopyDuplicateTest::RunTest(const FString& Parameters)
@@ -71,8 +77,55 @@ bool FCambrianaWorkingCopyDuplicateTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("The duplicate holds the sides"), Copy->Sides, 5);
 	TestEqual(TEXT("The duplicate holds the parameter values"), Copy->ParameterValues.Num(), 1);
 	TestTrue(TEXT("The duplicate's import data is its own object"), Copy->AssetImportData != Source->AssetImportData);
+	TestFalse(TEXT("The source records a source file"), SourceFileOf(*Source).IsEmpty());
+	TestEqualSensitive(TEXT("The duplicate's import data holds the source file"), SourceFileOf(*Copy), SourceFileOf(*Source));
 	TestTrue(TEXT("A grammar and its duplicate hold the same grammar although their import data are different objects"), HoldSameGrammar(*Source, *Copy));
 	Source->ClearFlags(RF_Standalone);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopySourceFileTest,
+	"Cambriana.Editor.WorkingCopy.GrammarsWithDifferentSourceFilesAreDifferentAndACopyWritesTheSourceFileIntoTheTargetsOwnImportData",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopySourceFileTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* From = TransientGrammar(TEXT("axiom F\n"));
+	UCambrianaGrammar* To = TransientGrammar(TEXT("axiom F\n"));
+	From->AssetImportData->SourceData.SourceFiles.Add(FAssetImportInfo::FSourceFile(TEXT("C:/Sources/tree.lsys"), FDateTime(2026, 1, 2), FMD5Hash(), TEXT("Label")));
+	TestFalse(TEXT("A grammar with a source file and one without are different"), HoldSameGrammar(*From, *To));
+
+	UAssetImportData* TargetImportData = To->AssetImportData;
+	TestTrue(TEXT("Copying a grammar with a different source file changes the target"), CopyGrammarValues(*From, *To));
+	TestTrue(TEXT("The target keeps its own import data object"), To->AssetImportData == TargetImportData && To->AssetImportData != From->AssetImportData);
+	TestTrue(TEXT("The target's import data is still the target's subobject"), To->AssetImportData->GetOuter() == To);
+	if (TestEqual(TEXT("The target holds one source file"), To->AssetImportData->SourceData.SourceFiles.Num(), 1))
+	{
+		const FAssetImportInfo::FSourceFile& Copied = To->AssetImportData->SourceData.SourceFiles[0];
+		TestEqualSensitive(TEXT("The copied path"), Copied.RelativeFilename, FString(TEXT("C:/Sources/tree.lsys")));
+		TestTrue(TEXT("The copied timestamp"), Copied.Timestamp == FDateTime(2026, 1, 2));
+		TestEqualSensitive(TEXT("The copied label"), Copied.DisplayLabelName, FString(TEXT("Label")));
+	}
+	TestTrue(TEXT("The target holds the same grammar"), HoldSameGrammar(*From, *To));
+
+	To->AssetImportData->SourceData.SourceFiles[0].RelativeFilename = TEXT("C:/Sources/TREE.lsys");
+	TestFalse(TEXT("A source path that differs only in case is a different grammar"), HoldSameGrammar(*From, *To));
+	To->AssetImportData->SourceData.SourceFiles[0].RelativeFilename = TEXT("C:/Sources/tree.lsys");
+	To->AssetImportData->SourceData.SourceFiles[0].Timestamp = 0;
+	TestFalse(TEXT("A different source timestamp is a different grammar"), HoldSameGrammar(*From, *To));
+	To->AssetImportData->SourceData.SourceFiles[0].Timestamp = FDateTime(2026, 1, 2);
+	FMD5 Md5;
+	Md5.Update(reinterpret_cast<const uint8*>("x"), 1);
+	To->AssetImportData->SourceData.SourceFiles[0].FileHash.Set(Md5);
+	TestFalse(TEXT("A different source hash is a different grammar"), HoldSameGrammar(*From, *To));
+	To->AssetImportData->SourceData.SourceFiles[0].FileHash = FMD5Hash();
+	To->AssetImportData->SourceData.SourceFiles[0].DisplayLabelName = TEXT("Other");
+	TestFalse(TEXT("A different source label is a different grammar"), HoldSameGrammar(*From, *To));
+
+	From->AssetImportData->SourceData.SourceFiles.Reset();
+	TestTrue(TEXT("Copying a grammar without a source file changes the target"), CopyGrammar(*From, *To));
+	TestEqual(TEXT("The target's source file is cleared"), To->AssetImportData->SourceData.SourceFiles.Num(), 0);
+	TestTrue(TEXT("The target still keeps its own import data object"), To->AssetImportData == TargetImportData);
 	return true;
 }
 
