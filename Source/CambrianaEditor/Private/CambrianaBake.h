@@ -63,7 +63,7 @@ namespace Cambriana::Editor
 	/** Asks where to write a live actor's static or skeletal mesh, given the default package name; answers the chosen package name, or nothing to cancel. */
 	using FBakeLocationPrompt = TFunction<FString(const FString& DefaultPackageName)>;
 
-	/** The save-asset dialog's settings for the mesh a live actor's Bake choice writes, defaulting to DefaultPackageName. */
+	/** The save-asset dialog's settings for the mesh a live actor's Bake choice writes, that class only, defaulting to DefaultPackageName. */
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName, ECambrianaBakeChoice Choice);
 
 	/** Answers the live actor Bake's location dialog instead of showing it, for tests; unset, the dialog shows. Returns the previous prompt. */
@@ -97,13 +97,20 @@ namespace Cambriana::Editor
 	FCambrianaBakeResult RebakeMesh(UCambrianaGrammar& Grammar, UObject& Mesh, const FAskToRecreateSkeleton& AskToRecreateSkeleton = nullptr);
 
 	/**
-	 * Bakes a static mesh from the live actor's own build input, overrides included, and saves it where the engine's save-asset
-	 * dialog says, which asks itself before an existing static mesh is replaced. The dialog defaults to SM_<grammar asset
-	 * name>_<actor label> in the grammar's bake folder, or for an actor without a grammar asset to SM_<actor label> at the project's
-	 * content root. A static mesh written over one linked to a grammar loses the link: its import data becomes plain import data with no source file.
+	 * Bakes Choice from the live actor's own build input, overrides included, and saves it where the engine's save-asset dialog says,
+	 * which asks itself before an existing mesh of the class is replaced. The dialog defaults to SM_ (SK_ for SkeletalMesh) plus
+	 * <grammar asset name>_<actor label> in the grammar's bake folder, or for an actor without a grammar asset plus <actor label> at
+	 * the project's content root. A skeletal mesh's skeleton and physics asset go beside it, named from the chosen name with its SK_
+	 * prefix replaced by SKEL_ and PHYS_, or with those put before a name without it; AskToOverwrite is asked once, naming the first
+	 * of them that exists, before they are rebuilt in place, and unset a message dialog asks. The physics asset takes the grammar
+	 * asset's Physics Stiffness, or the default for inline text. A mesh written over one linked to a grammar loses the link: its
+	 * import data becomes plain import data with no source file.
 	 */
 	FCambrianaBakeResult BakeLiveActor(ACambrianaLiveActor& Actor, ECambrianaBakeChoice Choice, const FAskToOverwrite& AskToOverwrite = nullptr,
 		const FAskToReplace& AskToReplace = nullptr);
+
+	/** The label of Choice's menu entries and buttons: Bake to Static Mesh or Bake to Skeletal Mesh. */
+	FText BakeChoiceLabel(ECambrianaBakeChoice Choice);
 
 	/** The text of a bake result's notification; Source names what was baked. */
 	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result);

@@ -14,7 +14,8 @@ There are four ways to bake:
 | A grammar asset's right-click **Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The grammar asset as it is now, saved or not |
 | The grammar editor's toolbar **Bake > Bake to Static Mesh** | A static mesh | The editor's current edits |
 | The grammar editor's toolbar **Bake > Bake to Skeletal Mesh** | Skeletal mesh, skeleton and physics asset | The editor's current edits |
-| A live actor's Details **Bake** button | A static mesh | That actor's own settings, overrides and seed |
+| A live actor's Details **Bake to Static Mesh** button | A static mesh | That actor's own settings, overrides and seed |
+| A live actor's Details **Bake to Skeletal Mesh** button | Skeletal mesh, skeleton and physics asset | That actor's own settings, overrides and seed |
 
 ## Baking a grammar asset
 
@@ -69,7 +70,7 @@ When an asset of a different type, or a redirector, holds one of the chosen bake
 - **Yes** deletes that asset, with no further confirmation, and bakes the output in its place.
 - **No** bakes nothing and changes nothing.
 
-The grammar asset's Bake to Static Mesh, Bake to Skeletal Mesh and a live actor's Details **Bake** all ask it. Reimport never replaces such an asset: it rebuilds nothing.
+The grammar asset's Bake to Static Mesh and Bake to Skeletal Mesh, and a live actor's Details **Bake to Static Mesh** and **Bake to Skeletal Mesh**, all ask it. Reimport never replaces such an asset: it rebuilds nothing.
 
 ### When nothing is baked
 
@@ -166,19 +167,24 @@ The static mesh `SM_<name>`, written by Bake to Static Mesh, has the same triang
 
 ## Baking from a live actor
 
-Select a placed live actor and click **Bake** at the end of the **Cambriana** category in its Details panel. This writes one static mesh from the actor exactly as it shows in the level, with its own overrides, seed and grammar text. It does not change the actor, and the grammar asset's bake settings do not apply. With several actors selected, each is baked in turn.
+Select a placed live actor and, at the end of the **Cambriana** category in its Details panel, click **Bake to Static Mesh** or **Bake to Skeletal Mesh**. Bake to Static Mesh writes one static mesh; Bake to Skeletal Mesh writes a skeletal mesh, its skeleton and its physics asset. Both bake the actor exactly as it shows in the level, with its own overrides, seed and grammar text. They do not change the actor. With several actors selected, each is baked in turn.
 
-The engine's **Bake Static Mesh** save dialog asks where to write it. It defaults to:
+The engine's save dialog, **Bake Static Mesh** or **Bake Skeletal Mesh**, asks where to write the mesh. It defaults to:
 
-| Actor | Default |
-|---|---|
-| References a grammar asset `/Game/Trees/Fern`, labelled `Fern2` | `/Game/Trees/Fern/SM_Fern_Fern2` |
-| Inline text, labelled `Fern2` | `/Game/SM_Fern2` |
+| Actor | Bake to Static Mesh | Bake to Skeletal Mesh |
+|---|---|---|
+| References a grammar asset `/Game/Trees/Fern`, labelled `Fern2` | `/Game/Trees/Fern/SM_Fern_Fern2` | `/Game/Trees/Fern/SK_Fern_Fern2` |
+| Inline text, labelled `Fern2` | `/Game/SM_Fern2` | `/Game/SK_Fern2` |
+
+Bake to Skeletal Mesh writes the skeleton and physics asset beside the skeletal mesh, named after it with `SK_` replaced by `SKEL_` and `PHYS_`: `SK_Fern_Fern2` gives `SKEL_Fern_Fern2` and `PHYS_Fern_Fern2`. A chosen name without the `SK_` prefix gets `SKEL_` and `PHYS_` put before it: `Fern2` gives `SKEL_Fern2` and `PHYS_Fern2`.
 
 - **Cancel** bakes nothing.
-- Choosing an existing static mesh makes the dialog ask whether to replace it. Bake then rebuilds that static mesh in place, without asking again. If that static mesh was baked from a grammar asset, it loses its link to the grammar: its Source File is cleared and its Reimport is disabled, since Reimport cannot rebuild the actor's overrides.
+- Choosing an existing mesh makes the dialog ask whether to replace it. Bake then rebuilds that mesh in place, without asking again. If that mesh was baked from a grammar asset, it loses its link to the grammar: its Source File is cleared and its Reimport is disabled, since Reimport cannot rebuild the actor's overrides.
+- When the skeleton or physics asset beside the chosen skeletal mesh already exists, Bake to Skeletal Mesh asks the [overwrite question](#rebaking) once, naming the first of them, skeleton before physics asset. **Yes** rebuilds every existing one in place, as Bake to Skeletal Mesh from the grammar asset does; **No** bakes nothing.
 - The actor is baked as it shows in the level, whether or not its grammar asset is saved. The grammar asset is not saved.
 
-The same rules as a grammar bake apply for errors and empty results: nothing is baked and the Output Log says why. An asset of another type, or a redirector, at the chosen location is replaced on Yes to the engine's question as under [Replacing an asset of another type](#replacing-an-asset-of-another-type). The static mesh is saved as soon as it is written.
+The physics asset takes the grammar asset's **Physics Stiffness** (see [Bake settings](#bake-settings)), or its default of 25000 for an actor with inline text. The grammar asset's other settings do not apply.
 
-The button is disabled in Blueprint class defaults, which have no placed actor to bake.
+The same rules as a grammar bake apply for errors and empty results: nothing is baked and the Output Log says why. An asset of another type, or a redirector, at one of the bake's names is replaced on Yes to the engine's question as under [Replacing an asset of another type](#replacing-an-asset-of-another-type). The baked assets are saved as soon as they are written.
+
+The buttons are disabled in Blueprint class defaults, which have no placed actor to bake.

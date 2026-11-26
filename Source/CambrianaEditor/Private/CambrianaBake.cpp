@@ -41,12 +41,24 @@ namespace
 		return BakeFolder(Grammar) / (Prefix + Grammar.GetName());
 	}
 
-	FString StaticMeshPackageName(const ACambrianaLiveActor& Actor)
+	FString LiveActorPackageName(const ACambrianaLiveActor& Actor, const TCHAR* Prefix)
 	{
 		const FString Label = ObjectTools::SanitizeObjectName(Actor.GetActorLabel());
 		return Actor.Grammar
-			? BakeFolder(*Actor.Grammar) / (TEXT("SM_") + Actor.Grammar->GetName() + TEXT("_") + Label)
-			: FString(TEXT("/Game")) / (TEXT("SM_") + Label);
+			? BakeFolder(*Actor.Grammar) / (Prefix + Actor.Grammar->GetName() + TEXT("_") + Label)
+			: FString(TEXT("/Game")) / (Prefix + Label);
+	}
+
+	/**
+	 * The package of an asset baked beside a chosen skeletal mesh: its name with the SK_ prefix replaced by Prefix, or Prefix put
+	 * before a name without it, as the FBX import names the skeleton and physics asset after the mesh beside it
+	 * (FbxSkeletalMeshImport.cpp, <mesh>_Skeleton and <mesh>_PhysicsAsset).
+	 */
+	FString BesideSkeletalMesh(const FString& SkeletalMeshPackage, const TCHAR* Prefix)
+	{
+		const FString MeshName = FPackageName::GetShortName(SkeletalMeshPackage);
+		const FString BaseName = MeshName.StartsWith(TEXT("SK_"), ESearchCase::CaseSensitive) ? MeshName.RightChop(3) : MeshName;
+		return FPackageName::GetLongPackagePath(SkeletalMeshPackage) / (Prefix + BaseName);
 	}
 
 	/**
@@ -75,15 +87,15 @@ namespace
 		return Prompt;
 	}
 
-	/** The package the live actor's static mesh goes to, from the engine's save-asset dialog; empty when it is cancelled. */
-	FString AskForBakeLocation(const FString& DefaultPackageName)
+	/** The package the live actor's static or skeletal mesh goes to, from the engine's save-asset dialog; empty when it is cancelled. */
+	FString AskForBakeLocation(const FString& DefaultPackageName, ECambrianaBakeChoice Choice)
 	{
 		if (BakeLocationPrompt())
 		{
 			return BakeLocationPrompt()(DefaultPackageName);
 		}
 		const FContentBrowserModule& ContentBrowser = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-		const FString ObjectPath = ContentBrowser.Get().CreateModalSaveAssetDialog(Cambriana::Editor::MakeBakeLocationDialogConfig(DefaultPackageName, ECambrianaBakeChoice::StaticMesh));
+		const FString ObjectPath = ContentBrowser.Get().CreateModalSaveAssetDialog(Cambriana::Editor::MakeBakeLocationDialogConfig(DefaultPackageName, Choice));
 		return ObjectPath.IsEmpty() ? FString() : FPackageName::ObjectPathToPackageName(ObjectPath);
 	}
 
@@ -100,6 +112,8 @@ namespace
 		UObject* Existing = nullptr;
 		/** The asset's name, when it is not the package's short name. */
 		FString AssetName;
+		/** Chosen in the save-asset dialog, which has already asked before replacing it (SAssetDialog, AllowButWarn). */
+		bool bChosenInDialog = false;
 
 		static FOutputToBake At(const UObject& Asset, UClass* Class)
 		{
@@ -247,11 +261,17 @@ namespace
 		return true;
 	}
 
-	/** Asks once, naming the first existing output, before existing outputs are rebuilt in place; true when none exists or the answer is Yes. */
+	/**
+	 * Asks once, naming the first existing output not chosen in the save-asset dialog, before existing outputs are rebuilt in place;
+	 * true when none exists or the answer is Yes.
+	 */
 	bool ConfirmOverwrite(FOutputsToBake& Outputs, const FString& Source, const Cambriana::Editor::FAskToOverwrite& AskToOverwrite)
 	{
 		const TArray<FOutputToBake*, TInlineAllocator<4>> All = Outputs.All();
-		FOutputToBake* const* FirstExisting = All.FindByPredicate([](const FOutputToBake* Output) { return Output->Existing && !HoldsAnotherClass(*Output); });
+		FOutputToBake* const* FirstExisting = All.FindByPredicate([](const FOutputToBake* Output)
+		{
+			return Output->Existing && !HoldsAnotherClass(*Output) && !Output->bChosenInDialog;
+		});
 		if (!FirstExisting)
 		{
 			return true;
@@ -394,21 +414,44 @@ namespace
 		return Result;
 	}
 
+	FOutputsToBake StaticMeshOutputs(const FString& StaticMeshPackage)
+	{
+		FOutputsToBake Outputs;
+		Outputs.StaticMesh = FOutputToBake{ StaticMeshPackage, UStaticMesh::StaticClass() };
+		return Outputs;
+	}
+
+	FOutputsToBake SkeletalMeshOutputs(const FString& SkeletalMeshPackage, const FString& SkeletonPackage, const FString& PhysicsAssetPackage,
+		float PhysicsStiffness)
+	{
+		FOutputsToBake Outputs;
+		Outputs.SkeletalMesh = FOutputToBake{ SkeletalMeshPackage, USkeletalMesh::StaticClass() };
+		Outputs.Skeleton = FOutputToBake{ SkeletonPackage, USkeleton::StaticClass() };
+		Outputs.PhysicsAsset = FOutputToBake{ PhysicsAssetPackage, UPhysicsAsset::StaticClass() };
+		Outputs.PhysicsStiffness = PhysicsStiffness;
+		return Outputs;
+	}
+
 	/** The outputs Choice writes, at Asset's names in the folder beside it, with State's bake settings. */
 	FOutputsToBake OutputsBesideGrammar(const UCambrianaGrammar& Asset, const UCambrianaGrammar& State, ECambrianaBakeChoice Choice)
 	{
-		FOutputsToBake Outputs;
-		if (Choice == ECambrianaBakeChoice::SkeletalMesh)
-		{
-			Outputs.SkeletalMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SK_")), USkeletalMesh::StaticClass() };
-			Outputs.Skeleton = FOutputToBake{ OutputPackageName(Asset, TEXT("SKEL_")), USkeleton::StaticClass() };
-			Outputs.PhysicsAsset = FOutputToBake{ OutputPackageName(Asset, TEXT("PHYS_")), UPhysicsAsset::StaticClass() };
-			Outputs.PhysicsStiffness = State.Bake.PhysicsStiffness;
-		}
-		else
-		{
-			Outputs.StaticMesh = FOutputToBake{ OutputPackageName(Asset, TEXT("SM_")), UStaticMesh::StaticClass() };
-		}
+		return Choice == ECambrianaBakeChoice::SkeletalMesh
+			? SkeletalMeshOutputs(OutputPackageName(Asset, TEXT("SK_")), OutputPackageName(Asset, TEXT("SKEL_")), OutputPackageName(Asset, TEXT("PHYS_")),
+				State.Bake.PhysicsStiffness)
+			: StaticMeshOutputs(OutputPackageName(Asset, TEXT("SM_")));
+	}
+
+	/**
+	 * The outputs a live actor's Choice writes with the mesh at the package chosen in the save-asset dialog: a skeletal mesh's skeleton
+	 * and physics asset beside it, with the actor's grammar asset's Physics Stiffness, or the default for inline text.
+	 */
+	FOutputsToBake LiveActorOutputs(const ACambrianaLiveActor& Actor, ECambrianaBakeChoice Choice, const FString& ChosenPackage)
+	{
+		FOutputsToBake Outputs = Choice == ECambrianaBakeChoice::SkeletalMesh
+			? SkeletalMeshOutputs(ChosenPackage, BesideSkeletalMesh(ChosenPackage, TEXT("SKEL_")), BesideSkeletalMesh(ChosenPackage, TEXT("PHYS_")),
+				Actor.Grammar ? Actor.Grammar->Bake.PhysicsStiffness : FCambrianaBakeSettings().PhysicsStiffness)
+			: StaticMeshOutputs(ChosenPackage);
+		(Outputs.SkeletalMesh ? Outputs.SkeletalMesh : Outputs.StaticMesh)->bChosenInDialog = true;
 		return Outputs;
 	}
 
@@ -486,10 +529,11 @@ namespace Cambriana::Editor
 	FSaveAssetDialogConfig MakeBakeLocationDialogConfig(const FString& DefaultPackageName, ECambrianaBakeChoice Choice)
 	{
 		FSaveAssetDialogConfig Config;
-		Config.DialogTitleOverride = LOCTEXT("BakeLocationTitle", "Bake Static Mesh");
+		const bool bSkeletal = Choice == ECambrianaBakeChoice::SkeletalMesh;
+		Config.DialogTitleOverride = bSkeletal ? LOCTEXT("BakeSkeletalLocationTitle", "Bake Skeletal Mesh") : LOCTEXT("BakeLocationTitle", "Bake Static Mesh");
 		Config.DefaultPath = FPackageName::GetLongPackagePath(DefaultPackageName);
 		Config.DefaultAssetName = FPackageName::GetShortName(DefaultPackageName);
-		Config.AssetClassNames = { UStaticMesh::StaticClass()->GetClassPathName() };
+		Config.AssetClassNames = { (bSkeletal ? USkeletalMesh::StaticClass() : UStaticMesh::StaticClass())->GetClassPathName() };
 		Config.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
 		return Config;
 	}
@@ -505,16 +549,14 @@ namespace Cambriana::Editor
 		const FAskToReplace& AskToReplace)
 	{
 		const FString ActorPath = Actor.GetPathName();
-		const FString PackageName = AskForBakeLocation(StaticMeshPackageName(Actor));
+		const TCHAR* Prefix = Choice == ECambrianaBakeChoice::SkeletalMesh ? TEXT("SK_") : TEXT("SM_");
+		const FString PackageName = AskForBakeLocation(LiveActorPackageName(Actor, Prefix), Choice);
 		if (PackageName.IsEmpty())
 		{
 			UE_LOG(LogCambrianaBake, Display, TEXT("%s: no location is chosen; nothing is baked"), *ActorPath);
 			return Failed(ECambrianaBakeStatus::LocationNotChosen);
 		}
-		// The dialog has already asked before replacing an existing static mesh (SAssetDialog, AllowButWarn).
-		FOutputsToBake Outputs;
-		Outputs.StaticMesh = FOutputToBake{ PackageName, UStaticMesh::StaticClass() };
-		return BakeOutputs(Actor.MakeBuildInput(), MoveTemp(Outputs), ActorPath, [](const FText&) { return EAppReturnType::Yes; }, AskToReplace);
+		return BakeOutputs(Actor.MakeBuildInput(), LiveActorOutputs(Actor, Choice, PackageName), ActorPath, AskToOverwrite, AskToReplace);
 	}
 
 	FText BakeResultMessage(const FString& Source, const FCambrianaBakeResult& Result)
@@ -547,11 +589,16 @@ namespace Cambriana::Editor
 		}
 	}
 
+	FText BakeChoiceLabel(ECambrianaBakeChoice Choice)
+	{
+		return Choice == ECambrianaBakeChoice::StaticMesh ? LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh")
+			: LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh");
+	}
+
 	void AddBakeChoiceEntry(FToolMenuSection& Section, FName Name, ECambrianaBakeChoice Choice, FExecuteBakeChoice Execute)
 	{
 		const bool bStatic = Choice == ECambrianaBakeChoice::StaticMesh;
-		Section.AddMenuEntry(Name,
-			bStatic ? LOCTEXT("BakeToStaticMeshLabel", "Bake to Static Mesh") : LOCTEXT("BakeToSkeletalMeshLabel", "Bake to Skeletal Mesh"),
+		Section.AddMenuEntry(Name, BakeChoiceLabel(Choice),
 			bStatic ? LOCTEXT("BakeToStaticMeshTooltip", "Writes a static mesh from the grammar's current state to a folder beside it.")
 				: LOCTEXT("BakeToSkeletalMeshTooltip", "Writes a skeletal mesh, skeleton and physics asset from the grammar's current state to a folder beside it."),
 			FSlateIcon(), FToolMenuExecuteAction::CreateStatic(Execute, Choice));

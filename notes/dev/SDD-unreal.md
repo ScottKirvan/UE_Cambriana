@@ -190,6 +190,9 @@ display baked results.
   category, as the procedural mesh component's Details places its Create StaticMesh button
   (`ProceduralMeshComponentDetails.cpp`). Each bakes each selected placed live actor, shows a
   notification for each, and is disabled for class defaults and archetypes.
+  `[Proposed — unconfirmed]` The two buttons share the row equally in a uniform grid, as the
+  particle system component's Details lays out its two buttons
+  (`ParticleSystemComponentDetails.cpp`).
 - `[Proposed — unconfirmed]` The live actor's Details Bake asks where to write the static mesh
   in the engine's save-asset dialog (`IContentBrowserSingleton::CreateModalSaveAssetDialog`,
   static meshes only), as Merge Actors asks for its merged mesh
@@ -206,7 +209,9 @@ display baked results.
   physics asset already exists and was not the dialog's choice, Bake asks the grammar Bake's
   overwrite question naming the first of them; Yes rebuilds every existing output in place, as
   Bake to Skeletal Mesh does, and No bakes nothing. The physics asset takes `PhysicsStiffness`
-  from the actor's grammar asset, or its default for inline text.
+  from the actor's grammar asset, or its default for inline text. `[Proposed — unconfirmed]`
+  The dialog is titled `Bake Skeletal Mesh` (`Bake Static Mesh` for Bake to Static Mesh), and
+  the `SK_` prefix is matched case-sensitively.
 - `[Proposed — unconfirmed]` The dialog defaults, for a live actor with a grammar asset, to
   `SM_<grammar asset name>_<actor label>` (`SK_` for Bake to Skeletal Mesh) in that grammar's bake folder: a grammar
   `/Game/Trees/Fern` and an actor labelled `Fern2` default to `/Game/Trees/Fern/SM_Fern_Fern2`.
