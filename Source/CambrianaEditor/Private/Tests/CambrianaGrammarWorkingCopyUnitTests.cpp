@@ -130,6 +130,25 @@ bool FCambrianaWorkingCopySourceFileTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyUnresolvedSourceFileTest,
+	"Cambriana.Editor.WorkingCopy.ACopyToTheWorkingCopyAndBackKeepsTheAssetsRecordOfASourceFileThatIsNotOnDisk",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaWorkingCopyUnresolvedSourceFileTest::RunTest(const FString& Parameters)
+{
+	UCambrianaGrammar* Asset = CreateGrammarInPackage(TEXT("/Game/CambrianaWorkingCopyTests/MissingSourceFile"));
+	const FString Recorded = TEXT("Missing/none.lsys");
+	Asset->AssetImportData->SourceData.SourceFiles.Add(FAssetImportInfo::FSourceFile(Recorded));
+	UCambrianaGrammar* Copy = DuplicateWorkingCopy(*Asset);
+	TestTrue(TEXT("The working copy holds the asset's grammar"), HoldSameGrammar(*Asset, *Copy));
+	Copy->Seed = Asset->Seed + 1;
+	TestTrue(TEXT("Copying the edited working copy back changes the asset"), CopyGrammarValues(*Copy, *Asset));
+	TestEqualSensitive(TEXT("The asset keeps its record of the source file"), SourceFileOf(*Asset), Recorded);
+	TestTrue(TEXT("The two hold the same grammar"), HoldSameGrammar(*Asset, *Copy));
+	UnloadPackage(Asset->GetPackage());
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaWorkingCopyHoldSameTest,
 	"Cambriana.Editor.WorkingCopy.GrammarsAreTheSameOnlyWhenTextNamesAndValuesMatchIncludingCase",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)

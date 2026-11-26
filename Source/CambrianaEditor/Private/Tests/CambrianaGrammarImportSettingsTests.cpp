@@ -187,7 +187,8 @@ bool FCambrianaImportSettingsShownTest::RunTest(const FString& Parameters)
 	const TSharedPtr<IDetailTreeNode> Row = FindSourceFileRow(*WorkingRows);
 	TestTrue(TEXT("The working copy's Details has Import Settings > Source File"), Row.IsValid());
 	const FString Shown = ShownSourceFile(Row);
-	TestEqualSensitive(TEXT("Source File shows the path the asset records"), Shown, RecordedSourceFile(*Grammar));
+	TestEqualSensitive(TEXT("Source File shows the imported file as recorded for the working copy's package"), Shown,
+		UAssetImportData::SanitizeImportFilename(Imported.SourcePath, Toolkit->GetWorkingCopy()->GetPackage()));
 	TestTrue(TEXT("Source File shows the imported file's path"),
 		!Shown.IsEmpty() && FPaths::IsSamePath(UAssetImportData::ResolveImportFilename(Shown, Grammar->GetPackage()), Imported.SourcePath));
 	TestFalse(TEXT("Opening the editor leaves nothing unsaved"), Toolkit->HasUnsavedEdits());
@@ -393,6 +394,48 @@ bool FCambrianaImportSettingsRelativePathTest::RunTest(const FString& Parameters
 	Toolkit->GetWorkingCopy()->AssetImportData->ExtractFilenames(Filenames);
 	TestTrue(TEXT("The working copy's source files resolve to the imported file"), Filenames.Num() == 1 && FPaths::IsSamePath(Filenames[0], Imported.SourcePath));
 	DiscardGrammar(Grammar);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaImportSettingsPickedPathTest,
+	"Cambriana.Editor.GrammarEditor.ImportSettings.ASourceFilePickedInTheEditorIsSavedRelativeToTheAssetsPackageAsAnImportRecordsIt",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaImportSettingsPickedPathTest::RunTest(const FString& Parameters)
+{
+	const TCHAR* PackageName = TEXT("/Game/CambrianaSaveTests/ImportSettingsPicked");
+	const FString Filename = PackageFilename(PackageName);
+	IFileManager::Get().Delete(*Filename);
+	FImportedGrammar Imported(PackageName);
+	UCambrianaGrammar* Grammar = Imported.Grammar;
+	UPackage* Package = Grammar->GetPackage();
+	const FString PickedPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::AutomationTransientDir(), TEXT("CambrianaImportSettings"), TEXT("picked.lsys")));
+	FFileHelper::SaveStringToFile(FString(TEXT("axiom F F\n")), *PickedPath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		DiscardGrammar(Grammar);
+		IFileManager::Get().Delete(*PickedPath);
+		return false;
+	}
+
+	// As the Source File row's "..." button records the picked file (AssetImportDataCustomization.cpp, OnChangePathClicked).
+	UAssetImportData* WorkingImportData = Toolkit->GetWorkingCopy()->AssetImportData;
+	WorkingImportData->Modify();
+	WorkingImportData->UpdateFilenameOnly(PickedPath, 0);
+	TestTrue(TEXT("The picked file is an unsaved edit"), Toolkit->HasUnsavedEdits());
+
+	RunWithoutSavePrompt([Toolkit] { Toolkit->SaveAsset_Execute(); });
+	const FString AsImported = UAssetImportData::SanitizeImportFilename(PickedPath, Package);
+	TestTrue(TEXT("An import records a file under the project directory relative to the asset's package"), FPaths::IsRelative(AsImported));
+	TestEqualSensitive(TEXT("Save records the picked file as an import into the asset's package would"), RecordedSourceFile(*Grammar), AsImported);
+	TestTrue(TEXT("The asset's source file resolves to the picked file"), FPaths::IsSamePath(Grammar->AssetImportData->GetFirstFilename(), PickedPath));
+	TestFalse(TEXT("Nothing is left unsaved"), Toolkit->HasUnsavedEdits());
+
+	CloseGrammarEditor(Grammar);
+	UnloadPackage(Package);
+	DeleteSavedPackage(Filename);
+	IFileManager::Get().Delete(*PickedPath);
 	return true;
 }
 
