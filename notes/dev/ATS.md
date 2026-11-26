@@ -31,6 +31,7 @@ Requirements: [SRS.md](SRS.md). Core tests: CambrianaCore repo, `notes/dev/ATS-c
 | ATS-21 | Given a rules edit, then the preview updates and errors and warnings appear at the reported lines. | FR-05, FR-06 |
 | ATS-22 | Given a parameter change in Details, then the preview updates. | FR-07 |
 | ATS-23 | Given the new-seed button or a typed seed, then the stored seed changes and the preview rebuilds. | FR-08 |
+| ATS-24 | Given an imported grammar asset open in the grammar editor, then its Details shows Import Settings > Source File with the imported file's path; when Source File is cleared there, then the asset's own source file is unchanged until Save, and after Save it is cleared. | FR-06 |
 | ATS-25 | Given blob primitives placed in the viewport, then they combine with grown parts into one skinned preview mesh. | FR-21 |
 
 ## Live actor
