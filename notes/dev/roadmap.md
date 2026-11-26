@@ -36,6 +36,7 @@ Each step is one PR with its acceptance test.
 | 8 | Both Bake choices from the grammar editor, baking its current edits | ATS-48 |
 | 9 | Reimport on a baked mesh's right-click menu | ATS-43 |
 | 10 | Detach on a baked mesh's right-click menu | ATS-44 |
+| 11 | Live actor Details Bake to Static Mesh and Bake to Skeletal Mesh | ATS-47 |
 
 Rules text syntax colouring (FR-05) is deferred out of M3:
 [UE_Cambriana #36](https://github.com/ScottKirvan/UE_Cambriana/issues/36).
