@@ -40,8 +40,10 @@ core and supports a variety of distance-field primitives.
   intersection.
 - One line-segment primitive per bone; radius from the bone; strength and falloff per module.
 - Hand-placed primitives join the same field.
-- Polygonised at a resolution setting. Candidates: Unreal's marching cubes and the author's
-  marcher, compared on quality and speed. **Open** ([TBD.md](TBD.md)).
+- Polygonised at a resolution setting, first with Unreal's marching cubes
+  (`UE::Geometry::FMarchingCubes`, GeometryCore) in the plugin's runtime module. The core
+  evaluates the field and the skin weights; the polygoniser is a replaceable stage between the
+  field and the mesh, so further polygonisers can supply it from the plugin or the core.
 - Skin weights from field contributions, strongest N kept.
 - Not based on the author's earlier blob modeller.
 
