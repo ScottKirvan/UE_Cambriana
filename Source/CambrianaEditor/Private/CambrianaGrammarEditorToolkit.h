@@ -82,7 +82,7 @@ private:
 	TSharedRef<SDockTab> SpawnDetailsTab(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnOutputsTab(const FSpawnTabArgs& Args);
 	void HandleGrammarChanged(const UCambrianaGrammar* ChangedGrammar);
-	/** Called as the working copy's or the asset's import data is about to change, or has changed by an undo or redo. */
+	/** Called as the working copy's or the asset's import data is about to change. */
 	void HandleImportDataChanging(UObject* Object);
 	bool HandleImportDataSyncTimer(float DeltaTime);
 	void HandleRulesTextChanged(const FText& NewText);
@@ -111,7 +111,6 @@ private:
 	bool bWorkingCopyEdited = false;
 	FDelegateHandle GrammarChangedHandle;
 	FDelegateHandle ObjectModifiedHandle;
-	FDelegateHandle ObjectTransactedHandle;
 	/** Settles the working copy after an import data change, once the change is made. */
 	FTSTicker::FDelegateHandle ImportDataSyncTimer;
 	/** The asset's import data changed while the working copy had no edits, so the working copy takes it. */

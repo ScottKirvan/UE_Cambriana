@@ -16,7 +16,6 @@
 #include "MessageLogModule.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/PackageName.h"
-#include "Misc/TransactionObjectEvent.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "SCambrianaGrammarViewport.h"
@@ -61,13 +60,6 @@ void FCambrianaGrammarEditorToolkit::InitGrammarEditor(EToolkitMode::Type Mode, 
 
 	GrammarChangedHandle = UCambrianaGrammar::OnGrammarChanged().AddSP(this, &FCambrianaGrammarEditorToolkit::HandleGrammarChanged);
 	ObjectModifiedHandle = FCoreUObjectDelegates::OnObjectModified.AddSP(this, &FCambrianaGrammarEditorToolkit::HandleImportDataChanging);
-	ObjectTransactedHandle = FCoreUObjectDelegates::OnObjectTransacted.AddSPLambda(this, [this](UObject* Object, const FTransactionObjectEvent& Event)
-	{
-		if (Event.GetEventType() == ETransactionObjectEventType::UndoRedo)
-		{
-			HandleImportDataChanging(Object);
-		}
-	});
 
 	// As the Material and Blueprint editors do, the editor's own undo and redo first finish what is in progress.
 	ToolkitCommands->MapAction(FGenericCommands::Get().Undo, FExecuteAction::CreateSP(this, &FCambrianaGrammarEditorToolkit::UndoAfterPendingRulesEdit));
@@ -128,7 +120,6 @@ FCambrianaGrammarEditorToolkit::~FCambrianaGrammarEditorToolkit()
 {
 	UCambrianaGrammar::OnGrammarChanged().Remove(GrammarChangedHandle);
 	FCoreUObjectDelegates::OnObjectModified.Remove(ObjectModifiedHandle);
-	FCoreUObjectDelegates::OnObjectTransacted.Remove(ObjectTransactedHandle);
 	FTSTicker::RemoveTicker(ImportDataSyncTimer);
 	FTSTicker::RemoveTicker(RulesApplyTimer);
 }
@@ -420,7 +411,7 @@ void FCambrianaGrammarEditorToolkit::HandleImportDataChanging(UObject* Object)
 	{
 		return;
 	}
-	// The Source File rows (AssetImportDataCustomization.cpp) and their undo change import data with no change event for its grammar.
+	// The Source File rows (AssetImportDataCustomization.cpp) change import data with no change event for its grammar.
 	if (Object == WorkingCopy->AssetImportData)
 	{
 		bWorkingCopyEdited = true;

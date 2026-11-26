@@ -7,13 +7,13 @@ class UCambrianaGrammar;
 /** The grammar editor's working copy: a transient duplicate of a grammar asset, edited in place of it until a save. */
 namespace Cambriana::Editor
 {
-	/** A transactional duplicate of Grammar in the transient package, neither standalone nor public. */
+	/** A transactional duplicate of Grammar in the transient package, neither standalone nor public, its source files recorded for that package. */
 	UCambrianaGrammar* DuplicateWorkingCopy(const UCambrianaGrammar& Grammar);
 
-	/** Whether A and B hold equal values for every property the grammar class declares, their import data compared by source file record. */
+	/** Whether A and B hold equal values for every property the grammar class declares, their import data compared by source file record, each path resolved against its own grammar's package. */
 	bool HoldSameGrammar(const UCambrianaGrammar& A, const UCambrianaGrammar& B);
 
-	/** Copies those properties, the import data as its source file record into To's own import data, from From into To as one change event outside the undo history; returns false, changing nothing, when they already hold the same grammar. */
+	/** Copies those properties, the import data as its source file record into To's own import data with each path recorded for To's package, from From into To as one change event outside the undo history; returns false, changing nothing, when they already hold the same grammar. */
 	bool CopyGrammar(const UCambrianaGrammar& From, UCambrianaGrammar& To);
 
 	/** Copies those properties from From into To with no change event and outside the undo history; returns whether To changed. */

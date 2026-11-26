@@ -41,10 +41,10 @@ namespace
 	}
 
 #if WITH_EDITORONLY_DATA
-	bool SameSourceFile(const FAssetImportInfo::FSourceFile& A, const FAssetImportInfo::FSourceFile& B)
+	/** The file's absolute path, its record resolved against its grammar's package as the engine resolves it; empty for a cleared file. */
+	FString ResolvedFilename(const FAssetImportInfo::FSourceFile& File, const UCambrianaGrammar& Owner)
 	{
-		return A.RelativeFilename.Equals(B.RelativeFilename, ESearchCase::CaseSensitive) && A.Timestamp == B.Timestamp && A.FileHash == B.FileHash
-			&& A.DisplayLabelName.Equals(B.DisplayLabelName, ESearchCase::CaseSensitive);
+		return File.RelativeFilename.IsEmpty() ? FString() : UAssetImportData::ResolveImportFilename(File.RelativeFilename, Owner.GetPackage());
 	}
 
 	bool SameSourceFiles(const UCambrianaGrammar& A, const UCambrianaGrammar& B)
@@ -61,7 +61,10 @@ namespace
 		}
 		for (int32 Index = 0; Index < FilesA.Num(); ++Index)
 		{
-			if (!SameSourceFile(FilesA[Index], FilesB[Index]))
+			const FAssetImportInfo::FSourceFile& FileA = FilesA[Index];
+			const FAssetImportInfo::FSourceFile& FileB = FilesB[Index];
+			if (!ResolvedFilename(FileA, A).Equals(ResolvedFilename(FileB, B), ESearchCase::CaseSensitive) || FileA.Timestamp != FileB.Timestamp
+				|| FileA.FileHash != FileB.FileHash || !FileA.DisplayLabelName.Equals(FileB.DisplayLabelName, ESearchCase::CaseSensitive))
 			{
 				return false;
 			}
@@ -69,13 +72,30 @@ namespace
 		return true;
 	}
 
-	// Each grammar keeps its own import data object; only the source file record moves between them.
+	/**
+	 * Copies the source file record into To's own import data, each path recorded for To's package as an import records it. A path
+	 * To already records for the same file stays as To records it, so a record the engine cannot resolve survives a copy there and back.
+	 */
 	void CopySourceFiles(const UCambrianaGrammar& From, UCambrianaGrammar& To)
 	{
-		if (From.AssetImportData && To.AssetImportData)
+		if (!From.AssetImportData || !To.AssetImportData)
 		{
-			To.AssetImportData->SourceData = From.AssetImportData->SourceData;
+			return;
 		}
+		FAssetImportInfo Copied = From.AssetImportData->SourceData;
+		const TArray<FAssetImportInfo::FSourceFile>& Existing = To.AssetImportData->SourceData.SourceFiles;
+		for (int32 Index = 0; Index < Copied.SourceFiles.Num(); ++Index)
+		{
+			FAssetImportInfo::FSourceFile& File = Copied.SourceFiles[Index];
+			const FString Absolute = ResolvedFilename(File, From);
+			if (Absolute.IsEmpty())
+			{
+				continue;
+			}
+			const bool bSameFile = Existing.IsValidIndex(Index) && ResolvedFilename(Existing[Index], To).Equals(Absolute, ESearchCase::CaseSensitive);
+			File.RelativeFilename = bSameFile ? Existing[Index].RelativeFilename : UAssetImportData::SanitizeImportFilename(Absolute, To.GetPackage());
+		}
+		To.AssetImportData->SourceData = MoveTemp(Copied);
 	}
 #endif
 }
@@ -88,6 +108,9 @@ namespace Cambriana::Editor
 		UCambrianaGrammar* WorkingCopy = CastChecked<UCambrianaGrammar>(
 			StaticDuplicateObject(&Grammar, GetTransientPackage(), Name, ~(RF_Standalone | RF_Public)));
 		WorkingCopy->SetFlags(RF_Transactional);
+#if WITH_EDITORONLY_DATA
+		CopySourceFiles(Grammar, *WorkingCopy);
+#endif
 		return WorkingCopy;
 	}
 
@@ -150,6 +173,9 @@ namespace Cambriana::Editor
 		}
 		Asset->ClearFlags(RF_Transient);
 		Asset->SetFlags(RF_Public | RF_Standalone | RF_Transactional);
+#if WITH_EDITORONLY_DATA
+		CopySourceFiles(Grammar, *Asset);
+#endif
 		Asset->MarkPackageDirty();
 		FAssetRegistryModule::AssetCreated(Asset);
 		return Asset;
