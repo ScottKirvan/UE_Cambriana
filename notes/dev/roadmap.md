@@ -10,7 +10,7 @@ Every milestone also keeps ATS-05 (no experimental dependencies) passing.
 | M0 | Build skeleton: plugin, base project, core loading and version check | C0 | ATS-01, ATS-05 |
 | M1 | Live actor and seeds; interim grammar asset holding legacy text | C2 | ATS-30 to ATS-35 |
 | M2 | Grammar assets, import with conversion, reimport, export, grammar editor | C3 | ATS-10 to ATS-15, ATS-20 to ATS-23 |
-| M3 | Static and skinned mesh construction in the runtime module; bake on it, reimport, detach | C3 | ATS-40 to ATS-48 |
+| M3 | Static and skinned mesh construction in the runtime module; bake on it, reimport, detach | C3 | ATS-40 to ATS-49, ATS-80 to ATS-82 |
 | M4 | Run-time generation and definitions | C3 | ATS-70 to ATS-73 |
 | M5 | Pose parameters | C4 | ATS-50 to ATS-52 |
 | M6 | Growth animation | C4 | ATS-53 to ATS-55 |
