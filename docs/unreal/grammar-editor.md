@@ -32,7 +32,7 @@ See [Reading errors](../grammar-guide#reading-errors) in the Syntax Guide for wh
 
 A change in Details rebuilds the preview.
 
-For an imported grammar, **Import Settings > Source File** shows the file it was imported from, as a static mesh's Details does. Its **...** button picks a new source file and its clear button clears it. Like any other edit in the editor, a change here is undoable, marks the tab `*`, and reaches the asset only when you save; discarding your edits keeps the asset's source file.
+For an imported grammar, **Import Settings > Source File** shows the file it was imported from, as a static mesh's Details does. Its **...** button picks a new source file and its clear button clears it. A change here marks the tab `*` and reaches the asset only when you save. As in the Static Mesh Editor, the change cannot be undone; to get the asset's source file back, discard your edits when you close the editor.
 
 ## Outputs
 
@@ -58,7 +58,7 @@ When the asset changes from outside the editor, for example by a reimport, and t
 
 ## Undo
 
-Edits in the editor are undoable. A Rules edit is one undo step, from the typing pause; an undo during the pause removes exactly what you typed.
+Edits in the editor are undoable, except a change to **Import Settings > Source File**. A Rules edit is one undo step, from the typing pause; an undo during the pause removes exactly what you typed.
 
 ## Closing with unsaved edits
 

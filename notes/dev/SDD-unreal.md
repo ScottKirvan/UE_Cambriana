@@ -293,7 +293,7 @@ Standalone asset editor, opened from the grammar asset.
   the grammar class declares. The editor's Details shows the working copy's import data under
   Import Settings with its Source File row, as the Static Mesh Editor's Details shows a mesh's
   (`AssetImportDataCustomization.cpp`); a change to it there is a working-copy edit like any
-  other, undoable, marking the tab `*`, and reaching the asset only on Save, which copies the
+  other, marking the tab `*`, and reaching the asset only on Save, which copies the
   source file record into the asset's own import data object. Save copies
   the working copy's values into the asset outside the undo history (the Material editor's
   copy-back also runs without a transaction) and without a change event, then saves the
@@ -307,12 +307,19 @@ Standalone asset editor, opened from the grammar asset.
   customization adds it to Import Settings with its name only, without the instanced object's
   class picker, as `FStaticMeshDetails::CustomizeDetails` does (`StaticMeshEditorTools.cpp`);
   the asset's own Details shows it the same way. The working copy's compare and copy cover the
-  import data's source file record (each file's path, compared case-sensitively, timestamp,
-  hash and label), never the import data object. The engine's Source File rows and their undo
-  change import data without a change event for the grammar, so the editor watches the
-  working copy's and the asset's import data (`FCoreUObjectDelegates::OnObjectModified`,
-  `OnObjectTransacted`): a working copy change counts as an edit, and an asset change reaches a
-  working copy without edits on the next tick.
+  import data's source file record, never the import data object. Each grammar's record is
+  for its own package: a copy resolves each file's path against the source grammar's package
+  and records it for the target's (`UAssetImportData::ResolveImportFilename`,
+  `SanitizeImportFilename`), keeping the target's own record of a file that resolves to the
+  same path, and the compare takes each file's resolved path, case-sensitively, its timestamp,
+  hash and label. The engine's Source File rows change import data without a change event for
+  the grammar, so the editor watches the working copy's and the asset's import data
+  (`FCoreUObjectDelegates::OnObjectModified`): a working copy change counts as an edit, and an
+  asset change reaches a working copy without edits on the next tick.
+- `[Proposed — unconfirmed]` A Source File change or clear in the editor is not undoable, as in
+  the Static Mesh Editor: the engine's row ends its transaction before it makes the change, so
+  the undo buffer drops it (`AssetImportDataCustomization.cpp:275-291`). Discarding the edits
+  is the way back.
 - `[Proposed — unconfirmed]` Save As asks for the new asset in the Content Browser's save
   asset dialog and writes the working copy, not the asset, to a new asset there, then saves
   it, closes this editor and opens one on the new asset. The original asset, its package's
