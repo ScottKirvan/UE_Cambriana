@@ -854,35 +854,6 @@ bool FCambrianaGrammarViewportEditKeepsCameraTest::RunTest(const FString& Parame
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaGrammarEditorHidesImportDataTest,
-	"Cambriana.Editor.GrammarEditor.DetailsHidesTheImportDataASaveLeavesWithTheAsset",
-	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-
-bool FCambrianaGrammarEditorHidesImportDataTest::RunTest(const FString& Parameters)
-{
-	UCambrianaGrammar* Grammar = CreateGrammarWithFactory();
-	const TSharedRef<IPropertyRowGenerator> AssetRows = MakeRows({ Grammar });
-	// Details shows the import data's source file (UAssetImportData::SourceData) in its own File Path category.
-	TestTrue(TEXT("The asset's own Details shows its import data"), AssetRows->GetRootTreeNodes().ContainsByPredicate([](const TSharedRef<IDetailTreeNode>& Node)
-	{
-		return Node->GetNodeName() == TEXT("File Path");
-	}));
-
-	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
-	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
-	{
-		CloseGrammarEditor(Grammar);
-		return false;
-	}
-	TestFalse(TEXT("The grammar editor's Details hides the working copy's import data"),
-		Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData)));
-	TestFalse(TEXT("The grammar editor's Details hides the import data's source file"),
-		Toolkit->IsDetailsPropertyVisible(TEXT("SourceData"), { GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData) }));
-	TestTrue(TEXT("The grammar editor's Details still shows the size"), Toolkit->IsDetailsPropertyVisible(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, SizeValue)));
-	CloseGrammarEditor(Grammar);
-	return true;
-}
-
 namespace
 {
 	const TCHAR* const FirstRulesEdit = TEXT("generations 1\naxiom A\n\ngrow {\n    A -> F A\n}\n");

@@ -62,7 +62,7 @@ public:
 	FCambrianaBakeSettings Bake;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(VisibleAnywhere, Instanced, Category = "Import")
+	UPROPERTY(EditAnywhere, Instanced, Category = "ImportSettings")
 	TObjectPtr<UAssetImportData> AssetImportData;
 #endif
 

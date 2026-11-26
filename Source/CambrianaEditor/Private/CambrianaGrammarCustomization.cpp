@@ -6,6 +6,7 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
 #include "IDetailPropertyRow.h"
+#include "PropertyHandle.h"
 #include "ScopedTransaction.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Widgets/Text/STextBlock.h"
@@ -67,6 +68,18 @@ namespace
 		FPropertyChangedEvent Event(Property, EPropertyChangeType::ValueSet);
 		Grammar.PostEditChangeProperty(Event);
 	}
+
+	/** As the Static Mesh Editor's Details (FStaticMeshDetails::CustomizeDetails): the import data's rows, without its class picker. */
+	void AddImportSettings(IDetailLayoutBuilder& DetailBuilder)
+	{
+		const TSharedRef<IPropertyHandle> ImportData = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, AssetImportData));
+		ImportData->MarkResetToDefaultCustomized();
+		DetailBuilder.EditCategory(TEXT("ImportSettings")).AddProperty(ImportData).CustomWidget(true)
+			.NameContent()
+			[
+				ImportData->CreatePropertyNameWidget()
+			];
+	}
 }
 
 namespace Cambriana::Editor
@@ -127,6 +140,7 @@ void FCambrianaGrammarCustomization::CustomizeDetails(IDetailLayoutBuilder& Deta
 {
 	Cambriana::Editor::CustomizeSeedRow(DetailBuilder, GET_MEMBER_NAME_CHECKED(UCambrianaGrammar, Seed), UCambrianaGrammar::StaticClass());
 	AddParameterRows(DetailBuilder);
+	AddImportSettings(DetailBuilder);
 }
 
 void FCambrianaGrammarCustomization::AddParameterRows(IDetailLayoutBuilder& DetailBuilder)
