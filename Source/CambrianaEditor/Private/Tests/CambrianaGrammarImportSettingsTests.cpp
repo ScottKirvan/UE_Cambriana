@@ -371,4 +371,29 @@ bool FCambrianaImportSettingsFollowTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCambrianaImportSettingsRelativePathTest,
+	"Cambriana.Editor.GrammarEditor.ImportSettings.ASourceFileRecordedRelativeToTheAssetsPackageResolvesToTheImportedFileInTheWorkingCopy",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FCambrianaImportSettingsRelativePathTest::RunTest(const FString& Parameters)
+{
+	FImportedGrammar Imported(TEXT("/Game/CambrianaEditorTests/ImportSettingsRelative"));
+	UCambrianaGrammar* Grammar = Imported.Grammar;
+	// A file under the project directory is recorded relative to a /Game package's file (UAssetImportData::SanitizeImportFilename).
+	TestTrue(TEXT("The asset records its source file relative to its package"), FPaths::IsRelative(RecordedSourceFile(*Grammar)));
+	FCambrianaGrammarEditorToolkit* Toolkit = OpenGrammarEditor(Grammar);
+	if (!TestNotNull(TEXT("The grammar opens in the grammar editor"), Toolkit))
+	{
+		DiscardGrammar(Grammar);
+		return false;
+	}
+	TestTrue(TEXT("The working copy's source file resolves to the imported file"),
+		FPaths::IsSamePath(Toolkit->GetWorkingCopy()->AssetImportData->GetFirstFilename(), Imported.SourcePath));
+	TArray<FString> Filenames;
+	Toolkit->GetWorkingCopy()->AssetImportData->ExtractFilenames(Filenames);
+	TestTrue(TEXT("The working copy's source files resolve to the imported file"), Filenames.Num() == 1 && FPaths::IsSamePath(Filenames[0], Imported.SourcePath));
+	DiscardGrammar(Grammar);
+	return true;
+}
+
 #endif
